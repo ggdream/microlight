@@ -4,7 +4,9 @@
 
 <h1 align="center">Microlight</h1>
 
-<p align="center">A native desktop app for AI chat and agents that work in your project.</p>
+<p align="center">A native desktop app for AI chat and workspace agents, built in pure Go.</p>
+
+<p align="center"><strong>Zero cgo · Native UI · Cross-compilable</strong></p>
 
 <p align="center">
   <a href="#quick-start">Quick Start</a>
@@ -16,6 +18,7 @@ Microlight runs on macOS, Windows, and Linux. Connect it to an OpenAI-compatible
 
 ## Features
 
+- **Responsive native UI.** MyGo renders the interface without an embedded browser. Replies stream into the chat as they arrive, and SQLite keeps history and drafts on the device.
 - **Model switching.** Configure multiple providers and switch providers or models from the chat.
 - **Rich conversations.** Paste images and files, read streamed replies with Markdown and LaTeX, and keep alternate replies in the same conversation when you edit a message or regenerate a response.
 - **Workspace tools.** Let the agent read and edit files, run commands, use Skills, and connect to MCP servers. Review tool calls and file changes in the chat.
@@ -50,7 +53,14 @@ Microlight stores conversation history in a local SQLite database. Model request
 
 ## Development
 
-Microlight is built with Go, MyGo native UI, and Eino ADK. The project docs cover running from source, platform packaging, session storage, tool permissions, A2UI, and CI. [Project documentation (Chinese)](docs/project.md)
+Microlight builds with the standard Go toolchain and `CGO_ENABLED=0`. Cross-compile the executable from the repository root by setting `GOOS` and `GOARCH`. A C compiler is unnecessary for these builds.
+
+```sh
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o microlight.exe .
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o microlight-linux-amd64 .
+```
+
+The executable uses platform APIs at runtime. On Linux, the desktop UI requires GTK 3. The project docs cover MyGo packaging, session storage, tool permissions, A2UI, and CI. [Project documentation (Chinese)](docs/project.md)
 
 ## License
 
