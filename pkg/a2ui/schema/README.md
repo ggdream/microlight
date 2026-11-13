@@ -1,0 +1,1 @@
+A2UI 1.0 schemas and Basic Catalog from [a2ui-project/a2ui](https://github.com/a2ui-project/a2ui/tree/84474c34f151f19eaebd1f416065b027722adc15), licensed under Apache 2.0. The implementation resolves schema references locally and selects component schemas using the surface and component catalog IDs.

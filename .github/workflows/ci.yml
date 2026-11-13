@@ -1,0 +1,110 @@
+name: Microlight CI
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CGO_ENABLED: '0'
+
+jobs:
+  platforms:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: select
+        run: bash .github/scripts/test-platforms.sh
+
+  test:
+    name: Test (${{ matrix.platform }})
+    needs: platforms
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.platforms.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Install Linux PAC test dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends dbus-daemon glib-networking gsettings-desktop-schemas libglib2.0-bin
+      - name: Test
+        if: runner.os != 'Linux'
+        run: go test -mod=readonly -count=1 ./...
+      - name: Test with GNOME PAC resolver
+        if: runner.os == 'Linux'
+        env:
+          MICROLIGHT_TEST_GIO_PAC: '1'
+          XDG_CURRENT_DESKTOP: GNOME
+        run: dbus-run-session -- go test -mod=readonly -count=1 ./...
+
+  package:
+    name: Package (${{ matrix.platform }}-${{ matrix.arch }})
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, platform: linux, arch: amd64 }
+          - { runner: macos-15, platform: darwin, arch: universal }
+          - { runner: windows-2025, platform: windows, arch: amd64 }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Build and name release assets
+        shell: bash
+        env:
+          RELEASE_PLATFORM: ${{ matrix.platform }}
+          RELEASE_ARCH: ${{ matrix.arch }}
+        run: bash .github/scripts/package-release.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: microlight-${{ matrix.platform }}-${{ matrix.arch }}
+          path: dist/microlight-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}.*
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          pattern: microlight-*
+          merge-multiple: true
+      - name: Publish assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/microlight-"$GITHUB_REF_NAME"-* --repo "$GITHUB_REPOSITORY" \
+            --verify-tag --generate-notes --title "Microlight $GITHUB_REF_NAME"

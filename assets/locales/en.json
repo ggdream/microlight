@@ -1,0 +1,400 @@
+{
+  "@@locale": "en",
+  "chatActions": "Conversation actions",
+  "renameChat": "Rename",
+  "chatTitle": "Conversation name",
+  "pinChat": "Pin",
+  "unpinChat": "Unpin",
+  "archiveChat": "Archive",
+  "deleteChat": "Delete permanently",
+  "deleteChatTitle": "Delete this conversation?",
+  "deleteChatBody": "This conversation and its attachments will be removed. This cannot be undone.",
+  "archivedChats": "Archived",
+  "archivedChatsHint": "Restore conversations to the sidebar.",
+  "noArchivedChats": "No archived conversations",
+  "restoreChat": "Restore",
+  "saveChatTitle": "Save",
+  "appName": "Microlight",
+  "retryTitle": "Regenerate this reply?",
+  "retryBody": "This will replace the current reply.",
+  "cancel": "Cancel",
+  "confirmRetry": "Regenerate Reply",
+  "fullAccessTitle": "Enable Full Access?",
+  "fullAccessBody": "In this chat, the agent can read or write files, access websites, and run shell commands without asking for approval, within the access allowed by your system.",
+  "confirmFullAccess": "Enable Full Access",
+  "confirmFullAccessCountdown": "Enable Full Access ({seconds}s)",
+  "@confirmFullAccessCountdown": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "newChat": "New Chat",
+  "chatHistory": "History",
+  "collapseSidebar": "Collapse Sidebar",
+  "expandSidebar": "Expand Sidebar",
+  "resizeSidebar": "Resize Sidebar",
+  "noChats": "No conversations yet",
+  "settings": "Settings",
+  "historyLocal": "History is stored on this device",
+  "untitledChat": "New Chat",
+  "backToLatest": "Jump to Latest",
+  "welcome": "What would you like to talk about?",
+  "welcomeHint": "Ask a question or start with an idea.",
+  "codeSuggestion": "Explain Some Code",
+  "codeSuggestionHint": "Explain Go channels with an example",
+  "codeSuggestionPrompt": "Explain Go channels using an everyday example, then show me a minimal runnable example.",
+  "outlineSuggestion": "Outline an Idea",
+  "outlineSuggestionHint": "Turn a topic into an article outline",
+  "outlineSuggestionPrompt": "Help me outline a technical article. Start by asking me for the topic and intended audience.",
+  "copy": "Copy",
+  "copied": "Copied",
+  "copyMessage": "Copy Message",
+  "messageCopied": "Message Copied",
+  "editMessage": "Edit Message",
+  "retry": "Regenerate",
+  "messagePlaceholder": "Type a message…",
+  "steerPlaceholder": "Add instructions for this reply…",
+  "message": "Message",
+  "openPreview": "Open Preview",
+  "copyTarget": "Copy Target",
+  "toolArguments": "Tool Arguments",
+  "planMode": "Plan Mode",
+  "roundChanges": "Round Changes",
+  "noRoundChanges": "No files changed in this round",
+  "diffUnchangedLines": "{count} unchanged lines",
+  "diffNoNewline": "No newline at end of file",
+  "closeFileTab": "Close {name}",
+  "@closeFileTab": {"placeholders": {"name": {"type": "String"}}},
+  "closePreview": "Close Preview",
+  "previewUnavailable": "Preview unavailable",
+  "uploadFile": "Upload File",
+  "addAttachment": "Add Attachment",
+  "attachmentsChat": "Attachments",
+  "reviewAttachments": "Review the attached files.",
+  "attachmentNameOnly": "The model only receives the filename.",
+  "pastedImageName": "Pasted image.png",
+  "chooseRegularFile": "Select a regular file.",
+  "attachmentTooLarge": "Each attachment must be 8 MiB or smaller.",
+  "attachmentsTooLarge": "Attachments in one message cannot exceed 32 MiB in total.",
+  "filePickerFailed": "Could not open the file picker.",
+  "addImages": "Add Images",
+  "otherChatGenerating": "Another chat is generating a reply",
+  "steer": "Guide Current Reply",
+  "busySendSetting": "Send While Running",
+  "queueMessage": "Add to Queue",
+  "directSteer": "Steer Immediately",
+  "queuePlaceholder": "Type a message to queue…",
+  "queueSteerAction": "Steer",
+  "removeQueuedMessage": "Remove Queued Message",
+  "queuedMessageActions": "Queued Message Actions",
+  "saveQueuedMessage": "Save Edit",
+  "resumeQueue": "Resume Queue",
+  "send": "Send",
+  "stop": "Stop Generating",
+  "imagesChat": "Image Chat",
+  "replyFailed": "The request failed. Check the model settings or regenerate the reply.",
+  "historyOpenFailed": "Could not open the local database. Chat history is unavailable.",
+  "settingsOpenFailed": "Could not open the local database. Settings cannot be saved.",
+  "historyReadFailed": "Could not load chat history. This conversation will be kept in memory.",
+  "historySaveFailed": "Could not save chat history.",
+  "draftReadFailed": "Could not restore the draft.",
+  "draftSaveFailed": "Could not save the draft locally.",
+  "enterMessage": "Enter a message.",
+  "emptyMessage": "The message cannot be empty.",
+  "historyImagesTooLarge": "This request includes more than 32 MiB of images from chat history. Start a new chat.",
+  "unsupportedRole": "Unsupported message role.",
+  "emptyReply": "The model returned an empty reply. Try again.",
+  "describeImages": "Describe what is in these images.",
+  "requestTimedOut": "The request timed out. Try again.",
+  "connectionFailed": "The request failed. Check the network, base URL, model, and API key.",
+  "readBaseURLFailed": "Could not read the base URL.",
+  "clientInitFailed": "Could not initialize the OpenAI-compatible client.",
+  "agentInitFailed": "Could not initialize the conversation agent.",
+  "openFileFailed": "Could not open the file.",
+  "chooseRegularImage": "Select a regular image file.",
+  "readFileFailed": "Could not read the file.",
+  "imageTooLarge": "Each image must be 8 MiB or smaller.",
+  "invalidImageType": "Select a valid JPEG, PNG, GIF, or WebP image.",
+  "tooManyPixels": "Images cannot exceed 32 megapixels.",
+  "corruptImage": "The image is damaged and cannot be opened.",
+  "add": "Add",
+  "imageFilter": "Images",
+  "imagePickerFailed": "Could not open the image picker.",
+  "imagesTooLarge": "Images in one message cannot exceed 32 MiB in total.",
+  "backToChat": "Back to Chat",
+  "settingsDescription": "Configure the interface, message sending, and network.",
+  "settingsModel": "Model",
+  "settingsModelHint": "Configure the model connection and generation parameters.",
+  "connection": "Connection",
+  "baseURL": "Base URL",
+  "modelID": "Model ID",
+  "modelIDHint": "Enter the model ID from your provider",
+  "apiKey": "API Key",
+  "apiKeyHint": "Enter your API key",
+  "removeKeyHint": "The saved key will be cleared when you save",
+  "apiKeyConfigured": "API Key, configured",
+  "generation": "Generation",
+  "generationHint": "Leave blank to use model defaults.",
+  "temperature": "Temperature",
+  "positiveInteger": "Enter a positive integer",
+  "maxOutputTokens": "Maximum Output Tokens",
+  "compressionThreshold": "Context Compression Threshold (Tokens)",
+  "compressionDefault": "Default: {count, number}",
+  "@compressionDefault": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "compressionHint": "Older messages are summarized once the estimated threshold is reached. The original messages are stored on this device.",
+  "saveSettings": "Save Settings",
+  "agentPermissions": "Agent Permissions",
+  "modeAsk": "Ask for Approval",
+  "modeSmart": "Smart Approval",
+  "modeFull": "Full Access",
+  "modeAskHint": "Read ordinary workspace files directly. Ask before writing, accessing sensitive paths or files outside the workspace, using the web, or running a shell command.",
+  "modeSmartHint": "Read and create ordinary workspace files directly. Ask before overwriting, accessing sensitive paths or files outside the workspace, using the web, or running a shell command.",
+  "modeFullHint": "The agent may directly access files and websites and run shell commands within system permissions.",
+  "workspace": "Workspace",
+  "noWorkspace": "No workspace",
+  "workspaceLocked": "To change the workspace, start a new chat.",
+  "clearWorkspace": "Clear workspace",
+  "permissionSaveFailed": "Could not save permissions for this chat.",
+  "chooseDirectory": "Choose Folder",
+  "modelDataHint": "File and web content is sent to the configured model.",
+  "chooseWorkspace": "Choose Workspace",
+  "choose": "Choose",
+  "directoryPickerFailed": "Could not open the folder picker.",
+  "testConnection": "Test Connection",
+  "clearSavedKey": "Clear Saved Key",
+  "clearKey": "Clear Key",
+  "absoluteWorkspace": "The workspace must be an absolute path.",
+  "invalidBaseURL": "Enter a valid HTTP or HTTPS base URL without credentials, query parameters, or a fragment.",
+  "baseURLRoot": "Enter the API root URL, such as https://api.openai.com/v1.",
+  "requiredModel": "Enter a model ID.",
+  "invalidKey": "The API key cannot contain a line break.",
+  "invalidTemperature": "Temperature must be between 0 and 2.",
+  "invalidTopP": "Top P must be between 0 and 1.",
+  "invalidMaxTokens": "Maximum output tokens must be a positive integer.",
+  "invalidThreshold": "The context compression threshold must be at least 2,048 tokens.",
+  "settingsReadFailed": "Could not load saved settings. Built-in defaults are in use.",
+  "missingWorkspace": "Choose an existing workspace folder.",
+  "settingsSaved": "Saved. Changes apply to the next request.",
+  "settingsSaveFailed": "Could not save settings. Check write permissions for the app data folder.",
+  "testingConnection": "Testing connection…",
+  "connectionOK": "Connection successful",
+  "resend": "Resend",
+  "sendInBranch": "Send in a New Branch",
+  "editMessageBody": "Edit Message Text",
+  "replyCompleted": "Reply Complete",
+  "viewReply": "Click to view the reply.",
+  "replyNotificationFailed": "Reply Failed",
+  "viewError": "Click to view the error.",
+  "inputNeeded": "Your Input Is Needed",
+  "answerQuestion": "Click to answer the question.",
+  "approvalNeeded": "Approval Needed",
+  "viewApproval": "Click to review the operation.",
+  "approvalRecord": "Permission Check",
+  "clarificationRecord": "Clarification",
+  "fallbackQuestion": "How would you like to proceed?",
+  "invalidClarification": "The model returned an invalid clarification question.",
+  "databaseRequired": "Could not open the local database. The chat cannot start.",
+  "interruptSaveFailed": "Could not save the interrupted request.",
+  "showWindow": "Show Window",
+  "quitApp": "Quit Microlight",
+  "yourAnswer": "Your Answer",
+  "yourAnswerHint": "Type your answer…",
+  "submit": "Submit",
+  "writeFile": "Write File",
+  "askUserTool": "Ask User",
+  "useSkill": "Use Skill",
+  "updateTasksTool": "Update Tasks",
+  "reasoning": "Reasoning",
+  "compressing": "Compressing Context",
+  "thinking": "Thinking",
+  "generating": "Writing Reply",
+  "waiting": "Waiting for Input",
+  "stopped": "Generation Stopped",
+  "steered": "Following New Instructions",
+  "generationFailed": "Generation Failed",
+  "approveOnce": "Allow Once",
+  "rejectOperation": "Deny",
+  "runCommand": "Run Command",
+  "readFile": "Read File",
+  "listFolder": "List Folder",
+  "overwriteFile": "Replace File",
+  "createFile": "Create File",
+  "visitURL": "Open Web Page",
+  "attachmentLabel": "Attachment: {name}",
+  "@attachmentLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "removeAttachment": "Remove {name}",
+  "@removeAttachment": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "branchTitle": "Branch · {title}",
+  "@branchTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "connectionFailedDetail": "Connection failed · {detail}",
+  "@connectionFailedDetail": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "attachmentCountLimit": "You can add up to {count} attachments per message.",
+  "@attachmentCountLimit": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reasoningAccessibility": "{status}, reasoning",
+  "@reasoningAccessibility": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "elapsed": "Elapsed {duration}",
+  "@elapsed": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "statusElapsed": "{status} · {duration}",
+  "@statusElapsed": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "durationHours": "{hours}h {minutes}m {seconds}s",
+  "@durationHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "durationMinutes": "{minutes}m {seconds}s",
+  "@durationMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "durationSeconds": "{seconds}s",
+  "@durationSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "mygo.appName": "Microlight",
+  "interfaceLanguage": "Interface Language",
+  "followSystem": "Follow System",
+  "languageSaveFailed": "Could not save the interface language.",
+  "settingsGeneral": "General",
+  "settingsSkills": "Skills",
+  "settingsTools": "Tools",
+  "skillsSettingsHint": "Skills available to the agent across all chats.",
+  "skillScanIssues": "Skipped skills and folders",
+  "refreshSkills": "Rescan",
+  "scanningSkills": "Scanning skills…",
+  "noSkillsFound": "No skills found.",
+  "skillsReadFailed": "Unable to load skills.",
+  "mcpSettingsHint": "Add a Streamable HTTP endpoint or launch a local Stdio server.",
+  "mcpServers": "Servers",
+  "addMCPServer": "Add server",
+  "removeMCPServer": "Remove",
+  "mcpServerName": "Server name",
+  "invalidMCPServer": "Enter a unique name using 1–20 letters, digits, hyphens or underscores.",
+  "mcpConnectFailed": "Unable to load tools from the MCP server",
+  "mcpToolCall": "Call MCP tool",
+  "mcpTransport": "Transport",
+  "mcpCommand": "Command",
+  "mcpArgs": "Arguments (JSON array)",
+  "invalidMcpURL": "Enter an HTTP or HTTPS URL without credentials or query parameters.",
+  "invalidMcpCommand": "Enter a command from PATH or the absolute path to an executable.",
+  "invalidMcpArgs": "Enter arguments as a JSON array of strings, or leave the field blank.",
+  "searchSkills": "Search skills",
+  "chooseSkill": "Choose Skill",
+  "workspaceSkills": "Workspace",
+  "globalSkills": "Global",
+  "noMatchingSkills": "No matching skills.",
+  "editMcpServer": "Edit server",
+  "mcpHeaders": "Request headers (optional)",
+  "addMcpHeader": "Add header",
+  "removeMcpHeader": "Remove header",
+  "mcpHeaderName": "Header name",
+  "mcpHeaderValue": "Value",
+  "invalidMcpHeader": "Enter a unique, valid header name and a non-empty, single-line value.",
+  "reservedMcpHeader": "This header is managed by the MCP connection.",
+  "mcpHeaderType": "Header type",
+  "mcpHeaderCustom": "Custom",
+  "mcpBearerToken": "Token",
+  "proxyNetwork": "Network",
+  "proxyMode": "Proxy mode",
+  "proxySystem": "Use system proxy",
+  "proxyDirect": "No proxy",
+  "proxyCustom": "Custom proxy",
+  "proxyAddress": "Proxy address",
+  "proxyCustomHint": "Supports HTTP, HTTPS and SOCKS5. Localhost connects directly.",
+  "proxySystemHint": "Follow your system’s proxy and automatic configuration.",
+  "openProxySettings": "Open system proxy settings",
+  "invalidProxy": "Enter a valid proxy URL using http, https or socks5.",
+  "proxyReadFailed": "Could not read the saved proxy settings.",
+  "proxyRequestFailed": "The proxy could not connect. Check your proxy settings.",
+  "openProxySettingsFailed": "Could not open system proxy settings.",
+  "modelProvider": "Provider",
+  "providerName": "Provider Name",
+  "providerNameRequired": "Enter a provider name.",
+  "providerNameDuplicate": "A provider already uses this name.",
+  "providerUnavailable": "The selected provider is unavailable.",
+  "newProvider": "New Provider",
+  "addProvider": "Add Provider",
+  "providerModels": "Available Models",
+  "defaultModel": "Default Model",
+  "makeDefaultModel": "Set as Default",
+  "addProviderModel": "Add Model",
+  "removeProviderModel": "Remove Model",
+  "modelIDDuplicate": "Model IDs must be unique within a provider."
+}
