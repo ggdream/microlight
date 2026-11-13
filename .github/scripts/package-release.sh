@@ -16,13 +16,12 @@ case "$target" in
   *) printf 'Unsupported release target %s\n' "$target" >&2; exit 1 ;;
 esac
 
-cli_version=$(go list -mod=readonly -m -f '{{.Version}}' github.com/egoist/mygo)
 backup=$(mktemp)
 cp mygo.json "$backup"
 trap 'cp "$backup" mygo.json && rm -f "$backup"' EXIT
 jq --arg version "${tag#v}" '.version = $version' "$backup" > mygo.json
 
-go run "github.com/egoist/mygo/cmd/mygo@$cli_version" build \
+bash scripts/build.sh \
   -platform "$RELEASE_PLATFORM/$RELEASE_ARCH" -o dist
 
 shopt -s nullglob

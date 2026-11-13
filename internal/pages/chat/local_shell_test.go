@@ -19,11 +19,11 @@ func TestDeepExecuteRespectsConversationApproval(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const command = "echo ready > proof.txt"
+	const command = "echo ready > proof.txt; echo shell-output"
 	proof := filepath.Join(workspace, "proof.txt")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var request struct {
-			Messages []struct{ Role, Content string }
+			Messages []chatRequestMessage
 			Tools    []struct{ Function struct{ Name string } }
 		}
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil || len(request.Messages) == 0 {
@@ -53,10 +53,9 @@ func TestDeepExecuteRespectsConversationApproval(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer store.Close()
-	backend := newChat(modelSettings{BaseURL: server.URL, Model: "test"})
+	backend := newChat(modelSettings{Protocol: openAIChat, BaseURL: server.URL, Model: "test"})
 	access := localtools.NewAccess(workspace, localtools.Ask)
 	ctx := localtools.WithAccess(t.Context(), access)
-	emit := func(replyDelta) error { return nil }
 
 	for _, test := range []struct {
 		mode   localtools.Mode
@@ -68,6 +67,8 @@ func TestDeepExecuteRespectsConversationApproval(t *testing.T) {
 		{localtools.Full, "", true},
 	} {
 		t.Run(string(test.mode), func(t *testing.T) {
+			var reply turn
+			emit := func(delta replyDelta) error { reply.appendDelta(delta); return nil }
 			access.SetMode(test.mode)
 			id := newID()
 			pending, err := backend.runSession(ctx, store, id, []*turn{userTurn("Run a command")}, nil, "", emit)
@@ -87,6 +88,16 @@ func TestDeepExecuteRespectsConversationApproval(t *testing.T) {
 				t.Fatalf("command run did not finish: %+v, %v", pending, err)
 			}
 			if test.wrote {
+				if len(reply.Activity) == 0 {
+					t.Fatal("missing command activity")
+				}
+				activity := reply.Activity[0]
+				if activity.Output == nil || strings.TrimSpace(*activity.Output) != "shell-output" || activity.Pending {
+					t.Fatalf("unexpected command activity: %+v", activity)
+				}
+				if result := activity.CommandResult; result == nil || result.ExitCode == nil || *result.ExitCode != 0 {
+					t.Fatalf("expected the shell exit code, got %+v", result)
+				}
 				data, err := os.ReadFile(proof)
 				if err != nil || !strings.Contains(string(data), "ready") {
 					// Windows PowerShell writes UTF-16 when redirecting text.

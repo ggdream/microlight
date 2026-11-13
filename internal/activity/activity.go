@@ -15,21 +15,22 @@ import (
 )
 
 type Entry struct {
-	Text           string      `json:",omitempty"`
-	Tool           string      `json:",omitempty"`
-	Target         string      `json:",omitempty"`
-	Arguments      string      `json:",omitempty"`
-	CallID         string      `json:",omitempty"`
-	Diff           *diff.Lines `json:",omitempty"`
-	ResolvedTarget string      `json:",omitempty"`
-	Output         *string     `json:",omitempty"`
-	Pending        bool        `json:",omitempty"`
+	Text           string                    `json:",omitempty"`
+	Tool           string                    `json:",omitempty"`
+	Target         string                    `json:",omitempty"`
+	Arguments      string                    `json:",omitempty"`
+	CallID         string                    `json:",omitempty"`
+	Diff           *diff.Lines               `json:",omitempty"`
+	ResolvedTarget string                    `json:",omitempty"`
+	Output         *string                   `json:",omitempty"`
+	CommandResult  *localtools.CommandResult `json:",omitempty"`
+	Pending        bool                      `json:",omitempty"`
 }
 
 const SkillTool = "skill"
 const AskUserTool = "ask_user"
 
-func DescribeToolCall(call schema.ToolCall) Entry {
+func DescribeToolCall(call *schema.FunctionToolCall) Entry {
 	var args struct {
 		Path        string
 		URL         string
@@ -37,8 +38,8 @@ func DescribeToolCall(call schema.ToolCall) Entry {
 		Description string
 		Skill       string
 	}
-	_ = json.Unmarshal([]byte(call.Function.Arguments), &args)
-	name, target := call.Function.Name, args.Command
+	_ = json.Unmarshal([]byte(call.Arguments), &args)
+	name, target := call.Name, args.Command
 	switch name {
 	case localtools.Read, localtools.List, localtools.Write:
 		target = args.Path
@@ -51,7 +52,7 @@ func DescribeToolCall(call schema.ToolCall) Entry {
 			target = args.Description
 		}
 	}
-	return Entry{Tool: name, Target: strings.TrimSpace(target), Arguments: strings.TrimSpace(call.Function.Arguments), CallID: call.ID, Pending: call.ID != ""}
+	return Entry{Tool: name, Target: strings.TrimSpace(target), Arguments: strings.TrimSpace(call.Arguments), CallID: call.CallID, Pending: call.CallID != ""}
 }
 
 func (activity Entry) Label(target string) string {
@@ -139,6 +140,15 @@ func (activity Entry) CommandText() string {
 		return args.Command
 	}
 	return args.Cmd
+}
+
+func (activity Entry) CommandInput() string {
+	var args struct{ Stdin, Input string }
+	_ = json.Unmarshal([]byte(activity.Arguments), &args)
+	if args.Stdin != "" {
+		return args.Stdin
+	}
+	return args.Input
 }
 
 func (activity Entry) ShortTarget() string {

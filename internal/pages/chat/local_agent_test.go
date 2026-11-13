@@ -27,7 +27,7 @@ func TestSessionPermissionChangesBetweenToolCalls(t *testing.T) {
 	workspaceInstruction := fmt.Sprintf("The workspace path is %q.", workspace)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var request struct {
-			Messages []struct{ Role, Content string }
+			Messages []chatRequestMessage
 		}
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil || len(request.Messages) == 0 {
 			t.Errorf("invalid request: %v", err)
@@ -62,7 +62,7 @@ func TestSessionPermissionChangesBetweenToolCalls(t *testing.T) {
 	}
 	defer store.Close()
 	ctx := localtools.WithAccess(t.Context(), access)
-	config := modelSettings{BaseURL: server.URL, Model: "test", Workspace: t.TempDir(), AccessMode: localtools.Full}
+	config := modelSettings{Protocol: openAIChat, BaseURL: server.URL, Model: "test", Workspace: t.TempDir(), AccessMode: localtools.Full}
 	var reply turn
 	pending, err := newChat(config).runSession(ctx, store, "live-mode", []*turn{userTurn("Create two files")}, nil, "", func(delta replyDelta) error {
 		reply.appendDelta(delta)
@@ -133,12 +133,12 @@ func TestLocalToolApprovalIsScopedAndSurvivesRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	config := modelSettings{BaseURL: server.URL, Model: "test", Workspace: workspace, AccessMode: localtools.Ask}
+	config := modelSettings{Protocol: openAIChat, BaseURL: server.URL, Model: "test", Workspace: workspace, AccessMode: localtools.Ask}
 	emit := func(replyDelta) error { return nil }
 	ctx := t.Context()
 	const id = "approval"
 	pending, err := newChat(config).runSession(ctx, store, id, []*turn{userTurn("Write the files")}, nil, "", emit)
-	if err != nil || pending == nil || pending.AgentName != "微光" || pending.Approval == nil || pending.Approval.Preview != "approved text" {
+	if err != nil || pending == nil || pending.Approval == nil || pending.Approval.Preview != "approved text" {
 		t.Fatalf("expected an approval prompt: %+v, %v", pending, err)
 	}
 	absent := func(path string) {

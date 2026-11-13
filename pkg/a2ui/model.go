@@ -351,6 +351,11 @@ func (m *Model) evaluate(call FunctionCall, scope string) (any, error) {
 	if m.EvaluateFunction != nil {
 		return m.EvaluateFunction(call, scope)
 	}
+	return m.EvaluateLocal(call, scope)
+}
+
+// EvaluateLocal bypasses a host dispatcher and evaluates a built-in function.
+func (m *Model) EvaluateLocal(call FunctionCall, scope string) (any, error) {
 	if call.Catalog != "" && call.Catalog != BasicCatalog && call.Catalog != "basic" {
 		return nil, fmt.Errorf("no implementation for catalog %q", call.Catalog)
 	}

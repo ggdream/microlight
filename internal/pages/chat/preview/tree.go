@@ -7,12 +7,13 @@ import (
 	"strconv"
 	"strings"
 
-	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/assets/locales"
+	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/internal/theme"
 	"github.com/ggdream/microlight/pkg/diff"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/elastic"
 )
 
 type Change struct {
@@ -86,8 +87,9 @@ func (tree *Tree) View(c *ui.Context, roundKey any, icons asseticon.Set, selecte
 			ui.Text(c, locales.NoRoundChanges()).FontSize(12).TextColor(theme.Muted).Padding(5, 10)
 			return
 		}
-		ui.Scroll(c.Key(roundKey)).Grow(1).MinHeight(0).Children(func() {
-			rows(c, icons, tree.children, 0, selected, open)
+		scroll, offset := elastic.Scroll(c.Key(roundKey))
+		scroll.Grow(1).MinHeight(0).Children(func() {
+			offset.Apply(ui.Column(c).FillWidth()).Children(func() { rows(c, icons, tree.children, 0, selected, open) })
 		})
 	})
 }

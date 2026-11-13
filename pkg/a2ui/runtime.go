@@ -94,7 +94,21 @@ func (p *Processor) catalog(id string) (*Catalog, error) {
 
 // ApplyBatch applies a list atomically. Each message still observes preceding messages.
 func (p *Processor) ApplyBatch(messages []AgentMessage) error {
+	return p.applyBatch(messages, false)
+}
+
+// ApplyViewBatch also verifies the reachable component graphs before commit.
+func (p *Processor) ApplyViewBatch(messages []AgentMessage) error {
+	return p.applyBatch(messages, true)
+}
+
+func (p *Processor) applyBatch(messages []AgentMessage, validateView bool) error {
+	if len(messages) == 0 {
+		return nil
+	}
 	candidate := p.Fork()
+	touched := make(map[string]bool)
+	replaced := make(map[string]bool)
 	for i, message := range messages {
 		if message.CallRenderer != nil || message.AgentResponse != nil {
 			return fmt.Errorf("message %d: dispatch RPC separately from state batches", i)
@@ -102,15 +116,33 @@ func (p *Processor) ApplyBatch(messages []AgentMessage) error {
 		if err := candidate.Apply(message); err != nil {
 			return fmt.Errorf("message %d: %w", i, err)
 		}
+		if message.Delete != nil {
+			replaced[message.Delete.ID] = true
+		}
+		if validateView {
+			if message.Create != nil {
+				touched[message.Create.ID] = true
+			}
+			if message.Components != nil {
+				touched[message.Components.ID] = true
+			}
+		}
+	}
+	for id := range touched {
+		if surface := candidate.Surface(id); surface != nil {
+			if err := surface.ValidateReachable(); err != nil {
+				return err
+			}
+		}
 	}
 	for id, live := range p.surfaces {
-		if candidate.Surface(id) == nil {
+		if replaced[id] || candidate.Surface(id) == nil {
 			live.data.disposeObservers()
 		}
 	}
 	previous := make(map[*Model]any)
 	for id, surface := range candidate.surfaces {
-		if live := p.Surface(id); live != nil {
+		if live := p.Surface(id); live != nil && !replaced[id] {
 			surface.data.observers = live.data.observers
 			previous[&live.data] = live.data.root
 			*live = *surface
@@ -197,6 +229,11 @@ func (s *Surface) IsValid(component Component, scope string) bool {
 }
 
 func (s *Surface) Activate(componentID, scope string, now time.Time, open func(string) error) (*RendererMessage, error) {
+	return s.Invoke(componentID, scope, now, true, open)
+}
+
+// Invoke evaluates a component action with an explicit activation context.
+func (s *Surface) Invoke(componentID, scope string, now time.Time, userActivation bool, open func(string) error) (*RendererMessage, error) {
 	component, ok := s.Component(componentID)
 	if !ok {
 		return nil, fmt.Errorf("unknown action source %q", componentID)
@@ -214,6 +251,9 @@ func (s *Surface) Activate(componentID, scope string, now time.Time, open func(s
 	var call FunctionCall
 	if err := json.Unmarshal(action.Function, &call); err != nil {
 		return nil, err
+	}
+	if !userActivation && s.requiresActivation(call) {
+		return nil, fmt.Errorf("%s requires user activation", call.Name)
 	}
 	if call.Name != "openUrl" || (call.Catalog != "" && call.Catalog != BasicCatalog && call.Catalog != "basic") {
 		_, err := s.Resolve(action.Function, scope)
@@ -263,7 +303,11 @@ func (p *Processor) ValidateRendererCall(request CallRendererFunction) error {
 	if err := catalog.ValidateFunction(request.Function); err != nil {
 		return err
 	}
-	return p.validateRendererArguments(request.Function.Args, catalog.ID, 1)
+	defaultID := catalog.ID
+	if surface := p.Surface(request.Surface); surface != nil {
+		defaultID = surface.Catalog()
+	}
+	return p.validateRendererArguments(request.Function.Args, defaultID, 1)
 }
 
 func (p *Processor) validateRendererArguments(value any, catalogID string, depth int) error {
@@ -307,12 +351,18 @@ func (p *Processor) validateRendererArguments(value any, catalogID string, depth
 					return fmt.Errorf("unexpected function field %q", key)
 				}
 			}
+			if catalogID == "" {
+				return fmt.Errorf("function %q needs a default catalog or catalogId", name)
+			}
 			catalog, err := p.catalog(catalogID)
 			if err != nil {
 				return err
 			}
-			if !catalog.rendererMayCall(name) {
+			if !catalog.RendererMayCall(name) {
 				return fmt.Errorf("function %q is agentOnly", name)
+			}
+			if catalog.requiresActivation(name) {
+				return fmt.Errorf("function %q requires user activation", name)
 			}
 			if err := catalog.ValidateFunction(call); err != nil {
 				return err
@@ -329,4 +379,18 @@ func (p *Processor) validateRendererArguments(value any, catalogID string, depth
 		}
 	}
 	return nil
+}
+
+func (s *Surface) requiresActivation(call FunctionCall) bool {
+	id := call.Catalog
+	if id == "" {
+		id = s.Catalog()
+	}
+	if (id == "" || id == "basic" || id == BasicCatalog) && call.Name == "openUrl" {
+		return true
+	}
+	if catalog := s.catalogs[id]; catalog != nil {
+		return catalog.requiresActivation(call.Name)
+	}
+	return false
 }

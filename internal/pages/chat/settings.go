@@ -19,6 +19,7 @@ import (
 )
 
 type modelSettings struct {
+	Protocol         apiProtocol       `json:"protocol,omitempty"`
 	Proxy            proxy.Config      `json:"-"`
 	MCPServers       []mcptools.Server `json:"mcp_servers,omitempty"`
 	BaseURL          string            `json:"base_url"`
@@ -30,6 +31,21 @@ type modelSettings struct {
 	MaxTokens        *int              `json:"max_tokens,omitempty"`
 	AccessMode       localtools.Mode   `json:"access_mode,omitempty"`
 	Workspace        string            `json:"workspace,omitempty"`
+}
+
+type apiProtocol string
+
+const (
+	openAIResponses   apiProtocol = "openai_responses"
+	openAIChat        apiProtocol = "openai_chat"
+	anthropicMessages apiProtocol = "anthropic_messages"
+)
+
+func (s modelSettings) protocol() apiProtocol {
+	if s.Protocol == "" {
+		return openAIResponses
+	}
+	return s.Protocol
 }
 
 func cleanBaseURL(raw string) string {
@@ -60,8 +76,14 @@ func (s *modelSettings) validate() error {
 		u.User != nil || u.RawQuery != "" || u.ForceQuery || strings.Contains(s.BaseURL, "#") {
 		return errors.New(locales.InvalidBaseURL())
 	}
-	if strings.HasSuffix(u.Path, "/chat/completions") {
+	if strings.HasSuffix(u.Path, "/chat/completions") || strings.HasSuffix(u.Path, "/responses") || strings.HasSuffix(u.Path, "/messages") {
 		return errors.New(locales.BaseURLRoot())
+	}
+	switch s.protocol() {
+	case openAIResponses, openAIChat, anthropicMessages:
+		s.Protocol = s.protocol()
+	default:
+		return errors.New(locales.ClientInitFailed())
 	}
 	if s.Model == "" {
 		return errors.New(locales.RequiredModel())
@@ -91,20 +113,51 @@ func inRange(value *float32, max float32) bool {
 type settingsForm struct {
 	proxy             proxy.Config
 	proxyLaunchFailed bool
+	proxyError        string
 	modelForm
-	providerDrafts map[string]modelForm
+	providerDrafts      map[string]modelForm
+	providerToDelete    string
+	providerDeleteError string
 	settingsStatus
 	generalStatus settingsStatus
 	test          *connectionTest
+	leave         func()
 }
 
 type modelForm struct {
+	protocol                     apiProtocol
 	providerID, providerName     string
-	baseURL, model, apiKey       string
+	baseURL, apiKey              string
 	temperature, topP, maxTokens string
 	contextThreshold             string
-	extraModels                  []*string
+	models                       []*string
+	defaultModel                 *string
+	testModel                    string
 	removeKey                    bool
+}
+
+func (form *modelForm) defaultModelID() string {
+	if form.defaultModel == nil {
+		return ""
+	}
+	return strings.TrimSpace(*form.defaultModel)
+}
+
+func (form modelForm) differsFrom(saved modelForm) bool {
+	if form.protocol != saved.protocol || form.providerName != saved.providerName || form.baseURL != saved.baseURL ||
+		form.apiKey != saved.apiKey || form.removeKey != saved.removeKey ||
+		form.temperature != saved.temperature || form.topP != saved.topP ||
+		form.maxTokens != saved.maxTokens || form.contextThreshold != saved.contextThreshold ||
+		len(form.models) != len(saved.models) {
+		return true
+	}
+	for i, row := range form.models {
+		savedRow := saved.models[i]
+		if *row != *savedRow || (row == form.defaultModel) != (savedRow == saved.defaultModel) {
+			return true
+		}
+	}
+	return false
 }
 
 type settingsStatus struct {
@@ -132,7 +185,7 @@ func (app *chatApp) connectionConfig() modelSettings {
 	if key == "" {
 		key = app.savedKeyForForm()
 	}
-	return modelSettings{BaseURL: form.baseURL, Model: form.model, APIKey: key, Proxy: app.settings.Proxy}
+	return modelSettings{Protocol: form.protocol, BaseURL: form.baseURL, Model: form.defaultModelID(), APIKey: key, Proxy: app.settings.Proxy}
 }
 
 func (form *settingsForm) proxyConfig() proxy.Config {
@@ -168,6 +221,9 @@ func (app *chatApp) loadSettings() {
 	}
 	app.backend = newChat(app.settings)
 	app.backend.skillsHome = app.skillsHome
+	if app.providers.Providers != nil && len(app.providers.Providers) == 0 {
+		app.backend.configErr = errors.New(locales.ProviderUnavailable())
+	}
 }
 
 func (app *chatApp) openSettings() {
@@ -187,12 +243,15 @@ func (app *chatApp) openSettings() {
 }
 
 func (app *chatApp) providerForm(id string) modelForm {
-	form := modelForm{providerID: id}
+	form := modelForm{providerID: id, protocol: openAIResponses}
 	s := app.providers.provider(id)
 	if s == nil {
+		form.defaultModel = new(string)
+		form.models = []*string{form.defaultModel}
 		return form
 	}
-	form.providerName, form.baseURL, form.model = s.Name, s.BaseURL, s.Model
+	form.providerName, form.baseURL = s.Name, s.BaseURL
+	form.protocol = s.protocol()
 	form.temperature, form.topP = formatOptionalNumber(s.Temperature), formatOptionalNumber(s.TopP)
 	if s.MaxTokens != nil {
 		form.maxTokens = strconv.Itoa(*s.MaxTokens)
@@ -201,9 +260,15 @@ func (app *chatApp) providerForm(id string) modelForm {
 		form.contextThreshold = strconv.Itoa(s.ContextThreshold)
 	}
 	for _, model := range s.Models {
-		if model != s.Model {
-			form.extraModels = append(form.extraModels, new(model))
+		row := new(model)
+		form.models = append(form.models, row)
+		if model == s.Model {
+			form.defaultModel = row
 		}
+	}
+	if form.defaultModel == nil {
+		form.defaultModel = new(s.Model)
+		form.models = append([]*string{form.defaultModel}, form.models...)
 	}
 	return form
 }
@@ -226,6 +291,59 @@ func (app *chatApp) closeSettings() {
 	app.clearConnectionTest()
 	app.settingsOpen = false
 	app.form = settingsForm{}
+}
+
+// deferSettingsLeave holds navigation until the user decides what to do with the draft.
+func (app *chatApp) deferSettingsLeave(next func()) bool {
+	if !app.settingsOpen {
+		return false
+	}
+	if app.form.leave != nil {
+		return true
+	}
+	switch app.settingsTab {
+	case settings.Model:
+		if !app.hasModelChanges() {
+			return false
+		}
+	case settings.Tools:
+		if !app.extensionsForm.mcp.HasChanges(app.settings.MCPServers) {
+			return false
+		}
+	default:
+		return false
+	}
+	app.form.leave = next
+	return true
+}
+
+func (app *chatApp) hasModelChanges() bool {
+	form := &app.form
+	if form.modelForm.differsFrom(app.providerForm(form.providerID)) {
+		return true
+	}
+	for id, draft := range form.providerDrafts {
+		if id != form.providerID && draft.differsFrom(app.providerForm(id)) {
+			return true
+		}
+	}
+	return false
+}
+
+func (app *chatApp) discardSettingsChanges() {
+	switch app.settingsTab {
+	case settings.Model:
+		app.clearConnectionTest()
+		id := app.form.providerID
+		if id == "" {
+			id = app.providers.Selected.ProviderID
+		}
+		app.form.modelForm = app.providerForm(id)
+		clear(app.form.providerDrafts)
+		app.form.settingsStatus = settingsStatus{}
+	case settings.Tools:
+		app.extensionsForm.mcp = settings.MCPForm{}
+	}
 }
 
 func formatOptionalNumber(value *float32) string {
@@ -303,13 +421,15 @@ func (app *chatApp) saveSettings() {
 func (app *chatApp) saveProxySettings() {
 	config := app.settings
 	config.Proxy = app.form.proxyConfig()
-	if err := app.applySettings(config); err != nil {
-		app.form.generalStatus = settingsStatus{message: err.Error(), failed: true}
+	app.form.proxyError = ""
+	if config.Proxy == app.settings.Proxy {
 		return
 	}
-	app.form.proxy = config.Proxy
+	if err := app.applySettings(config); err != nil {
+		app.form.proxyError = err.Error()
+		return
+	}
 	app.clearConnectionTest()
-	app.form.generalStatus = settingsStatus{message: locales.SettingsSaved()}
 }
 
 func (app *chatApp) applySettings(config modelSettings) error {
@@ -328,6 +448,13 @@ func (app *chatApp) commitSettings(config modelSettings, catalog *providerCatalo
 		return errors.New(locales.SettingsSaveFailed())
 	}
 	backend.skillsHome = app.skillsHome
+	providers := app.providers.Providers
+	if catalog != nil {
+		providers = catalog.Providers
+	}
+	if providers != nil && len(providers) == 0 {
+		backend.configErr = errors.New(locales.ProviderUnavailable())
+	}
 	if app.backend != nil && app.backend.network != nil {
 		app.backend.network.CloseIdleConnections()
 	}
@@ -348,11 +475,12 @@ func (app *chatApp) removeSavedKey() {
 	app.clearConnectionTest()
 }
 
-func (app *chatApp) testConnection() {
+func (app *chatApp) testConnection(model string) {
 	if test := app.form.test; test != nil && test.cancel != nil {
 		return
 	}
 	config := app.connectionConfig()
+	config.Model = model
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	test := &connectionTest{cancel: cancel, message: locales.TestingConnection()}
 	app.form.test = test

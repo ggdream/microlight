@@ -1,18 +1,20 @@
 package settings
 
 import (
-	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/assets/locales"
+	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/internal/theme"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/elastic"
 )
 
 type ArchivedChat struct{ ID, Title string }
 
 func ArchivedChats(c *ui.Context, icons asseticon.Set, chats []ArchivedChat, historyError string, onRestore func(string)) {
-	ui.Scroll(c).Grow(1).MinHeight(0).Children(func() {
-		ui.Column(c).FillWidth().AlignItems(ui.Center).Padding(26, 22).Children(func() {
+	scroll, offset := elastic.Scroll(c)
+	scroll.Grow(1).MinHeight(0).Children(func() {
+		offset.Apply(ui.Column(c)).FillWidth().AlignItems(ui.Center).Padding(26, 22).Children(func() {
 			ui.Column(c).FillWidth().MaxWidth(610).Gap(14).Children(func() {
 				ui.Column(c).Gap(5).Children(func() {
 					ui.Text(c, locales.ArchivedChats()).FontSize(29).FontWeight(680)

@@ -51,12 +51,9 @@ func TestOfficialProtocolValidation(t *testing.T) {
 						"test_v10_get_renderer_data_model_excludes_surface_without_default_from_v09",
 						"test_v10_get_renderer_data_model_filters_by_surface_protocol_version":
 						t.Skip("mixed or legacy protocol version")
-					case "test_v10_component_catalog_override":
-						t.Skip("fixture declares catalog IDs without component schemas")
-					case "test_v10_call_to_undeclared_function_without_strict_mode_accepted":
-						t.Skip("permissive routing for undeclared functions is not implemented")
 					}
 					var p a2ui.Processor
+					p.AllowUndeclaredFunctions(suite == "message_processor_v1_0" && !tc.StrictMode)
 					registerFixtureCatalogs(t, &p, tc)
 					if tc.Action == "get_renderer_capabilities" {
 						var want any
@@ -156,6 +153,18 @@ func registerFixtureCatalogs(t *testing.T, p *a2ui.Processor, tc protocolCase) {
 		// component definitions that only declare their own properties.
 		if version, ok := doc["protocolVersion"].(string); ok && version != a2ui.Version {
 			continue
+		}
+		if tc.Name == "test_v10_component_catalog_override" {
+			switch doc["catalogId"] {
+			case "main-catalog":
+				doc["$defs"] = basic["$defs"]
+				doc["components"] = basic["components"]
+				doc["functions"] = basic["functions"]
+			case "charts-catalog":
+				doc["components"] = map[string]any{"PieChart": map[string]any{
+					"type": "object", "properties": map[string]any{"data": map[string]any{"type": "array"}}, "required": []string{"data"},
+				}}
+			}
 		}
 		if doc["components"] == nil && doc["functions"] == nil {
 			doc["components"] = map[string]any{}

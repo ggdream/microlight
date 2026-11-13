@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
-	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/assets/locales"
+	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/internal/mcptools"
 	"github.com/ggdream/microlight/internal/theme"
 
@@ -16,9 +16,30 @@ import (
 type MCPForm struct {
 	name, endpoint, command, args string
 	transport                     mcptools.Transport
+	initialTransport              mcptools.Transport
 	mcpError                      string
 	mcpEditing                    string
 	headers                       []*mcpHeaderDraft
+}
+
+func (form *MCPForm) HasChanges(servers []mcptools.Server) bool {
+	saved := MCPForm{transport: form.initialTransport}
+	for _, server := range servers {
+		if server.Name == form.mcpEditing {
+			saved.edit(server)
+			break
+		}
+	}
+	transport := func(kind mcptools.Transport) mcptools.Transport {
+		if kind == "" {
+			return mcptools.HTTP
+		}
+		return kind
+	}
+	return form.name != saved.name || form.endpoint != saved.endpoint ||
+		form.command != saved.command || form.args != saved.args ||
+		transport(form.transport) != transport(saved.transport) ||
+		!slices.EqualFunc(form.headers, saved.headers, func(a, b *mcpHeaderDraft) bool { return *a == *b })
 }
 
 func (form *MCPForm) View(c *ui.Context, icons asseticon.Set, servers []mcptools.Server, save func([]mcptools.Server) error) {
@@ -158,6 +179,7 @@ func (form *MCPForm) reset() {
 	form.mcpEditing, form.mcpError = "", ""
 	form.name, form.endpoint, form.command, form.args = "", "", "", ""
 	form.headers = nil
+	form.initialTransport = form.transport
 }
 
 func (form *MCPForm) save(apply func([]mcptools.Server) error, servers []mcptools.Server) bool {

@@ -87,6 +87,18 @@ func newTransport(resolve resolver) *Transport {
 
 func (t *Transport) CloseIdleConnections() { t.base.CloseIdleConnections() }
 
+// RestrictDirectDial replaces the dialer for direct routes. Configure it
+// before using the transport. Proxy connections still use the normal dialer.
+func (t *Transport) RestrictDirectDial(dial func(context.Context, string, string) (net.Conn, error)) {
+	original := t.base.DialContext
+	t.base.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		if route, _ := ctx.Value(proxyKey{}).(*url.URL); route != nil {
+			return original(ctx, network, address)
+		}
+		return dial(ctx, network, address)
+	}
+}
+
 func bypassLocal(host string) bool {
 	host = strings.TrimSuffix(strings.ToLower(host), ".")
 	if host == "localhost" || strings.HasSuffix(host, ".localhost") {

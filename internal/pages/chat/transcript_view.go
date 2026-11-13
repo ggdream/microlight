@@ -4,13 +4,15 @@ import (
 	"github.com/ggdream/microlight/assets/locales"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/elastic"
 )
 
 func (app *chatApp) transcript(c *ui.Context, chat *conversation) {
 	chat.list.FollowEnd = true
-	ui.List(c.Key(chat.ID), &chat.list, len(chat.Turns), func(i int) {
+	interfaces := chat.transcriptInterface()
+	elastic.List(c.Key(chat.ID), &chat.list, len(chat.Turns), func(i int, offset elastic.Offset) {
 		entry := chat.Turns[i]
-		ui.Column(c).FillWidth().AlignItems(ui.Center).Children(func() {
+		offset.Apply(ui.Column(c).FillWidth().AlignItems(ui.Center)).Children(func() {
 			row := ui.Row(c).FillWidth().MaxWidth(conversationWidth).AlignItems(ui.Start).Gap(12)
 			if entry.Role == "user" {
 				row.Justify(ui.End).Children(func() {
@@ -25,7 +27,7 @@ func (app *chatApp) transcript(c *ui.Context, chat *conversation) {
 				response.Children(func() {
 					hasReasoning, open := replyReasoning(entry)
 					replyProgress(c.Key("reply-progress"), entry, hasReasoning, open)
-					app.replyBody(c, entry, hasReasoning && open)
+					app.replyBody(c, chat, entry, interfaces, hasReasoning && open)
 					if len(entry.Clarifications) > 0 {
 						app.clarificationCards(c, chat, entry)
 					}

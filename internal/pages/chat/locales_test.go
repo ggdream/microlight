@@ -56,11 +56,13 @@ func TestConfigMigrationKeepsModelSettingsAndStoresLanguage(t *testing.T) {
 		DROP INDEX adk_checkpoints_by_session;
 		ALTER TABLE adk_checkpoints DROP COLUMN session_id;
 		ALTER TABLE turns DROP COLUMN activity;
+        ALTER TABLE turns DROP COLUMN a2ui;
 		ALTER TABLE conversations DROP COLUMN access_mode;
 		ALTER TABLE conversations DROP COLUMN workspace;
 		ALTER TABLE conversations DROP COLUMN pinned;
 		ALTER TABLE conversations DROP COLUMN archived;
 		ALTER TABLE conversations DROP COLUMN branch_id;
+		ALTER TABLE conversations DROP COLUMN session_model;
 		DROP TABLE conversation_branches;
 		PRAGMA user_version = 6;`); err != nil {
 		t.Fatal(err)

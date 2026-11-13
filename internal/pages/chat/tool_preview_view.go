@@ -6,13 +6,14 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/ggdream/microlight/assets/locales"
 	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/internal/attachment"
-	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/localtools"
 	previewui "github.com/ggdream/microlight/internal/pages/chat/preview"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/elastic"
 )
 
 type toolPreview struct {
@@ -155,8 +156,9 @@ func (app *chatApp) toolPreviewTabs(c *ui.Context) {
 	panel := &app.toolPanel
 	ui.Row(c).FillWidth().Height(40).Shrink(0).AlignItems(ui.Center).Gap(4).Padding(4, 6).
 		Background(side).BorderWidth(0, 0, 1, 0).BorderColor(border).Children(func() {
-		ui.ScrollHorizontal(c.Key("tab-strip")).Grow(1).MinWidth(0).FillHeight().Children(func() {
-			ui.Row(c).Role(ui.RoleTabList).Gap(4).AlignItems(ui.Center).Children(func() {
+		scroll, offset := elastic.Horizontal(c.Key("tab-strip"))
+		scroll.Grow(1).MinWidth(0).FillHeight().Children(func() {
+			offset.Apply(ui.Row(c)).Role(ui.RoleTabList).Gap(4).AlignItems(ui.Center).Children(func() {
 				changes := pointerButton(c.Key("round"), false).Role(ui.RoleTab).Label(locales.RoundChanges()).
 					AccessSelected(panel.active == nil).Height(29).Shrink(0).PaddingX(7).Gap(5).AlignItems(ui.Center).Radius(5)
 				if panel.active == nil || changes.Hovered() {

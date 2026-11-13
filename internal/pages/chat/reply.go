@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/assets/locales"
+	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/internal/localtools"
 )
 
@@ -19,6 +19,7 @@ func (app *chatApp) generate(chat *conversation, index int) {
 	reply := &turn{message: message{Role: "assistant"}, State: "pending", StartedAt: time.Now()}
 	if index < len(chat.Turns) {
 		chat.sessionID = ""
+		chat.projectedInterface = nil
 	}
 	chat.Turns = append(chat.Turns[:index], reply)
 	app.runReply(chat, reply, index, "", app.backend, app.currentModelChoice())
@@ -56,6 +57,10 @@ func (app *chatApp) answerClarification(chat *conversation, reply *turn, answer 
 	if choice.ProviderID == "" {
 		choice = app.currentModelChoice()
 	}
+	if chat.sessionModel != backend.sessionModelKey(choice) {
+		app.providerError = locales.ChangedModelForResume()
+		return
+	}
 	reply.excludeWaitingTime(time.Now())
 	reply.FinishedAt = time.Time{}
 	reply.State = "pending"
@@ -71,11 +76,14 @@ func (app *chatApp) answerClarification(chat *conversation, reply *turn, answer 
 func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer string, backend *Chat, choice modelChoice) {
 	var input []*turn
 	var resume *clarification
+	sessionModel := backend.sessionModelKey(choice)
 	if answer != "" {
 		question := reply.Clarifications[len(reply.Clarifications)-1]
 		resume = &question
-	} else if chat.sessionID == "" {
+	} else if chat.sessionID == "" || chat.sessionModel != sessionModel {
+		// Provider reasoning and tool blocks may contain endpoint-specific data.
 		chat.sessionID = newID()
+		chat.sessionModel = sessionModel
 		input = replyInput(chat.Turns[:index])
 	} else {
 		input = []*turn{chat.Turns[index-1]}
@@ -86,6 +94,7 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 	ctx, cancel := context.WithCancel(context.Background())
 	access := localtools.NewAccess(chat.workspace, chat.accessMode)
 	ctx = localtools.WithAccess(ctx, access)
+	ctx = context.WithValue(ctx, interfaceContextKey{}, chat.interfaceRequest())
 	app.active, app.running, app.cancel, app.runningAccess = chat, reply, cancel, access
 	app.save(chat)
 
@@ -103,6 +112,10 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 			app.win.Update(func() {
 				if app.running == reply {
 					reply.appendDelta(part)
+					if len(part.interfaceUpdates) != 0 {
+						chat.commitInterface(reply, len(reply.Content)-len(part.text), part.interfaceUpdates)
+						app.save(chat)
+					}
 				}
 			})
 			return nil
@@ -150,6 +163,10 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 	}()
 }
 
+func (chat *Chat) sessionModelKey(choice modelChoice) string {
+	return strings.Join([]string{choice.ProviderID, string(chat.config.protocol()), chat.config.BaseURL, chat.config.Model}, "\n")
+}
+
 func replyInput(turns []*turn) []*turn {
 	return append(historyTurns(turns[:len(turns)-1]), turns[len(turns)-1])
 }
@@ -163,7 +180,7 @@ func historyTurns(turns []*turn) []*turn {
 			input = append(input, user, reply)
 		case "steered":
 			input = append(input, user)
-			if strings.TrimSpace(reply.Content) != "" || len(reply.Clarifications) > 0 {
+			if strings.TrimSpace(reply.Content) != "" || len(reply.Interface) > 0 || len(reply.Clarifications) > 0 {
 				input = append(input, reply)
 			}
 		}
@@ -178,14 +195,19 @@ func (entry *turn) appendDelta(delta replyDelta) {
 	case compressionFinished:
 		entry.compressing = false
 	}
-	if strings.TrimSpace(entry.Content) == "" && strings.TrimSpace(delta.text) != "" {
+	if strings.TrimSpace(entry.Content) == "" && (strings.TrimSpace(delta.text) != "" || len(delta.interfaceUpdates) > 0) {
 		entry.reasoningOpen = nil
 	}
 	entry.Content += delta.text
 	entry.Reasoning += delta.reasoning
 	entry.processPreview += delta.preview
+	for _, update := range delta.interfacePreview {
+		update.Offset += len(entry.Content)
+		entry.interfacePreview = append(entry.interfacePreview, update)
+	}
 	if delta.messageDone {
 		entry.processPreview = ""
+		entry.interfacePreview = nil
 	}
 	if delta.activity != nil {
 		entry.Activity = append(entry.Activity, (*delta.activity)...)
@@ -193,7 +215,11 @@ func (entry *turn) appendDelta(delta replyDelta) {
 	if delta.toolFinished != "" {
 		for i := len(entry.Activity) - 1; i >= 0; i-- {
 			if entry.Activity[i].CallID == delta.toolFinished {
-				entry.Activity[i].Pending = false
+				activity := &entry.Activity[i]
+				activity.Pending = false
+				if activity.Output == nil && activity.RunsCommand() {
+					activity.Output = delta.toolOutput
+				}
 				break
 			}
 		}
@@ -204,6 +230,7 @@ func (entry *turn) appendDelta(delta replyDelta) {
 				entry.Activity[i].Diff = result.Diff
 				entry.Activity[i].ResolvedTarget = result.Target
 				entry.Activity[i].Output = &result.Text
+				entry.Activity[i].CommandResult = result.Command
 				break
 			}
 		}
@@ -211,6 +238,7 @@ func (entry *turn) appendDelta(delta replyDelta) {
 }
 
 func (entry *turn) keepProcessPreview() {
+	entry.interfacePreview = nil
 	if text := strings.TrimSpace(entry.processPreview); text != "" {
 		entry.Activity = append(entry.Activity, timeline.Entry{Text: text})
 	}

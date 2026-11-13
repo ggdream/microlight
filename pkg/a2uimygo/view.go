@@ -10,6 +10,7 @@ import (
 	"github.com/ggdream/microlight/pkg/a2ui"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/elastic"
 )
 
 type Style struct {
@@ -19,17 +20,20 @@ type Style struct {
 
 // Options configures the host's appearance and receives user events.
 type Options struct {
-	StyleComponent func(a2ui.Component, ui.Element)
-	Components     map[string]map[string]ComponentView
-	Media          MediaOptions
-	Fallback       func(*ui.Context, error)
-	OpenURL        func(string) error
-	Style          Style
-	Disabled       bool
-	OnAction       func(a2ui.RendererMessage)
-	OnError        func(error)
-	CanActivate    func(a2ui.RendererMessage) bool
-	EnterActions   map[string]string
+	StyleComponent  func(a2ui.Component, ui.Element)
+	Components      map[string]map[string]ComponentView
+	Media           MediaOptions
+	Fallback        func(*ui.Context, error)
+	OpenURL         func(string) error
+	Style           Style
+	Disabled        bool
+	OnAction        func(a2ui.RendererMessage)
+	OnRendererError func(a2ui.RendererMessage)
+	AgentRPC        *AgentActionRPC
+	OnError         func(error)
+	OnDataChange    func(path string, value any)
+	CanActivate     func(a2ui.RendererMessage) bool
+	EnterActions    map[string]string
 	// After renders host controls beside a component.
 	After map[string]func(*ui.Context)
 }
@@ -56,17 +60,31 @@ func View(c *ui.Context, surface *a2ui.Surface, options Options) {
 	renderer.node(c, a2ui.Root, "", 0)
 }
 
+type viewPath struct {
+	id, scope string
+	parent    *viewPath
+}
+
 type renderer struct {
+	path    *viewPath
 	surface *a2ui.Surface
 	Options
 }
 
 func (r renderer) node(c *ui.Context, id, scope string, depth int) {
 	node, ok := r.surface.Component(id)
-	if !ok || depth >= 128 {
-		if depth >= 128 {
-			r.fallback(c, fmt.Errorf("A2UI view depth exceeded"))
+	if !ok {
+		return
+	}
+	for ancestor := r.path; ancestor != nil; ancestor = ancestor.parent {
+		if ancestor.id == id && ancestor.scope == scope {
+			r.fallback(c, &a2ui.ViewDiagnostic{Code: "CYCLIC_REFERENCE", SurfaceID: r.surface.ID(), Component: id})
+			return
 		}
+	}
+	r.path = &viewPath{id: id, scope: scope, parent: r.path}
+	if depth >= 128 {
+		r.fallback(c, fmt.Errorf("A2UI view depth exceeded"))
 		return
 	}
 	catalog := node.Catalog
@@ -79,7 +97,7 @@ func (r renderer) node(c *ui.Context, id, scope string, depth int) {
 		return
 	}
 	if catalog != "" && catalog != a2ui.BasicCatalog {
-		r.fallback(c, fmt.Errorf("unimplemented component %q in catalog %q", node.Type, catalog))
+		r.fallback(c, &a2ui.ViewDiagnostic{Code: "UNKNOWN_COMPONENT_TYPE", SurfaceID: r.surface.ID(), Component: id})
 		return
 	}
 	prop := func(key string) string { return r.surface.String(node.Props[key], scope) }
@@ -108,9 +126,11 @@ func (r renderer) node(c *ui.Context, id, scope string, depth int) {
 	case "List":
 		align := alignment(prop("align"), ui.Start)
 		if prop("direction") == "horizontal" {
-			r.decorate(c, node, scope, ui.ScrollHorizontal(c).FillWidth(), "").Children(func() { ui.Row(c).AlignItems(align).Gap(8).Children(children) })
+			scroll, offset := elastic.Horizontal(c)
+			r.decorate(c, node, scope, scroll.FillWidth(), "").Children(func() { offset.Apply(ui.Row(c)).AlignItems(align).Gap(8).Children(children) })
 		} else {
-			r.decorate(c, node, scope, ui.Scroll(c).FillWidth().MaxHeight(280), "").Children(func() { ui.Column(c).FillWidth().AlignItems(align).Gap(8).Children(children) })
+			scroll, offset := elastic.Scroll(c)
+			r.decorate(c, node, scope, scroll.FillWidth().MaxHeight(280), "").Children(func() { offset.Apply(ui.Column(c)).FillWidth().AlignItems(align).Gap(8).Children(children) })
 		}
 	case "Divider":
 		line := ui.Box(c).Background(r.Style.Border)
@@ -136,7 +156,7 @@ func (r renderer) node(c *ui.Context, id, scope string, depth int) {
 	case "ChoicePicker":
 		r.choicePicker(c, node, scope)
 	default:
-		r.fallback(c, fmt.Errorf("unimplemented component %q", node.Type))
+		r.fallback(c, &a2ui.ViewDiagnostic{Code: "UNKNOWN_COMPONENT_TYPE", SurfaceID: r.surface.ID(), Component: id})
 	}
 	if after := r.After[id]; after != nil {
 		after(c.Key("host"))
@@ -170,8 +190,12 @@ func (r renderer) children(c *ui.Context, raw json.RawMessage, scope string, dep
 func (r renderer) write(node a2ui.Component, scope string, value any) {
 	path, ok := a2ui.BindingPath(node.Props["value"], scope)
 	if ok {
-		if err := r.surface.Data().Set(path, value); err != nil && r.OnError != nil {
-			r.OnError(err)
+		if err := r.surface.Data().Set(path, value); err != nil {
+			if r.OnError != nil {
+				r.OnError(err)
+			}
+		} else if r.OnDataChange != nil {
+			r.OnDataChange(path, value)
 		}
 	}
 }
@@ -228,6 +252,10 @@ func (r renderer) button(c *ui.Context, node a2ui.Component, scope string, depth
 	button := ui.ButtonBase(c).Label(label).Height(r.Style.ControlHeight).
 		PaddingX(10).Shrink(0).Radius(7).AlignItems(ui.Center).Justify(ui.Center).
 		Disabled(disabled).Cursor(ui.CursorPointer)
+	action, pending := r.actionRPC(button)
+	if pending {
+		button.Disabled(true)
+	}
 	switch r.surface.String(node.Props["variant"], scope) {
 	case "primary":
 		button.Background(r.Style.Tint)
@@ -245,7 +273,11 @@ func (r renderer) button(c *ui.Context, node a2ui.Component, scope string, depth
 		} else {
 			r.node(c, child, scope, depth+1)
 		}
-	}).OnClick(func() { r.emit(c, node.ID, scope) })
+	}).OnClick(func() {
+		if action == nil || !r.dispatchRemoteAction(c, node, scope, action) {
+			r.emit(c, node.ID, scope)
+		}
+	})
 }
 
 func (r renderer) emit(c *ui.Context, id, scope string) {

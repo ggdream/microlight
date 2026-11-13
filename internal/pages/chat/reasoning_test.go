@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
-	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/assets/locales"
+	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/pkg/diff"
 
@@ -22,15 +23,15 @@ func TestReasoningAndBodyStreamSeparately(t *testing.T) {
 		fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Body sample\"}}]}\n\ndata: [DONE]\n\n")
 	}))
 	defer server.Close()
-	backend := newChat(modelSettings{BaseURL: server.URL, Model: "test-reasoning"})
+	backend := newChat(modelSettings{Protocol: openAIChat, BaseURL: server.URL, Model: "test-reasoning"})
 	var received []replyDelta
 	err := backend.stream(t.Context(), []message{{Role: "user", Content: "Test"}}, func(delta replyDelta) error {
 		received = append(received, delta)
 		return nil
 	})
 	if err != nil || len(received) != 2 ||
-		received[0] != (replyDelta{reasoning: "Reasoning sample"}) ||
-		received[1] != (replyDelta{text: "Body sample"}) {
+		!reflect.DeepEqual(received[0], replyDelta{reasoning: "Reasoning sample"}) ||
+		!reflect.DeepEqual(received[1], replyDelta{text: "Body sample"}) {
 		t.Fatalf("unexpected stream: %+v, %v", received, err)
 	}
 }
@@ -148,7 +149,7 @@ func TestAnsweredClarificationSitsBetweenReasoningSegments(t *testing.T) {
 	if !firstShown || !toolShown || !promptShown || !lastShown || !(first.Y < tool.Y && tool.Y < prompt.Y && prompt.Y < last.Y) {
 		t.Fatalf("unexpected reasoning timeline: %v", surface.Texts())
 	}
-	const commandText = "printf '%s' hello"
+	const commandText = "$ printf '%s' hello"
 	if _, shown := surface.Find(commandText); shown {
 		t.Fatal("tool details start expanded")
 	}

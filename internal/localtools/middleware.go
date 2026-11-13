@@ -114,7 +114,7 @@ type localArguments struct {
 }
 
 type Middleware struct {
-	*adk.BaseChatModelAgentMiddleware
+	adk.TypedBaseChatModelAgentMiddleware[*schema.AgenticMessage]
 	Workspace      string
 	Mode           Mode
 	WebClient      *http.Client
@@ -126,7 +126,7 @@ func (h Middleware) ChatModelAgentMiddlewareName() string {
 	return "microlight-local-permissions"
 }
 
-func (h Middleware) BeforeAgent(ctx context.Context, run *adk.ChatModelAgentContext[*schema.Message]) (context.Context, *adk.ChatModelAgentContext[*schema.Message], error) {
+func (h Middleware) BeforeAgent(ctx context.Context, run *adk.ChatModelAgentContext[*schema.AgenticMessage]) (context.Context, *adk.ChatModelAgentContext[*schema.AgenticMessage], error) {
 	workspace := Workspace(ctx, h.Workspace)
 	if workspace == "" {
 		return ctx, run, nil

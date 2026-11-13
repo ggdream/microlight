@@ -34,6 +34,56 @@ type Messages struct{ locale string }
 // source language.
 func In(locale string) Messages { return Messages{locale} }
 
+// LinkPreviewOpen says "Open"
+// in the language the app shows.
+func LinkPreviewOpen() string { return In(i18n.Locale()).LinkPreviewOpen() }
+
+// LinkPreviewOpen says "Open"
+// in the language of msgs.
+func (msgs Messages) LinkPreviewOpen() string {
+	return Catalog.Format(msgs.locale, "linkPreviewOpen", nil)
+}
+
+// LinkPreviewLoading says "Loading preview…"
+// in the language the app shows.
+func LinkPreviewLoading() string { return In(i18n.Locale()).LinkPreviewLoading() }
+
+// LinkPreviewLoading says "Loading preview…"
+// in the language of msgs.
+func (msgs Messages) LinkPreviewLoading() string {
+	return Catalog.Format(msgs.locale, "linkPreviewLoading", nil)
+}
+
+// A2uiRenderFailed says "This interactive content could not be displayed."
+// in the language the app shows.
+func A2uiRenderFailed() string { return In(i18n.Locale()).A2uiRenderFailed() }
+
+// A2uiRenderFailed says "This interactive content could not be displayed."
+// in the language of msgs.
+func (msgs Messages) A2uiRenderFailed() string {
+	return Catalog.Format(msgs.locale, "a2uiRenderFailed", nil)
+}
+
+// A2uiLoadMedia says "Load media"
+// in the language the app shows.
+func A2uiLoadMedia() string { return In(i18n.Locale()).A2uiLoadMedia() }
+
+// A2uiLoadMedia says "Load media"
+// in the language of msgs.
+func (msgs Messages) A2uiLoadMedia() string {
+	return Catalog.Format(msgs.locale, "a2uiLoadMedia", nil)
+}
+
+// A2uiMediaUnavailable says "Media unavailable"
+// in the language the app shows.
+func A2uiMediaUnavailable() string { return In(i18n.Locale()).A2uiMediaUnavailable() }
+
+// A2uiMediaUnavailable says "Media unavailable"
+// in the language of msgs.
+func (msgs Messages) A2uiMediaUnavailable() string {
+	return Catalog.Format(msgs.locale, "a2uiMediaUnavailable", nil)
+}
+
 // ChatActions says "Conversation actions"
 // in the language the app shows.
 func ChatActions() string { return In(i18n.Locale()).ChatActions() }
@@ -554,6 +604,66 @@ func CopyTarget() string { return In(i18n.Locale()).CopyTarget() }
 // in the language of msgs.
 func (msgs Messages) CopyTarget() string {
 	return Catalog.Format(msgs.locale, "copyTarget", nil)
+}
+
+// ShellInput says "Input"
+// in the language the app shows.
+func ShellInput() string { return In(i18n.Locale()).ShellInput() }
+
+// ShellInput says "Input"
+// in the language of msgs.
+func (msgs Messages) ShellInput() string {
+	return Catalog.Format(msgs.locale, "shellInput", nil)
+}
+
+// ShellSuccess says "Succeeded"
+// in the language the app shows.
+func ShellSuccess() string { return In(i18n.Locale()).ShellSuccess() }
+
+// ShellSuccess says "Succeeded"
+// in the language of msgs.
+func (msgs Messages) ShellSuccess() string {
+	return Catalog.Format(msgs.locale, "shellSuccess", nil)
+}
+
+// ShellFailed says "Failed"
+// in the language the app shows.
+func ShellFailed() string { return In(i18n.Locale()).ShellFailed() }
+
+// ShellFailed says "Failed"
+// in the language of msgs.
+func (msgs Messages) ShellFailed() string {
+	return Catalog.Format(msgs.locale, "shellFailed", nil)
+}
+
+// ShellTimedOut says "Timed out"
+// in the language the app shows.
+func ShellTimedOut() string { return In(i18n.Locale()).ShellTimedOut() }
+
+// ShellTimedOut says "Timed out"
+// in the language of msgs.
+func (msgs Messages) ShellTimedOut() string {
+	return Catalog.Format(msgs.locale, "shellTimedOut", nil)
+}
+
+// ShellExitCode says "Exit code {code}"
+// in the language the app shows.
+func ShellExitCode(code string) string { return In(i18n.Locale()).ShellExitCode(code) }
+
+// ShellExitCode says "Exit code {code}"
+// in the language of msgs.
+func (msgs Messages) ShellExitCode(code string) string {
+	return Catalog.Format(msgs.locale, "shellExitCode", map[string]any{"code": code})
+}
+
+// ShellOutputTruncated says "Output truncated"
+// in the language the app shows.
+func ShellOutputTruncated() string { return In(i18n.Locale()).ShellOutputTruncated() }
+
+// ShellOutputTruncated says "Output truncated"
+// in the language of msgs.
+func (msgs Messages) ShellOutputTruncated() string {
+	return Catalog.Format(msgs.locale, "shellOutputTruncated", nil)
 }
 
 // ToolArguments says "Tool Arguments"
@@ -1216,11 +1326,11 @@ func (msgs Messages) SettingsModel() string {
 	return Catalog.Format(msgs.locale, "settingsModel", nil)
 }
 
-// SettingsModelHint says "Configure the model connection and generation parameters."
+// SettingsModelHint says "Choose a provider or add one to connect your models."
 // in the language the app shows.
 func SettingsModelHint() string { return In(i18n.Locale()).SettingsModelHint() }
 
-// SettingsModelHint says "Configure the model connection and generation parameters."
+// SettingsModelHint says "Choose a provider or add one to connect your models."
 // in the language of msgs.
 func (msgs Messages) SettingsModelHint() string {
 	return Catalog.Format(msgs.locale, "settingsModelHint", nil)
@@ -1576,6 +1686,16 @@ func (msgs Messages) TestConnection() string {
 	return Catalog.Format(msgs.locale, "testConnection", nil)
 }
 
+// TestModel says "Model to Test"
+// in the language the app shows.
+func TestModel() string { return In(i18n.Locale()).TestModel() }
+
+// TestModel says "Model to Test"
+// in the language of msgs.
+func (msgs Messages) TestModel() string {
+	return Catalog.Format(msgs.locale, "testModel", nil)
+}
+
 // ClearSavedKey says "Clear Saved Key"
 // in the language the app shows.
 func ClearSavedKey() string { return In(i18n.Locale()).ClearSavedKey() }
@@ -1714,6 +1834,46 @@ func SettingsSaved() string { return In(i18n.Locale()).SettingsSaved() }
 // in the language of msgs.
 func (msgs Messages) SettingsSaved() string {
 	return Catalog.Format(msgs.locale, "settingsSaved", nil)
+}
+
+// UnsavedSettingsTitle says "Leave with unsaved changes?"
+// in the language the app shows.
+func UnsavedSettingsTitle() string { return In(i18n.Locale()).UnsavedSettingsTitle() }
+
+// UnsavedSettingsTitle says "Leave with unsaved changes?"
+// in the language of msgs.
+func (msgs Messages) UnsavedSettingsTitle() string {
+	return Catalog.Format(msgs.locale, "unsavedSettingsTitle", nil)
+}
+
+// UnsavedSettingsBody says "If you leave now, your unsaved changes on this page will be discarded."
+// in the language the app shows.
+func UnsavedSettingsBody() string { return In(i18n.Locale()).UnsavedSettingsBody() }
+
+// UnsavedSettingsBody says "If you leave now, your unsaved changes on this page will be discarded."
+// in the language of msgs.
+func (msgs Messages) UnsavedSettingsBody() string {
+	return Catalog.Format(msgs.locale, "unsavedSettingsBody", nil)
+}
+
+// ContinueEditing says "Keep editing"
+// in the language the app shows.
+func ContinueEditing() string { return In(i18n.Locale()).ContinueEditing() }
+
+// ContinueEditing says "Keep editing"
+// in the language of msgs.
+func (msgs Messages) ContinueEditing() string {
+	return Catalog.Format(msgs.locale, "continueEditing", nil)
+}
+
+// DiscardSettingsAndLeave says "Discard and leave"
+// in the language the app shows.
+func DiscardSettingsAndLeave() string { return In(i18n.Locale()).DiscardSettingsAndLeave() }
+
+// DiscardSettingsAndLeave says "Discard and leave"
+// in the language of msgs.
+func (msgs Messages) DiscardSettingsAndLeave() string {
+	return Catalog.Format(msgs.locale, "discardSettingsAndLeave", nil)
 }
 
 // SettingsSaveFailed says "Could not save settings. Check write permissions for the app data folder."
@@ -2326,6 +2486,26 @@ func (msgs Messages) SettingsGeneral() string {
 	return Catalog.Format(msgs.locale, "settingsGeneral", nil)
 }
 
+// AppVersion says "Version"
+// in the language the app shows.
+func AppVersion() string { return In(i18n.Locale()).AppVersion() }
+
+// AppVersion says "Version"
+// in the language of msgs.
+func (msgs Messages) AppVersion() string {
+	return Catalog.Format(msgs.locale, "appVersion", nil)
+}
+
+// AppAbout says "About"
+// in the language the app shows.
+func AppAbout() string { return In(i18n.Locale()).AppAbout() }
+
+// AppAbout says "About"
+// in the language of msgs.
+func (msgs Messages) AppAbout() string {
+	return Catalog.Format(msgs.locale, "appAbout", nil)
+}
+
 // SettingsSkills says "Skills"
 // in the language the app shows.
 func SettingsSkills() string { return In(i18n.Locale()).SettingsSkills() }
@@ -2846,6 +3026,66 @@ func (msgs Messages) ModelProvider() string {
 	return Catalog.Format(msgs.locale, "modelProvider", nil)
 }
 
+// ModelProviders says "Model Providers"
+// in the language the app shows.
+func ModelProviders() string { return In(i18n.Locale()).ModelProviders() }
+
+// ModelProviders says "Model Providers"
+// in the language of msgs.
+func (msgs Messages) ModelProviders() string {
+	return Catalog.Format(msgs.locale, "modelProviders", nil)
+}
+
+// ConfigureProvider says "Configure provider"
+// in the language the app shows.
+func ConfigureProvider() string { return In(i18n.Locale()).ConfigureProvider() }
+
+// ConfigureProvider says "Configure provider"
+// in the language of msgs.
+func (msgs Messages) ConfigureProvider() string {
+	return Catalog.Format(msgs.locale, "configureProvider", nil)
+}
+
+// ModelApiFamily says "API provider"
+// in the language the app shows.
+func ModelApiFamily() string { return In(i18n.Locale()).ModelApiFamily() }
+
+// ModelApiFamily says "API provider"
+// in the language of msgs.
+func (msgs Messages) ModelApiFamily() string {
+	return Catalog.Format(msgs.locale, "modelApiFamily", nil)
+}
+
+// ModelApiRoute says "API route"
+// in the language the app shows.
+func ModelApiRoute() string { return In(i18n.Locale()).ModelApiRoute() }
+
+// ModelApiRoute says "API route"
+// in the language of msgs.
+func (msgs Messages) ModelApiRoute() string {
+	return Catalog.Format(msgs.locale, "modelApiRoute", nil)
+}
+
+// ChangedModelForResume says "Restore the original model endpoint and API route to continue this reply, or stop it and send a new message."
+// in the language the app shows.
+func ChangedModelForResume() string { return In(i18n.Locale()).ChangedModelForResume() }
+
+// ChangedModelForResume says "Restore the original model endpoint and API route to continue this reply, or stop it and send a new message."
+// in the language of msgs.
+func (msgs Messages) ChangedModelForResume() string {
+	return Catalog.Format(msgs.locale, "changedModelForResume", nil)
+}
+
+// ProviderSetupHint says "Use the API address, key, and model ID from your provider. Test the connection, then save."
+// in the language the app shows.
+func ProviderSetupHint() string { return In(i18n.Locale()).ProviderSetupHint() }
+
+// ProviderSetupHint says "Use the API address, key, and model ID from your provider. Test the connection, then save."
+// in the language of msgs.
+func (msgs Messages) ProviderSetupHint() string {
+	return Catalog.Format(msgs.locale, "providerSetupHint", nil)
+}
+
 // ProviderName says "Provider Name"
 // in the language the app shows.
 func ProviderName() string { return In(i18n.Locale()).ProviderName() }
@@ -2884,6 +3124,46 @@ func ProviderUnavailable() string { return In(i18n.Locale()).ProviderUnavailable
 // in the language of msgs.
 func (msgs Messages) ProviderUnavailable() string {
 	return Catalog.Format(msgs.locale, "providerUnavailable", nil)
+}
+
+// RemoveProvider says "Delete provider {name}"
+// in the language the app shows.
+func RemoveProvider(name string) string { return In(i18n.Locale()).RemoveProvider(name) }
+
+// RemoveProvider says "Delete provider {name}"
+// in the language of msgs.
+func (msgs Messages) RemoveProvider(name string) string {
+	return Catalog.Format(msgs.locale, "removeProvider", map[string]any{"name": name})
+}
+
+// DeleteProvider says "Delete Provider"
+// in the language the app shows.
+func DeleteProvider() string { return In(i18n.Locale()).DeleteProvider() }
+
+// DeleteProvider says "Delete Provider"
+// in the language of msgs.
+func (msgs Messages) DeleteProvider() string {
+	return Catalog.Format(msgs.locale, "deleteProvider", nil)
+}
+
+// DeleteProviderTitle says "Delete this provider?"
+// in the language the app shows.
+func DeleteProviderTitle() string { return In(i18n.Locale()).DeleteProviderTitle() }
+
+// DeleteProviderTitle says "Delete this provider?"
+// in the language of msgs.
+func (msgs Messages) DeleteProviderTitle() string {
+	return Catalog.Format(msgs.locale, "deleteProviderTitle", nil)
+}
+
+// DeleteProviderBody says "Delete {name} and its saved model settings and API key?"
+// in the language the app shows.
+func DeleteProviderBody(name string) string { return In(i18n.Locale()).DeleteProviderBody(name) }
+
+// DeleteProviderBody says "Delete {name} and its saved model settings and API key?"
+// in the language of msgs.
+func (msgs Messages) DeleteProviderBody(name string) string {
+	return Catalog.Format(msgs.locale, "deleteProviderBody", map[string]any{"name": name})
 }
 
 // NewProvider says "New Provider"
@@ -2926,14 +3206,24 @@ func (msgs Messages) DefaultModel() string {
 	return Catalog.Format(msgs.locale, "defaultModel", nil)
 }
 
-// MakeDefaultModel says "Set as Default"
+// DefaultModelHint says "Select the model to use by default for this provider."
 // in the language the app shows.
-func MakeDefaultModel() string { return In(i18n.Locale()).MakeDefaultModel() }
+func DefaultModelHint() string { return In(i18n.Locale()).DefaultModelHint() }
 
-// MakeDefaultModel says "Set as Default"
+// DefaultModelHint says "Select the model to use by default for this provider."
 // in the language of msgs.
-func (msgs Messages) MakeDefaultModel() string {
-	return Catalog.Format(msgs.locale, "makeDefaultModel", nil)
+func (msgs Messages) DefaultModelHint() string {
+	return Catalog.Format(msgs.locale, "defaultModelHint", nil)
+}
+
+// ChooseDefaultModel says "Use {model} as the default model"
+// in the language the app shows.
+func ChooseDefaultModel(model string) string { return In(i18n.Locale()).ChooseDefaultModel(model) }
+
+// ChooseDefaultModel says "Use {model} as the default model"
+// in the language of msgs.
+func (msgs Messages) ChooseDefaultModel(model string) string {
+	return Catalog.Format(msgs.locale, "chooseDefaultModel", map[string]any{"model": model})
 }
 
 // AddProviderModel says "Add Model"

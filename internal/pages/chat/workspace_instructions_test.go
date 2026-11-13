@@ -39,7 +39,7 @@ func TestRunnerUsesScopedWorkspaceInstructions(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var request struct {
-			Messages []struct{ Role, Content string }
+			Messages []chatRequestMessage
 		}
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil || len(request.Messages) < 2 {
 			t.Errorf("invalid model request: %v", err)
@@ -82,7 +82,7 @@ func TestRunnerUsesScopedWorkspaceInstructions(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer store.Close()
-	backend := newChat(modelSettings{BaseURL: server.URL, Model: "test"})
+	backend := newChat(modelSettings{Protocol: openAIChat, BaseURL: server.URL, Model: "test"})
 	backend.skillsHome = ""
 	ctx := localtools.WithAccess(t.Context(), localtools.NewAccess(workspace, localtools.Ask))
 	run := func(ctx context.Context, id, input string) {

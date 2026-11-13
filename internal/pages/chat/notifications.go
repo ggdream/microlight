@@ -43,7 +43,7 @@ func (app *chatApp) notifyReply(chatID string, reply *turn) {
 		app.win.Update(func() {
 			if app.history.Selected != chatID {
 				app.selectChat(chatID)
-			} else if app.settingsOpen {
+			} else if app.settingsOpen && !app.deferSettingsLeave(app.closeSettings) {
 				app.closeSettings()
 			}
 			if app.win.IsMinimized() {

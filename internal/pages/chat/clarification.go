@@ -8,8 +8,8 @@ import (
 	"slices"
 	"strings"
 
-	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/assets/locales"
+	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/internal/localtools"
 
 	"github.com/cloudwego/eino/components/tool"
@@ -59,7 +59,6 @@ type clarification struct {
 	InterruptID    string
 	CheckpointID   string
 	Model          modelChoice          `json:",omitzero"`
-	AgentName      string               `json:",omitempty"`
 	ActivityOffset *int                 `json:",omitempty"`
 	Approval       *localtools.Approval `json:",omitempty"`
 

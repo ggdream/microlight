@@ -68,6 +68,9 @@ func (r renderer) decorate(c *ui.Context, node a2ui.Component, scope string, ele
 }
 
 func (r renderer) fallback(c *ui.Context, err error) {
+	if r.OnError != nil {
+		r.OnError(err)
+	}
 	if r.Fallback != nil {
 		r.Fallback(c, err)
 	}
@@ -143,7 +146,7 @@ func (r renderer) slider(c *ui.Context, node a2ui.Component, scope string) {
 		} else {
 			control = ui.Slider(c.Key("slider"), &value, low, high)
 		}
-		r.decorate(c, node, scope, control.Label(label).Disabled(r.disabled(node, scope)), label)
+		r.decorate(c, node, scope, control.FillWidth().Label(label).Disabled(r.disabled(node, scope)), label)
 		if control.Changed() {
 			r.write(node, scope, value)
 		}

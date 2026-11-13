@@ -13,13 +13,14 @@ import (
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/adk/middlewares/skill"
 	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/schema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type agentExtensions struct {
 	tools    []tool.BaseTool
 	targets  map[string]localtools.MCPTarget
-	skills   adk.ChatModelAgentMiddleware
+	skills   adk.TypedChatModelAgentMiddleware[*schema.AgenticMessage]
 	sessions []*mcp.ClientSession
 }
 
@@ -40,7 +41,7 @@ func (e *extensionError) Unwrap() error { return e.cause }
 func (ext *agentExtensions) load(ctx context.Context, config modelSettings, skills *skillset.Catalog, network http.RoundTripper) error {
 	if len(skills.Entries) != 0 {
 		var err error
-		ext.skills, err = skill.NewMiddleware(ctx, &skill.Config{Backend: skills})
+		ext.skills, err = skill.NewTyped(ctx, &skill.TypedConfig[*schema.AgenticMessage]{Backend: skills})
 		if err != nil {
 			return &extensionError{cause: err}
 		}

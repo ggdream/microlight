@@ -78,6 +78,9 @@ func (c Config) Negotiate(renderer a2ui.RendererCapabilities) ([]*a2ui.Catalog, 
 		if catalog == nil {
 			return nil, fmt.Errorf("missing agent catalog")
 		}
+		if available[catalog.ID] != nil {
+			return nil, fmt.Errorf("duplicate agent catalog %q", catalog.ID)
+		}
 		available[catalog.ID] = catalog
 	}
 	if renderer == nil {
@@ -133,7 +136,11 @@ Only use the components and functions in the negotiated catalogs below.
 `)
 	for _, catalog := range catalogs {
 		prompt.WriteByte('\n')
-		prompt.Write(catalog.Document())
+		var compact bytes.Buffer
+		if err := json.Compact(&compact, catalog.Document()); err != nil {
+			return "", err
+		}
+		prompt.Write(compact.Bytes())
 		prompt.WriteByte('\n')
 	}
 	if len(state.Surfaces) != 0 {
@@ -157,7 +164,7 @@ func (c Config) NewStream(format Format, renderer a2ui.RendererCapabilities, sta
 	if len(catalogs) == 0 {
 		return nil, fmt.Errorf("no A2UI catalogs for stream")
 	}
-	if format != "" && format != DirectJSON && format != Express {
+	if format != "" && format != DirectJSON && format != Express && format != Mixed {
 		return nil, fmt.Errorf("unknown inference format %q", format)
 	}
 	if state == nil {

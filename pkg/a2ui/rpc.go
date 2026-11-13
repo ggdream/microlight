@@ -29,17 +29,31 @@ type pendingCall struct {
 }
 
 func (r *RPC) CallAgent(ctx context.Context, surface string, call FunctionCall) (json.RawMessage, error) {
+	result, stop, err := r.BeginAgentCall(ctx, surface, call)
+	if err != nil {
+		return nil, err
+	}
+	defer stop()
+	response := <-result
+	if response.Error != nil {
+		return nil, response.Error
+	}
+	return response.Value, nil
+}
+
+// BeginAgentCall dispatches immediately and supplies a single correlated response.
+func (r *RPC) BeginAgentCall(ctx context.Context, surface string, call FunctionCall) (<-chan FunctionResponse, func(), error) {
 	if r.Send == nil || surface == "" || call.Catalog == "" || call.Name == "" {
-		return nil, fmt.Errorf("invalid agent function call")
+		return nil, nil, fmt.Errorf("invalid agent function call")
 	}
 	timeout := r.Timeout
 	if timeout <= 0 {
 		timeout = 30 * time.Second
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		cancel()
+		return nil, nil, err
 	}
 	id := uuid.NewV7().String()
 	pending := pendingCall{surface, make(chan FunctionResponse, 1)}
@@ -49,19 +63,22 @@ func (r *RPC) CallAgent(ctx context.Context, surface string, call FunctionCall) 
 	}
 	r.pending[id] = pending
 	r.mu.Unlock()
-	defer func() { r.mu.Lock(); delete(r.pending, id); r.mu.Unlock() }()
+	stop := func() { cancel() }
 	if err := r.Send(RendererMessage{Version: Version, CallAgent: &CallAgentFunction{SurfaceRef: SurfaceRef{ID: surface}, ID: id, Function: call}}); err != nil {
-		return nil, err
+		cancel()
+		r.mu.Lock()
+		delete(r.pending, id)
+		r.mu.Unlock()
+		return nil, nil, err
 	}
-	select {
-	case response := <-pending.result:
-		if response.Error != nil {
-			return nil, fmt.Errorf("%s: %s", response.Error.Code, response.Error.Message)
+	context.AfterFunc(ctx, func() {
+		code := "CANCELLED"
+		if ctx.Err() == context.DeadlineExceeded {
+			code = "TIMEOUT"
 		}
-		return response.Value, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
+		r.Resolve(FunctionResponse{ID: id, Error: &FunctionError{Code: code, Message: ctx.Err().Error()}})
+	})
+	return pending.result, stop, nil
 }
 
 func (r *RPC) Resolve(response FunctionResponse) bool {
@@ -136,12 +153,14 @@ func (r *RPC) runRenderer(ctx context.Context, request CallRendererFunction) Fun
 	if handler == nil || !catalog.AgentMayCall(request.Function.Name) {
 		return fail("INVALID_FUNCTION_CALL", "function unavailable to the agent")
 	}
-	if err := catalog.ValidateFunction(request.Function); err != nil {
+	if err := r.Processor.ValidateRendererCall(request); err != nil {
 		return fail("INVALID_FUNCTION_CALL", err.Error())
 	}
 	var data Model
 	if surface != nil {
 		data = *surface.Data()
+	} else {
+		data.defaultCatalog = &catalog.ID
 	}
 	var args map[string]any
 	if request.Function.Args != nil {

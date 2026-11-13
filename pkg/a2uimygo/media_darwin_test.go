@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"runtime"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -35,7 +36,9 @@ func TestMain(m *testing.M) {
 }
 
 func TestNativeMP4Playback(t *testing.T) {
+	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
 		w.Header().Set("Content-Type", "video/mp4")
 		_, _ = w.Write(nativeVideo)
 	}))
@@ -57,7 +60,7 @@ func TestNativeMP4Playback(t *testing.T) {
 	tester := ui.NewTester(func(c *ui.Context) {
 		if visible {
 			a2uimygo.View(c, processor.Surface("test"), a2uimygo.Options{
-				Media:   a2uimygo.MediaOptions{Client: server.Client()},
+				Media:   a2uimygo.MediaOptions{Client: server.Client(), RequireActivation: true},
 				OnError: func(err error) { mediaErr = err },
 			})
 		}
@@ -66,6 +69,12 @@ func TestNativeMP4Playback(t *testing.T) {
 		visible = false
 		tester.Frame()
 	})
+	if requests.Load() != 0 {
+		t.Fatal("remote video was requested before activation")
+	}
+	if err := tester.Click("Load media"); err != nil {
+		t.Fatal(err)
+	}
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		tester.Frame()

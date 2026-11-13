@@ -17,11 +17,12 @@ func putConversation(tx *sql.Tx, chat *conversation, position int) error {
 		return errors.New("missing conversation")
 	}
 	if _, err := tx.Exec(`
-		INSERT INTO conversations (id, title, position, session_id, access_mode, workspace, branch_id)
-		VALUES (?, ?, CASE WHEN ? > 0 THEN ? ELSE (SELECT COALESCE(MAX(position), 0) + 1 FROM conversations) END, ?, ?, ?, ?)
+		INSERT INTO conversations (id, title, position, session_id, access_mode, workspace, branch_id, session_model)
+		VALUES (?, ?, CASE WHEN ? > 0 THEN ? ELSE (SELECT COALESCE(MAX(position), 0) + 1 FROM conversations) END, ?, ?, ?, ?, ?)
 		ON CONFLICT (id) DO UPDATE SET title = excluded.title,
-			session_id = excluded.session_id, access_mode = excluded.access_mode, branch_id = excluded.branch_id
-	`, chat.ID, chat.Title, position, position, chat.sessionID, chat.accessMode.Normalized(), chat.workspace, chat.branchID); err != nil {
+			session_id = excluded.session_id, access_mode = excluded.access_mode, branch_id = excluded.branch_id,
+			session_model = excluded.session_model
+	`, chat.ID, chat.Title, position, position, chat.sessionID, chat.accessMode.Normalized(), chat.workspace, chat.branchID, chat.sessionModel); err != nil {
 		return err
 	}
 	if chat.sessionID != "" {
@@ -52,15 +53,23 @@ func putConversation(tx *sql.Tx, chat *conversation, position int) error {
 				return err
 			}
 		}
+		var interfaceData []byte
+		if len(entry.Interface) != 0 || entry.InterfaceAction != nil {
+			var err error
+			interfaceData, err = json.Marshal(storedInterface{entry.Interface, entry.InterfaceAction})
+			if err != nil {
+				return err
+			}
+		}
 		if _, err := tx.Exec(`
-			INSERT INTO turns (conversation_id, ordinal, role, content, state, error, reasoning, started_at, finished_at, clarifications, activity)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO turns (conversation_id, ordinal, role, content, state, error, reasoning, started_at, finished_at, clarifications, activity, a2ui)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (conversation_id, ordinal) DO UPDATE SET
 				role = excluded.role, content = excluded.content, state = excluded.state, error = excluded.error,
 				reasoning = excluded.reasoning, started_at = excluded.started_at, finished_at = excluded.finished_at,
-				clarifications = excluded.clarifications, activity = excluded.activity
+				clarifications = excluded.clarifications, activity = excluded.activity, a2ui = excluded.a2ui
 		`, chat.ID, index, entry.Role, entry.Content, entry.State, entry.Error,
-			entry.Reasoning, encodeTurnTime(entry.StartedAt), encodeTurnTime(entry.FinishedAt), questions, activity); err != nil {
+			entry.Reasoning, encodeTurnTime(entry.StartedAt), encodeTurnTime(entry.FinishedAt), questions, activity, interfaceData); err != nil {
 			return err
 		}
 	}
@@ -182,7 +191,7 @@ func (store *localStore) loadHistory() (history, error) {
 		return history{}, err
 	}
 	rows, err := store.Query(`
-		SELECT c.id, c.title, c.session_id, c.branch_id, c.access_mode, c.workspace, c.pinned, c.archived, t.role, t.content, t.state, t.error, t.reasoning, t.started_at, t.finished_at, t.clarifications, t.activity
+		SELECT c.id, c.title, c.session_id, c.session_model, c.branch_id, c.access_mode, c.workspace, c.pinned, c.archived, t.role, t.content, t.state, t.error, t.reasoning, t.started_at, t.finished_at, t.clarifications, t.activity, t.a2ui
 		FROM conversations c LEFT JOIN turns t ON t.conversation_id = c.id
 		ORDER BY c.position DESC, c.id, t.ordinal
 	`)
@@ -194,17 +203,17 @@ func (store *localStore) loadHistory() (history, error) {
 	var chat *conversation
 	for rows.Next() {
 		var id, title string
-		var sessionID, branchID, workspace string
+		var sessionID, sessionModel, branchID, workspace string
 		var mode localtools.Mode
 		var pinned, archived bool
 		var role, content, state, messageErr, reasoning sql.NullString
 		var started, finished sql.NullInt64
-		var questions, activity []byte
-		if err := rows.Scan(&id, &title, &sessionID, &branchID, &mode, &workspace, &pinned, &archived, &role, &content, &state, &messageErr, &reasoning, &started, &finished, &questions, &activity); err != nil {
+		var questions, activity, interfaceData []byte
+		if err := rows.Scan(&id, &title, &sessionID, &sessionModel, &branchID, &mode, &workspace, &pinned, &archived, &role, &content, &state, &messageErr, &reasoning, &started, &finished, &questions, &activity, &interfaceData); err != nil {
 			return history{}, err
 		}
 		if chat == nil || chat.ID != id {
-			chat = &conversation{ID: id, Title: title, sessionID: sessionID, branchID: branchID, accessMode: mode.Normalized(), workspace: workspace, pinned: pinned, archived: archived}
+			chat = &conversation{ID: id, Title: title, sessionID: sessionID, sessionModel: sessionModel, branchID: branchID, accessMode: mode.Normalized(), workspace: workspace, pinned: pinned, archived: archived}
 			h.Chats = append(h.Chats, chat)
 		}
 		if role.Valid {
@@ -224,6 +233,12 @@ func (store *localStore) loadHistory() (history, error) {
 			if len(activity) != 0 {
 				if err := json.Unmarshal(activity, &entry.Activity); err != nil {
 					return history{}, err
+				}
+			}
+			if len(interfaceData) != 0 {
+				var saved storedInterface
+				if err := json.Unmarshal(interfaceData, &saved); err == nil {
+					entry.Interface, entry.InterfaceAction = saved.Updates, saved.Action
 				}
 			}
 			chat.Turns = append(chat.Turns, entry)

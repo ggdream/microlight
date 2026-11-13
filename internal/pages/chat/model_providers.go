@@ -69,6 +69,11 @@ func (app *chatApp) loadModelProviders() error {
 			if err := json.Unmarshal([]byte(raw), &catalog); err != nil {
 				return err
 			}
+			if len(catalog.Providers) == 0 && catalog.Selected == (modelChoice{}) {
+				catalog.Providers = []modelProvider{}
+				app.providers = catalog
+				return nil
+			}
 			p := catalog.provider(catalog.Selected.ProviderID)
 			if p == nil || (catalog.Selected.Model != "" && !slices.Contains(p.Models, catalog.Selected.Model)) {
 				return errors.New(locales.SettingsReadFailed())
@@ -113,11 +118,40 @@ func (app *chatApp) loadModelProviders() error {
 
 func (app *chatApp) saveProviderCatalog(catalog providerCatalog) error {
 	config := catalog.activeConfig(app.settings)
+	if len(catalog.Providers) == 0 {
+		config = modelSettings{
+			BaseURL: defaultBaseURL, Model: defaultModel,
+			Proxy: app.settings.Proxy, MCPServers: app.settings.MCPServers,
+		}
+	}
 	if err := app.commitSettings(config, &catalog); err != nil {
 		return err
 	}
 	app.providers = catalog
 	app.providerError = ""
+	return nil
+}
+
+func (app *chatApp) deleteProvider(id string) error {
+	catalog := app.providers
+	index := slices.IndexFunc(catalog.Providers, func(p modelProvider) bool { return p.ID == id })
+	if index < 0 {
+		return errors.New(locales.ProviderUnavailable())
+	}
+	catalog.Providers = slices.Delete(slices.Clone(catalog.Providers), index, index+1)
+	if catalog.Selected.ProviderID == id {
+		catalog.Selected = modelChoice{}
+		if len(catalog.Providers) > 0 {
+			catalog.Selected.ProviderID = catalog.Providers[0].ID
+		}
+	}
+	if err := app.saveProviderCatalog(catalog); err != nil {
+		return err
+	}
+	if app.form.providerID == id {
+		app.editProvider(catalog.Selected.ProviderID)
+	}
+	delete(app.form.providerDrafts, id)
 	return nil
 }
 
@@ -161,8 +195,8 @@ func (app *chatApp) providerFromForm(config modelSettings) (modelProvider, error
 			return modelProvider{}, errors.New(locales.ProviderNameDuplicate())
 		}
 	}
-	models := []string{config.Model}
-	for _, raw := range form.extraModels {
+	models := make([]string, 0, len(form.models))
+	for _, raw := range form.models {
 		model := strings.TrimSpace(*raw)
 		if model == "" {
 			continue

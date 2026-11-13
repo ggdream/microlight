@@ -14,6 +14,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
+	"github.com/ggdream/microlight/pkg/elastic"
 )
 
 type composerSkillPicker struct {
@@ -201,10 +202,10 @@ func (app *chatApp) composerSkills(c *ui.Context, editor ui.Element, workspace s
 				height += 43
 			}
 		}
-		ui.List(c.Key("skills"), &picker.list, len(rows), func(i int) {
+		elastic.List(c.Key("skills"), &picker.list, len(rows), func(i int, offset elastic.Offset) {
 			row := rows[i]
 			if row.entry == nil {
-				ui.Row(c).Height(24).AlignItems(ui.Center).PaddingX(8).Children(func() {
+				offset.Apply(ui.Row(c).Height(24).AlignItems(ui.Center).PaddingX(8)).Children(func() {
 					ui.Text(c, row.title).FontSize(11).FontWeight(620).TextColor(muted)
 				})
 				return
@@ -212,6 +213,7 @@ func (app *chatApp) composerSkills(c *ui.Context, editor ui.Element, workspace s
 			entry := row.entry
 			button := pointerButton(c, false).Label(entry.Name).Tooltip(entry.Description).
 				FillWidth().Height(43).PaddingX(8).Gap(8).Radius(6).AlignItems(ui.Center)
+			offset.Apply(button)
 			if i == picker.highlight || button.Hovered() {
 				button.Background(tint)
 			}

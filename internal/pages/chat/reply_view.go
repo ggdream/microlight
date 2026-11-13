@@ -6,17 +6,18 @@ import (
 	"strings"
 	"time"
 
-	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/assets/locales"
+	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/pages/chat/preview"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown"
+	"github.com/ggdream/microlight/pkg/elastic"
 )
 
 func replyReasoning(entry *turn) (hasReasoning, open bool) {
-	hasBody := strings.TrimSpace(entry.Content) != ""
+	hasBody := strings.TrimSpace(entry.Content) != "" || len(entry.Interface) > 0
 	compressing := entry.State == "pending" && entry.compressing
 	hasReasoning = compressing || len(entry.Activity) != 0 || strings.TrimSpace(entry.processPreview) != "" || slices.ContainsFunc(entry.Clarifications, func(q clarification) bool {
 		return q.Answer != ""
@@ -32,7 +33,7 @@ func replyRunningStatus(entry *turn) string {
 	if slices.ContainsFunc(entry.Activity, func(activity timeline.Entry) bool { return activity.Pending }) {
 		return ""
 	}
-	if entry.compressing || strings.TrimSpace(entry.processPreview) != "" || strings.TrimSpace(entry.Content) != "" {
+	if entry.compressing || len(entry.Interface) > 0 || len(entry.interfacePreview) > 0 || strings.TrimSpace(entry.processPreview) != "" || strings.TrimSpace(entry.Content) != "" {
 		return ""
 	}
 	return locales.Thinking()
@@ -108,9 +109,10 @@ func replyProgress(c *ui.Context, entry *turn, hasReasoning, open bool) {
 	})
 }
 
-func (app *chatApp) replyBody(c *ui.Context, entry *turn, showReasoning bool) {
+func (app *chatApp) replyBody(c *ui.Context, chat *conversation, entry *turn, interfaces *interfaceProjection, showReasoning bool) {
 	hasBody := strings.TrimSpace(entry.Content) != ""
-	if !showReasoning && !hasBody {
+	rows := interfaces.activeRows(entry)
+	if !showReasoning && !hasBody && len(rows) == 0 {
 		return
 	}
 	ui.Column(c.Key("reply-body")).FillWidth().Gap(5).Children(func() {
@@ -123,7 +125,9 @@ func (app *chatApp) replyBody(c *ui.Context, entry *turn, showReasoning bool) {
 				})
 			}
 		}
-		if hasBody {
+		if len(rows) > 0 {
+			app.renderInterfaceAnswer(c.Key("interface-answer"), chat, entry, interfaces, rows)
+		} else if hasBody {
 			app.replyText(c.Key("answer"), entry.Content, entry.State == "pending")
 		}
 	})
@@ -163,7 +167,7 @@ func (app *chatApp) reasoningSegments(c *ui.Context, entry *turn) {
 		answeredClarification(c.Key(answerKey(i)), question)
 	}
 	showActivity(len(entry.Activity))
-	if text := strings.TrimSpace(entry.processPreview); text != "" {
+	if text := strings.TrimSpace(entry.processPreview); text != "" && len(entry.interfacePreview) == 0 {
 		app.replyText(c.Key("stream"), text, true)
 	}
 }
@@ -255,16 +259,7 @@ func (app *chatApp) toolActivityRow(c *ui.Context, entry *turn, index int) {
 			}
 		})
 		if command && *open {
-			ui.Column(c.Key("details")).FillWidth().Padding(8, 10).Gap(4).Radius(6).Background(side).Children(func() {
-				ui.Text(c, activity.Tool).Font("monospace").FontSize(12).Selectable().FillWidth()
-				details := activity.CommandText()
-				if details == "" {
-					details = activity.Details()
-				}
-				if details != "" {
-					ui.Text(c, details).Font("monospace").FontSize(12).Selectable().FillWidth()
-				}
-			})
+			shellCard(c.Key("details"), activity)
 		}
 	})
 }
@@ -309,8 +304,9 @@ func answeredClarification(c *ui.Context, question *clarification) {
 						ui.Text(c, approval.Target).Selectable().FontSize(12).TextColor(muted).FillWidth()
 					}
 					if approval.Preview != "" {
-						ui.Scroll(c).FillWidth().MaxHeight(140).Children(func() {
-							ui.Text(c, approval.Preview).Selectable().Font("monospace").FontSize(12).TextColor(muted).FillWidth()
+						scroll, offset := elastic.Scroll(c)
+						scroll.FillWidth().MaxHeight(140).Children(func() {
+							offset.Apply(ui.Text(c, approval.Preview)).Selectable().Font("monospace").FontSize(12).TextColor(muted).FillWidth()
 						})
 					}
 				}

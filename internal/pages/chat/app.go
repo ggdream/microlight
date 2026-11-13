@@ -5,9 +5,9 @@ import (
 	"log"
 	"os"
 
+	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/desktop"
 	asseticon "github.com/ggdream/microlight/internal/icon"
-	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/storage"
 	"github.com/ggdream/microlight/pkg/markup"
 
@@ -23,6 +23,7 @@ func Run(assets fs.FS) {
 	}
 	home, _ := os.UserHomeDir()
 	app := &chatApp{md: markup.New(ink), skillsHome: home}
+	app.md.Preview = app.links.offer
 	dir, err := mygo.App.Path(mygo.PathUserData)
 	if err == nil {
 		mygo.App.SetPath(mygo.PathUserData, dir)

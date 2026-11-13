@@ -311,13 +311,13 @@ func compileExpressScope(statements []statement, catalogs []*a2ui.Catalog, state
 			continue
 		}
 		if s.target != "" {
-			if c.componentCatalog(fn.name) != nil {
+			if c.componentCatalog(fn) != nil {
 				if err := c.component(s.target, fn); err != nil {
 					return nil, err
 				}
 			} else if first := []rune(fn.name); len(first) > 0 && unicode.IsUpper(first[0]) && fn.name != "Event" {
 				return nil, fmt.Errorf("unknown component %q", fn.name)
-			} else if strings.HasPrefix(fn.name, "@") {
+			} else if _, explicit := expressCatalogArg(fn); explicit || strings.HasPrefix(fn.name, "@") {
 				if _, err := c.value(fn, "", nil); err != nil {
 					return nil, err
 				}
@@ -353,6 +353,9 @@ func compileExpressScope(statements []statement, catalogs []*a2ui.Catalog, state
 				}
 				switch {
 				case arg.name == "catalogId" || arg.name == "catalog" || (i == 1 && arg.name == ""):
+					if i == 1 && arg.name == "" && len(catalogs) > 1 {
+						return nil, fmt.Errorf("specify a named catalogId for a surface")
+					}
 					catalogID, _ := v.(string)
 					c.pinned = c.findCatalog(catalogID)
 					if c.pinned == nil {
@@ -446,7 +449,16 @@ func (c *expressCompiler) findCatalog(id string) *a2ui.Catalog {
 	return nil
 }
 
-func (c *expressCompiler) componentCatalog(name string) *a2ui.Catalog {
+func (c *expressCompiler) componentCatalog(fn call) *a2ui.Catalog {
+	name := fn.name
+	id, _ := expressCatalogArg(fn)
+	if id != "" {
+		catalog := c.findCatalog(id)
+		if catalog != nil && catalog.Components[name] != nil {
+			return catalog
+		}
+		return nil
+	}
 	for _, catalog := range c.catalogs {
 		if (c.pinned == nil || c.pinned == catalog) && catalog.Components[name] != nil {
 			return catalog
@@ -457,7 +469,7 @@ func (c *expressCompiler) componentCatalog(name string) *a2ui.Catalog {
 
 func (c *expressCompiler) functionCatalog(name, id string) *a2ui.Catalog {
 	for _, catalog := range c.catalogs {
-		if (c.pinned == nil || c.pinned == catalog) && (id == "" || catalog.ID == id) && catalog.Functions[name] != nil {
+		if ((id == "" && (c.pinned == nil || c.pinned == catalog)) || catalog.ID == id) && catalog.Functions[name] != nil {
 			return catalog
 		}
 	}
@@ -473,12 +485,12 @@ func (c *expressCompiler) component(id string, fn call) error {
 		return fmt.Errorf("duplicate component ID %q", id)
 	}
 	c.ids[id] = true
-	catalog := c.componentCatalog(fn.name)
+	catalog := c.componentCatalog(fn)
 	if catalog == nil {
 		return fmt.Errorf("unknown component %q", fn.name)
 	}
 	raw := catalog.Components[fn.name]
-	fields := schemaFields(raw, "component")
+	fields := slices.DeleteFunc(schemaFields(raw, "component"), func(name string) bool { return name == "catalogId" })
 	if strings.Contains(string(raw), "Checkable") {
 		fields = append(fields, "checks")
 	}
@@ -527,7 +539,7 @@ func (c *expressCompiler) component(id string, fn call) error {
 		if arg.name == "extensions" && containsInvocation(arg.value) {
 			return fmt.Errorf("extensions must contain literal values")
 		}
-		if arg.name == "id" {
+		if arg.name == "id" || arg.name == "catalogId" {
 			continue
 		}
 		var childSchema json.RawMessage
@@ -541,6 +553,9 @@ func (c *expressCompiler) component(id string, fn call) error {
 			return err
 		}
 		name := arg.name
+		if name == "componentCatalogId" {
+			name = "catalogId"
+		}
 		if name == "checks" {
 			name = "@checks"
 		}
@@ -561,7 +576,7 @@ func (c *expressCompiler) component(id string, fn call) error {
 	if err != nil {
 		return err
 	}
-	if c.pinned == nil {
+	if c.pinned == nil || c.pinned != catalog {
 		component.Catalog = catalog.ID
 	}
 	if err := catalog.ValidateComponent(component); err != nil {
@@ -579,7 +594,7 @@ func (c *expressCompiler) value(value any, id string, componentArgs []argument) 
 		if !ok {
 			return nil, fmt.Errorf("unknown Express variable %q", name)
 		}
-		if fn, ok := raw.(call); ok && c.componentCatalog(fn.name) != nil {
+		if fn, ok := raw.(call); ok && c.componentCatalog(fn) != nil {
 			return explicitComponentID(name, fn)
 		}
 		if c.building[name] {
@@ -589,13 +604,16 @@ func (c *expressCompiler) value(value any, id string, componentArgs []argument) 
 		defer delete(c.building, name)
 		return c.value(raw, id, componentArgs)
 	case call:
-		if c.componentCatalog(v.name) != nil {
+		if c.componentCatalog(v) != nil {
 			if id == "" {
 				return nil, fmt.Errorf("inline component requires a parent")
 			}
 			return id, c.component(id, v)
 		}
 		if v.name == "Event" || v.name == "_template" {
+			if _, specified := expressCatalogArg(v); specified {
+				return nil, fmt.Errorf("%s cannot specify catalogId", v.name)
+			}
 			fields := []string{"name", "context", "userMessage"}
 			if v.name == "_template" {
 				fields = []string{"path", "componentId"}
@@ -632,7 +650,13 @@ func (c *expressCompiler) value(value any, id string, componentArgs []argument) 
 			fields = []string{"offset"}
 		}
 		checkMessage := ""
-		checkCatalog := ""
+		checkCatalog, explicitCatalog := expressCatalogArg(v)
+		if explicitCatalog {
+			if checkCatalog == "" {
+				return nil, fmt.Errorf("invalid catalogId for %s", name)
+			}
+			v.args = slices.DeleteFunc(slices.Clone(v.args), func(arg argument) bool { return arg.name == "catalogId" })
+		}
 		if check {
 			if len(v.args) > 0 {
 				if options, ok := v.args[len(v.args)-1].value.(map[string]any); ok {
@@ -694,7 +718,7 @@ func (c *expressCompiler) value(value any, id string, componentArgs []argument) 
 		if check {
 			result := map[string]any{"condition": call}
 			if checkMessage == "" {
-				checkMessage = "Invalid value."
+				checkMessage = defaultCheckMessage(name)
 			}
 			result["message"] = checkMessage
 			return result, nil
@@ -970,4 +994,14 @@ func (c *expressCompiler) forward(value any, schema json.RawMessage) any {
 		return next
 	}
 	return value
+}
+
+func expressCatalogArg(fn call) (string, bool) {
+	for _, arg := range fn.args {
+		if arg.name == "catalogId" {
+			id, _ := arg.value.(string)
+			return id, true
+		}
+	}
+	return "", false
 }

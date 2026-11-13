@@ -12,7 +12,6 @@ import (
 	"uuid"
 
 	"github.com/ggdream/microlight/assets/locales"
-	"github.com/ggdream/microlight/internal/storage"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/adk/session"
@@ -21,24 +20,20 @@ import (
 )
 
 func TestSQLiteSessionStoreConformance(t *testing.T) {
-	session.RunConformanceTests(t, func(t testing.TB) adk.SessionEventStore[*schema.Message] {
+	session.RunConformanceTests(t, func(t testing.TB) adk.SessionEventStore[*schema.AgenticMessage] {
 		store, err := openLocalStore(t.TempDir())
 		if err != nil {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { store.Close() })
 		return store
-	}, schema.UserMessage)
+	}, schema.UserAgenticMessage)
 }
 
 func TestRunnerClarificationSurvivesRestart(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var request struct {
-			Messages []struct {
-				Role, Content string
-				ToolCallID    string `json:"tool_call_id"`
-				Reasoning     string `json:"reasoning_content"`
-			}
+			Messages []chatRequestMessage
 		}
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Error(err)
@@ -67,7 +62,7 @@ func TestRunnerClarificationSurvivesRestart(t *testing.T) {
 	defer server.Close()
 
 	ctx := t.Context()
-	config := modelSettings{BaseURL: server.URL, Model: "test"}
+	config := modelSettings{Protocol: openAIChat, BaseURL: server.URL, Model: "test"}
 	dir := t.TempDir()
 	store, err := openLocalStore(dir)
 	if err != nil {
@@ -75,10 +70,6 @@ func TestRunnerClarificationSurvivesRestart(t *testing.T) {
 	}
 	const id = "clarification"
 	backend := newChat(config)
-	backend.agent, err = backend.buildAgent(ctx, storage.LegacyAgentName)
-	if err != nil {
-		t.Fatal(err)
-	}
 	question, err := backend.runSession(ctx, store, id, []*turn{userTurn("Plan a trip")}, nil, "", func(replyDelta) error { return nil })
 	if err != nil || question == nil || question.CheckpointID == "" || len(question.Options) != 2 {
 		t.Fatalf("expected a checkpointed clarification, got %+v, %v", question, err)
@@ -102,7 +93,6 @@ func TestRunnerClarificationSurvivesRestart(t *testing.T) {
 	for _, event := range events.Events {
 		requireV7(event.EventID)
 	}
-	question.AgentName = "" // Simulate a checkpoint saved before the name was persisted.
 	chat := &conversation{ID: id, sessionID: id, Turns: []*turn{userTurn("Plan a trip"), {State: "waiting", message: message{Role: "assistant"}, Clarifications: []clarification{*question}}}}
 	if err := store.saveHistory(history{Selected: id, Chats: []*conversation{chat}}, chat); err != nil {
 		t.Fatal(err)
@@ -169,4 +159,38 @@ func TestClarificationRemovesOptionLabels(t *testing.T) {
 	if !slices.Equal(got.Options, want) {
 		t.Errorf("options = %q, want %q", got.Options, want)
 	}
+}
+
+type chatRequestMessage struct {
+	Role       string
+	Content    string
+	ToolCallID string `json:"tool_call_id"`
+	Reasoning  string `json:"reasoning_content"`
+}
+
+func (m *chatRequestMessage) UnmarshalJSON(data []byte) error {
+	var wire struct {
+		Role       string
+		Content    json.RawMessage
+		ToolCallID string `json:"tool_call_id"`
+		Reasoning  string `json:"reasoning_content"`
+	}
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return err
+	}
+	m.Role, m.ToolCallID, m.Reasoning = wire.Role, wire.ToolCallID, wire.Reasoning
+	if len(wire.Content) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(wire.Content, &m.Content); err == nil {
+		return nil
+	}
+	var blocks []struct{ Text string }
+	if err := json.Unmarshal(wire.Content, &blocks); err != nil {
+		return err
+	}
+	for _, block := range blocks {
+		m.Content += block.Text
+	}
+	return nil
 }

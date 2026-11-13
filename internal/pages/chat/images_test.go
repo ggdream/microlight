@@ -28,11 +28,13 @@ func TestImagesStayInConversationAfterReopen(t *testing.T) {
 	if _, err := store.Exec(`
 		DROP TABLE turn_images;
 		ALTER TABLE turns DROP COLUMN activity;
+        ALTER TABLE turns DROP COLUMN a2ui;
 		ALTER TABLE turns DROP COLUMN reasoning;
 		ALTER TABLE turns DROP COLUMN started_at;
 		ALTER TABLE turns DROP COLUMN finished_at;
 		ALTER TABLE turns DROP COLUMN clarifications;
 		ALTER TABLE conversations DROP COLUMN session_id;
+		ALTER TABLE conversations DROP COLUMN session_model;
 		ALTER TABLE conversations DROP COLUMN access_mode;
 		ALTER TABLE conversations DROP COLUMN workspace;
 		ALTER TABLE conversations DROP COLUMN pinned;
@@ -146,7 +148,7 @@ func TestImagesStayInConversationAfterReopen(t *testing.T) {
 	defer server.Close()
 
 	var reply string
-	backend := newChat(modelSettings{BaseURL: server.URL, Model: "vision-test"})
+	backend := newChat(modelSettings{Protocol: openAIChat, BaseURL: server.URL, Model: "vision-test"})
 	err = backend.stream(t.Context(), []message{turns[0].message, turns[1].message, {Role: "user", Content: "What color is the second image?"}}, func(part replyDelta) error {
 		reply += part.text
 		return nil

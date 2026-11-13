@@ -8,13 +8,14 @@ import (
 	"strings"
 	"sync"
 
-	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/assets/locales"
+	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/session"
 	skillset "github.com/ggdream/microlight/internal/skills"
-	"github.com/ggdream/microlight/internal/storage"
 	project "github.com/ggdream/microlight/internal/workspace"
+	"github.com/ggdream/microlight/pkg/a2ui"
+	"github.com/ggdream/microlight/pkg/a2uiagent"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/adk/middlewares/summarization"
@@ -26,11 +27,6 @@ func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID s
 		return nil, errors.New(locales.DatabaseRequired())
 	}
 	agent := chat.agent
-	// Earlier checkpoints reference the old root agent name in their run path.
-	name := conversationAgentName
-	if resume != nil && (resume.AgentName == "" || resume.AgentName == storage.LegacyAgentName) {
-		name = storage.LegacyAgentName
-	}
 	workspace := localtools.Workspace(ctx, chat.config.Workspace)
 	ctx = project.WithInstructions(ctx, workspace)
 	var toolResults sync.Map
@@ -51,27 +47,21 @@ func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID s
 			return nil, err
 		}
 		var err error
-		agent, err = chat.buildExtendedAgent(ctx, name, &ext)
-		if err != nil {
-			return nil, err
-		}
-	} else if name == storage.LegacyAgentName {
-		var err error
-		agent, err = chat.buildAgent(ctx, name)
+		agent, err = chat.buildExtendedAgent(ctx, &ext)
 		if err != nil {
 			return nil, err
 		}
 	}
-	runner := adk.NewRunner(ctx, adk.RunnerConfig{
+	runner := adk.NewTypedRunner(adk.TypedRunnerConfig[*schema.AgenticMessage]{
 		Agent: agent, EnableStreaming: true, SessionID: sessionID,
 		SessionStore: store, CheckPointStore: store,
-		SessionConfig: &adk.SessionConfig[*schema.Message]{
+		SessionConfig: &adk.SessionConfig[*schema.AgenticMessage]{
 			EventIDGenerator: func(context.Context, *session.Event) (string, error) {
 				return newID(), nil
 			},
 		},
 	})
-	var iter *adk.AsyncIterator[*adk.AgentEvent]
+	var iter *adk.AsyncIterator[*adk.TypedAgentEvent[*schema.AgenticMessage]]
 	if resume != nil {
 		var err error
 		iter, err = runner.ResumeWithParams(ctx, resume.CheckpointID, &adk.ResumeParams{
@@ -87,20 +77,44 @@ func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID s
 		}
 		iter = runner.Run(ctx, msgs, adk.WithCheckPointID(newID()))
 	}
-	question, err := readAgentReply(iter, &toolResults, skills, emit)
-	if question != nil {
-		question.AgentName = agent.Name(ctx)
+	request, _ := ctx.Value(interfaceContextKey{}).(*interfaceRequest)
+	for pass := 0; ; pass++ {
+		question, followups, next, err := readAgentReply(ctx, iter, &toolResults, skills, request, emit)
+		if err != nil || question != nil || len(followups) == 0 {
+			return question, err
+		}
+		if pass == 2 {
+			return nil, emit(replyDelta{interfaceUpdates: []interfaceUpdate{{Invalid: true}}})
+		}
+		msgs := make([]*schema.AgenticMessage, 0, len(followups))
+		for _, event := range followups {
+			msg, err := interfaceEventInput(event)
+			if err != nil {
+				return nil, err
+			}
+			msgs = append(msgs, msg)
+		}
+		request = next
+		ctx = context.WithValue(ctx, interfaceContextKey{}, request)
+		iter = runner.Run(ctx, msgs, adk.WithCheckPointID(newID()))
 	}
-	return question, err
 }
 
 // A new session starts from the UI's original transcript. Subsequent calls
 // pass just the new user turn and let Runner replay the event log.
-func sessionInput(turns []*turn) ([]*schema.Message, error) {
-	messages := make([]*schema.Message, 0, len(turns))
+func sessionInput(turns []*turn) ([]*schema.AgenticMessage, error) {
+	messages := make([]*schema.AgenticMessage, 0, len(turns))
 	for _, entry := range turns {
 		switch entry.Role {
 		case "user":
+			if entry.InterfaceAction != nil {
+				msg, err := interfaceEventInput(*entry.InterfaceAction)
+				if err != nil {
+					return nil, err
+				}
+				messages = append(messages, msg)
+				continue
+			}
 			if strings.TrimSpace(entry.Content) == "" && len(entry.Attachments) == 0 {
 				return nil, errors.New(locales.EmptyMessage())
 			}
@@ -108,6 +122,16 @@ func sessionInput(turns []*turn) ([]*schema.Message, error) {
 		case "assistant":
 			var content strings.Builder
 			content.WriteString(entry.Content)
+			for _, update := range entry.Interface {
+				if update.Local || len(update.Messages) == 0 {
+					continue
+				}
+				raw, err := json.Marshal(update.Messages)
+				if err != nil {
+					return nil, err
+				}
+				content.WriteString("\n" + a2uiagent.Wrap(a2uiagent.DirectJSON, string(raw)))
+			}
 			for _, q := range entry.Clarifications {
 				if q.Answer != "" {
 					if q.Approval != nil {
@@ -118,8 +142,7 @@ func sessionInput(turns []*turn) ([]*schema.Message, error) {
 				}
 			}
 			if content.Len() > 0 {
-				msg := schema.AssistantMessage(content.String(), nil)
-				msg.ReasoningContent = entry.Reasoning
+				msg := assistantMessage(content.String())
 				messages = append(messages, msg)
 			}
 		}
@@ -127,9 +150,11 @@ func sessionInput(turns []*turn) ([]*schema.Message, error) {
 	return messages, nil
 }
 
-func readAgentReply(iter *adk.AsyncIterator[*adk.AgentEvent], toolResults *sync.Map, skills *skillset.Catalog, emit func(replyDelta) error) (*clarification, error) {
+func readAgentReply(ctx context.Context, iter *adk.AsyncIterator[*adk.TypedAgentEvent[*schema.AgenticMessage]], toolResults *sync.Map, skills *skillset.Catalog, request *interfaceRequest, emit func(replyDelta) error) (*clarification, []a2ui.RendererMessage, *interfaceRequest, error) {
 	var question *clarification
 	var failure error
+	var followups []a2ui.RendererMessage
+	seenCalls := make(map[string]bool)
 	hasText := false
 	flushToolResults := func() {
 		toolResults.Range(func(key, value any) bool {
@@ -152,7 +177,7 @@ func readAgentReply(iter *adk.AsyncIterator[*adk.AgentEvent], toolResults *sync.
 		if event.Action != nil && failure == nil {
 			if event.Action.Interrupted != nil {
 				question, failure = clarificationFromInterrupt(event.Action.Interrupted)
-			} else if action, ok := event.Action.CustomizedAction.(*summarization.CustomizedAction); ok && action != nil {
+			} else if action, ok := event.Action.CustomizedAction.(*summarization.TypedCustomizedAction[*schema.AgenticMessage]); ok && action != nil {
 				switch action.Type {
 				case summarization.ActionTypeBeforeSummarize:
 					failure = emit(replyDelta{compression: compressionStarted})
@@ -168,25 +193,94 @@ func readAgentReply(iter *adk.AsyncIterator[*adk.AgentEvent], toolResults *sync.
 		// Tool calls can arrive after text in the same stream, so show the
 		// text as a preview until the message can be classified.
 		var content, reasoning strings.Builder
-		var calls []*schema.Message
-		var completedTool string
-		collect := func(msg *schema.Message) {
+		var callChunks []*schema.AgenticMessage
+		var completedTools []string
+		toolText := make(map[string]*strings.Builder)
+		var surfaceStream *a2uiagent.Stream
+		if request != nil && output.AgenticRole == schema.AgenticRoleTypeAssistant {
+			var err error
+			surfaceStream, err = request.stream()
+			if err != nil && failure == nil {
+				failure = err
+			}
+		}
+		var updates []interfaceUpdate
+		var outbound []a2ui.RendererMessage
+		absorb := func(parts []a2uiagent.Part, err error) {
+			var preview strings.Builder
+			start := len(updates)
+			for _, part := range parts {
+				content.WriteString(part.Text)
+				preview.WriteString(part.Text)
+				if part.Err != nil {
+					updates = append(updates, interfaceUpdate{Offset: content.Len(), Invalid: true})
+					var integrity *a2ui.IntegrityError
+					if errors.As(part.Err, &integrity) {
+						outbound = append(outbound, integrity.RendererMessage())
+					}
+				}
+				var state []a2ui.AgentMessage
+				for _, msg := range part.Messages {
+					if msg.CallRenderer != nil {
+						rpc := a2ui.RPC{Processor: surfaceStream.State, Send: func(response a2ui.RendererMessage) error {
+							outbound = append(outbound, response)
+							return nil
+						}}
+						if err := rpc.Handle(ctx, msg); err != nil {
+							updates = append(updates, interfaceUpdate{Offset: content.Len(), Invalid: true})
+						}
+					} else if msg.AgentResponse == nil {
+						state = append(state, msg)
+					}
+				}
+				if len(state) != 0 {
+					updates = append(updates, interfaceUpdate{Offset: content.Len(), Messages: state})
+				}
+			}
+			if err != nil {
+				updates = append(updates, interfaceUpdate{Offset: content.Len(), Invalid: true})
+			}
+			if output.IsStreaming && (preview.Len() > 0 || len(updates) > start) {
+				failure = emit(replyDelta{preview: preview.String(), interfacePreview: updates[start:]})
+			}
+		}
+		collect := func(msg *schema.AgenticMessage) {
 			if msg == nil {
 				return
 			}
-			if output.Role == schema.Tool && msg.ToolCallID != "" {
-				completedTool = msg.ToolCallID
+			for _, block := range msg.ContentBlocks {
+				if result := block.FunctionToolResult; result != nil && result.CallID != "" {
+					text := toolText[result.CallID]
+					if text == nil {
+						completedTools = append(completedTools, result.CallID)
+						text = &strings.Builder{}
+						toolText[result.CallID] = text
+					}
+					for _, part := range result.Content {
+						if part != nil && part.Text != nil {
+							const maxToolText = 64 << 10
+							n := min(len(part.Text.Text), maxToolText-text.Len())
+							text.WriteString(part.Text.Text[:n])
+						}
+					}
+				}
 			}
-			if output.Role != schema.Assistant || failure != nil {
+			if output.AgenticRole != schema.AgenticRoleTypeAssistant || failure != nil {
 				return
 			}
-			content.WriteString(msg.Content)
-			reasoning.WriteString(msg.ReasoningContent)
-			if len(msg.ToolCalls) != 0 {
-				calls = append(calls, &schema.Message{ToolCalls: msg.ToolCalls})
+			text, thought := generatedText(msg)
+			reasoning.WriteString(thought)
+			for _, block := range msg.ContentBlocks {
+				if block.FunctionToolCall != nil {
+					callChunks = append(callChunks, &schema.AgenticMessage{
+						Role: msg.Role, ContentBlocks: []*schema.ContentBlock{block},
+					})
+				}
 			}
-			if output.IsStreaming && msg.Content != "" {
-				failure = emit(replyDelta{preview: msg.Content})
+			if surfaceStream != nil {
+				absorb(surfaceStream.Push(text))
+			} else {
+				absorb([]a2uiagent.Part{{Text: text}}, nil)
 			}
 		}
 		if output.IsStreaming {
@@ -204,31 +298,60 @@ func readAgentReply(iter *adk.AsyncIterator[*adk.AgentEvent], toolResults *sync.
 		} else {
 			collect(output.Message)
 		}
-		if output.Role != schema.Assistant || failure != nil {
-			if output.Role == schema.Tool {
-				flushToolResults()
-				if completedTool != "" && failure == nil {
-					failure = emit(replyDelta{toolFinished: completedTool})
+		if len(completedTools) != 0 {
+			flushToolResults()
+			for _, id := range completedTools {
+				if failure == nil {
+					var output *string
+					if text := toolText[id]; text.Len() != 0 {
+						value := strings.ToValidUTF8(text.String(), "�")
+						output = &value
+					}
+					failure = emit(replyDelta{toolFinished: id, toolOutput: output})
 				}
 			}
+		}
+		if output.AgenticRole != schema.AgenticRoleTypeAssistant || failure != nil {
 			continue
 		}
+		if surfaceStream != nil {
+			absorb(surfaceStream.Close())
+			if failure != nil {
+				continue
+			}
+		}
 		delta := replyDelta{messageDone: true, reasoning: reasoning.String()}
-		if len(calls) == 0 {
+		if len(callChunks) == 0 {
 			delta.text = content.String()
-			hasText = hasText || strings.TrimSpace(delta.text) != ""
+			delta.interfaceUpdates = updates
+			hasText = hasText || strings.TrimSpace(delta.text) != "" || len(updates) != 0
+			if surfaceStream != nil {
+				request = request.advance(surfaceStream.State, updates)
+			}
+			for _, event := range outbound {
+				if len(followups) >= 8 {
+					break
+				}
+				if response := event.RendererResponse; response != nil {
+					if seenCalls[response.ID] {
+						continue
+					}
+					seenCalls[response.ID] = true
+				}
+				followups = append(followups, event)
+			}
 		} else {
-			joined, err := schema.ConcatMessages(calls)
+			joined, err := schema.ConcatAgenticMessages(callChunks)
 			if err != nil {
 				failure = err
 				continue
 			}
-			activity := make([]timeline.Entry, 0, len(joined.ToolCalls)+1)
+			activity := make([]timeline.Entry, 0, len(joined.ContentBlocks)+1)
 			if text := strings.TrimSpace(content.String()); text != "" {
 				activity = append(activity, timeline.Entry{Text: text})
 			}
-			for _, call := range joined.ToolCalls {
-				item := timeline.DescribeToolCall(call)
+			for _, block := range joined.ContentBlocks {
+				item := timeline.DescribeToolCall(block.FunctionToolCall)
 				if item.Tool == timeline.SkillTool {
 					item.ResolvedTarget = skills.Directory(item.SkillName())
 				}
@@ -239,10 +362,10 @@ func readAgentReply(iter *adk.AsyncIterator[*adk.AgentEvent], toolResults *sync.
 		failure = emit(delta)
 	}
 	flushToolResults()
-	if failure == nil && !hasText && question == nil {
+	if failure == nil && !hasText && question == nil && len(followups) == 0 {
 		failure = errors.New(locales.EmptyReply())
 	}
-	return question, failure
+	return question, followups, request, failure
 }
 
 func clarificationFromInterrupt(info *adk.InterruptInfo) (*clarification, error) {

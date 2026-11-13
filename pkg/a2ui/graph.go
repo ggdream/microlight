@@ -164,8 +164,10 @@ func (p *Processor) update(s *Surface, components []Component) error {
 				delete(component.Props, property)
 			}
 		}
-		if err := catalog.ValidateComponent(component); err != nil {
-			return fmt.Errorf("component %q: %w", component.ID, err)
+		if _, known := catalog.Components[component.Type]; known || !p.allowViewFallbacks {
+			if err := catalog.ValidateComponent(component); err != nil {
+				return fmt.Errorf("component %q: %w", component.ID, err)
+			}
 		}
 		for _, raw := range component.Props {
 			value, err := decodeValue(raw)
@@ -178,8 +180,10 @@ func (p *Processor) update(s *Surface, components []Component) error {
 		candidate[component.ID] = component
 		children[component.ID] = catalog.childReferences(component)
 	}
-	if err := validateGraph(candidate, children, false, false); err != nil {
-		return err
+	if !p.allowViewFallbacks {
+		if err := validateGraph(candidate, children, false, false); err != nil {
+			return err
+		}
 	}
 	if err := p.validateComposition(s.catalog, candidate, children); err != nil {
 		return err
@@ -224,13 +228,15 @@ func (p *Processor) validateCalls(value any, defaultCatalog string, depth int) e
 			if err != nil {
 				return err
 			}
-			if !catalog.rendererMayCall(name) {
+			if !catalog.RendererMayCall(name) {
 				return fmt.Errorf("function %q is agentOnly", name)
 			}
 			args, _ := value["args"].(map[string]any)
 			override, _ := value["catalogId"].(string)
-			if err := catalog.ValidateFunction(FunctionCall{Name: name, Catalog: override, Args: args}); err != nil {
-				return err
+			if _, declared := catalog.Functions[name]; declared || !p.allowUndeclaredFunctions {
+				if err := catalog.ValidateFunction(FunctionCall{Name: name, Catalog: override, Args: args}); err != nil {
+					return err
+				}
 			}
 		}
 		for _, item := range value {

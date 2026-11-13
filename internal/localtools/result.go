@@ -7,10 +7,18 @@ import (
 )
 
 type Result struct {
-	CallID string
-	Target string
-	Text   string
-	Diff   *diff.Lines
+	CallID  string
+	Target  string
+	Text    string
+	Diff    *diff.Lines
+	Command *CommandResult
+}
+
+type CommandResult struct {
+	ExitCode  *int `json:",omitempty"`
+	TimedOut  bool `json:",omitempty"`
+	Truncated bool `json:",omitempty"`
+	Failed    bool `json:",omitempty"`
 }
 
 type reportToolResultKey struct{}

@@ -6,6 +6,7 @@ import (
 	"github.com/ggdream/microlight/assets/locales"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/elastic"
 )
 
 func (app *chatApp) sidebarDivider(c *ui.Context, limit float32) float32 {
@@ -87,8 +88,9 @@ func (app *chatApp) sidebar(c *ui.Context, selected *conversation, shortcut stri
 			listTheme.Scrollbar = muted.Alpha(0.36)
 			// The scroll area reaches the sidebar edge, but its rows share the button's inset.
 			ui.Themed(c, &listTheme).Grow(1).MinHeight(0).Background(ui.Transparent).Children(func() {
-				ui.Scroll(c).Fill().MinHeight(0).Children(func() {
-					ui.Column(c).FillWidth().Padding(0, sidebarInset, 0, 0).Gap(3).Children(func() {
+				scroll, offset := elastic.Scroll(c)
+				scroll.Fill().MinHeight(0).Children(func() {
+					offset.Apply(ui.Column(c)).FillWidth().Padding(0, sidebarInset, 0, 0).Gap(3).Children(func() {
 						chats := app.sidebarChats()
 						if len(chats) == 0 {
 							ui.Text(c, locales.NoChats()).FontSize(12).Padding(7).TextColor(muted)

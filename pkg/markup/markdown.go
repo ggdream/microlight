@@ -24,6 +24,7 @@ type renderedFormula struct {
 
 func New(ink ui.Color) *markdown.Options {
 	options := &markdown.Options{WrapCode: true, Extensions: parser.Default | parser.ExtDollarMath}
+	options.Code = map[string]func(*ui.Context, *markdown.CodeBlockView){"mermaid": mermaidBlock()}
 	renderer, err := texmath.New(texmath.DefaultFont())
 	if err != nil {
 		log.Printf("初始化公式渲染失败：%v", err)

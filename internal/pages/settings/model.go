@@ -11,11 +11,15 @@ import (
 
 type ModelFields struct {
 	BaseURL, APIKey, Temperature, TopP, MaxTokens, ContextThreshold *string
+	ProviderName                                                    *string
+	SelectedProvider                                                string
 	SavedKeyLength                                                  int
 	RemoveKey                                                       bool
 	DefaultContextThreshold                                         int
 	OnChange                                                        func()
-	Provider, Models, ConnectionTest                                func(*ui.Context)
+	ClearKey                                                        func()
+	Provider, Protocol, Models                                      func(*ui.Context)
+	BaseURLHint                                                     string
 }
 
 type ConnectionTestState struct {
@@ -24,10 +28,41 @@ type ConnectionTestState struct {
 }
 
 func ModelPanel(c *ui.Context, form ModelFields) {
-	Section(c, locales.SettingsModel(), locales.SettingsModelHint(), func() {
-		form.Provider(c.Key("provider"))
+	ui.Column(c.Key("provider-switcher")).FillWidth().Shrink(0).AlignItems(ui.Center).
+		Background(theme.Canvas).Padding(22, 22, 16).Children(func() {
+		ui.Column(c).FillWidth().MaxWidth(610).Children(func() {
+			Card(c, locales.ModelProviders(), func() {
+				form.Provider(c.Key("provider"))
+			})
+		})
+	})
+	details := c.Key("provider-details")
+	section(details, func() {
+		ui.Column(details).Gap(5).Children(func() {
+			title := locales.NewProvider()
+			if form.SelectedProvider != "" {
+				title = locales.ConfigureProvider()
+			}
+			ui.Row(details).FillWidth().Wrap().AlignItems(ui.Center).Gap(10).Children(func() {
+				ui.Text(details, title).FontSize(29).FontWeight(680)
+				if name := form.SelectedProvider; name != "" {
+					ui.Box(details.Key("provider-name")).MaxWidth(240).MinWidth(0).
+						Padding(4, 11).Radius(12).Background(theme.Tint).Tooltip(name).Children(func() {
+						ui.Text(details, name).SingleLine().Ellipsis("…").
+							FontSize(15).FontWeight(650).TextColor(theme.Accent)
+					})
+				}
+			})
+			ui.Text(details, locales.ProviderSetupHint()).FontSize(13).TextColor(theme.Muted)
+		})
+	}, func() {
 		Card(c, locales.Connection(), func() {
-			Field(c, locales.BaseURL(), "https://api.openai.com/v1", form.BaseURL).OnChange(form.OnChange)
+			Field(c, locales.ProviderName(), "OpenAI", form.ProviderName)
+			protocol := c.Key("protocol")
+			ui.Column(protocol).FillWidth().Gap(8).Children(func() {
+				form.Protocol(protocol)
+			})
+			Field(c, locales.BaseURL(), form.BaseURLHint, form.BaseURL).OnChange(form.OnChange)
 			placeholder := locales.ApiKeyHint()
 			hasSavedKey := form.SavedKeyLength > 0
 			if hasSavedKey {
@@ -39,9 +74,11 @@ func ModelPanel(c *ui.Context, form ModelFields) {
 				Password().OnChange(form.OnChange)
 			if hasSavedKey {
 				keyInput.PlaceholderColor(theme.Ink).Label(locales.ApiKeyConfigured())
+				theme.PointerButton(c, false).Label(locales.ClearSavedKey()).Padding(4, 5).AlignSelf(ui.Start).Children(func() {
+					ui.Text(c, locales.ClearKey()).FontSize(11).TextColor(theme.Muted)
+				}).OnClick(form.ClearKey)
 			}
-			form.ConnectionTest(c)
-		})
+		}).Gap(17)
 		form.Models(c.Key("models"))
 		Card(c, locales.Generation(), func() {
 			ui.Text(c, locales.GenerationHint()).FontSize(12).TextColor(theme.Muted)
@@ -56,22 +93,21 @@ func ModelPanel(c *ui.Context, form ModelFields) {
 	})
 }
 
-func ConnectionTest(c *ui.Context, state *ConnectionTestState, hasSavedKey bool, run, clearKey func()) {
+func ConnectionTest(c *ui.Context, state *ConnectionTestState, model string, run func()) {
 	running := state != nil && state.Running
 	ui.Row(c).AlignItems(ui.Center).Gap(10).Children(func() {
-		button := theme.PointerButton(c, running).Label(locales.TestConnection()).Height(34).Shrink(0).PaddingX(12).
+		button := theme.PointerButton(c, running || model == "").Label(locales.TestConnection()).Height(34).Shrink(0).PaddingX(12).
 			Radius(7).Border(1, theme.Border).AlignItems(ui.Center)
-		if button.Hovered() && !running {
+		if button.Hovered() && !running && model != "" {
 			button.Background(theme.Tint)
 		}
 		button.Children(func() {
-			ui.Text(c, locales.TestConnection()).FontSize(12).FontWeight(620).TextColor(theme.Accent)
+			color := theme.Accent
+			if model == "" {
+				color = theme.Muted
+			}
+			ui.Text(c, locales.TestConnection()).FontSize(12).FontWeight(620).TextColor(color)
 		}).OnClick(run)
-		if hasSavedKey {
-			theme.PointerButton(c, false).Label(locales.ClearSavedKey()).Padding(4, 5).Shrink(0).Children(func() {
-				ui.Text(c, locales.ClearKey()).FontSize(11).TextColor(theme.Muted)
-			}).OnClick(clearKey)
-		}
 		if state != nil {
 			color := theme.Accent
 			if state.Failed {

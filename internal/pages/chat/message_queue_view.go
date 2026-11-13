@@ -6,6 +6,7 @@ import (
 	"github.com/ggdream/microlight/assets/locales"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/elastic"
 )
 
 func (app *chatApp) busySendSettings(c *ui.Context) {
@@ -57,8 +58,9 @@ func (app *chatApp) messageQueue(c *ui.Context, chat *conversation) {
 	}
 	ui.Column(c).FillWidth().MaxWidth(conversationWidth).Gap(2).Padding(4, 8).
 		Background(white).Radius(13).Border(1, border).Children(func() {
-		ui.Scroll(c).FillWidth().MaxHeight(168).Children(func() {
-			ui.Column(c).FillWidth().Children(func() {
+		scroll, offset := elastic.Scroll(c)
+		scroll.FillWidth().MaxHeight(168).Children(func() {
+			offset.Apply(ui.Column(c)).FillWidth().Children(func() {
 				for _, entry := range chat.queue {
 					if edit := app.queueEdit; edit != nil && edit.id == entry.ID {
 						app.queueMessageEditor(c.Key(entry.ID), chat, entry, edit)

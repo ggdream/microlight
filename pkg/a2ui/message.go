@@ -80,6 +80,8 @@ type FunctionError struct {
 	Message string `json:"message"`
 }
 
+func (e *FunctionError) Error() string { return e.Message }
+
 type RendererMessage struct {
 	Version          string             `json:"version"`
 	Action           *ActionEvent       `json:"action,omitempty"`
@@ -229,4 +231,19 @@ func DecodeRenderer(data []byte) (RendererMessage, error) {
 	}
 	err := json.Unmarshal(data, &message)
 	return message, err
+}
+
+// DecodePermissive accepts deprecated v1.0 fields that a renderer may ignore.
+// The returned message always uses the strict v1.0 representation.
+func DecodePermissive(data []byte) (AgentMessage, error) {
+	var envelope map[string]json.RawMessage
+	if json.Unmarshal(data, &envelope) == nil {
+		var surface map[string]json.RawMessage
+		if json.Unmarshal(envelope["createSurface"], &surface) == nil && surface["theme"] != nil {
+			delete(surface, "theme")
+			envelope["createSurface"], _ = json.Marshal(surface)
+			data, _ = json.Marshal(envelope)
+		}
+	}
+	return Decode(data)
 }

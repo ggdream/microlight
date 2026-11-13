@@ -31,7 +31,10 @@ type MediaOptions struct {
 	// Client enables remote media using the host's network policy. With nil,
 	// only image data URLs and host-supplied media are loaded.
 	Client *http.Client
-	Icon   func(string) *ui.SVG
+	// RequireActivation delays remote requests until a click. Data images load locally.
+	RequireActivation           bool
+	LoadLabel, UnavailableLabel string
+	Icon                        func(string) *ui.SVG
 	// DecodeVideo optionally overrides MyGo's default video decoder.
 	DecodeVideo func(context.Context, []byte) (ui.VideoDecoder, error)
 }
@@ -69,10 +72,26 @@ func (r renderer) media(c *ui.Context, node a2ui.Component, scope string) {
 	source := r.surface.String(node.Props["url"], scope)
 	description := r.surface.String(node.Props["description"], scope)
 	container := r.decorate(c, node, scope, ui.Column(c).Gap(5).MaxWidth(360), description)
-	media := r.loadMedia(c, container, node.Type+":"+source, node.Type, source)
+	var media mediaFrame
+	activation := r.Media.RequireActivation && (node.Type != "Image" || !strings.HasPrefix(source, "data:image/"))
+	poster := r.surface.String(node.Props["posterUrl"], scope)
+	loaded := ui.Local(container, struct{ Source, Poster string }{source, poster}, func() bool { return false })
+	if !activation || *loaded {
+		media = r.loadMedia(c, container, node.Type+":"+source, node.Type, source)
+	}
 	container.Children(func() {
-		if node.Type == "AudioPlayer" && description != "" {
+		if description != "" && (node.Type == "AudioPlayer" || (activation && !*loaded)) {
 			ui.Text(c, description).FontSize(12).TextColor(r.Style.Text)
+		}
+		if activation && !*loaded {
+			label := r.Media.LoadLabel
+			if label == "" {
+				label = "Load media"
+			}
+			ui.ButtonBase(c.Key("load")).Label(label).Padding(4, 8).Border(1, r.Style.Border).Radius(6).
+				Disabled(r.Media.Client == nil).Cursor(ui.CursorPointer).Tooltip(source).
+				Children(func() { ui.Text(c, label) }).OnClick(func() { *loaded = true })
+			return
 		}
 		if node.Type == "Video" {
 			r.videoView(c, node, scope, media)
@@ -80,8 +99,8 @@ func (r renderer) media(c *ui.Context, node a2ui.Component, scope string) {
 		}
 		switch {
 		case media.err != nil:
-			r.fallback(c, media.err)
-			ui.Text(c, "Media unavailable").Label(description).FontSize(12).TextColor(r.Style.Muted)
+			r.reportMediaError(media.err)
+			ui.Text(c, r.mediaUnavailable()).Label(description).FontSize(12).TextColor(r.Style.Muted)
 		case !media.ready:
 			ui.Text(c, "Loading…").Label(description).FontSize(12).TextColor(r.Style.Muted)
 		case media.image != nil:
@@ -150,9 +169,10 @@ func (r renderer) loadMedia(c *ui.Context, element ui.Element, key, kind, source
 
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		state := &mediaSource{cancel: cancel}
+		services := c.Services()
 		go func() {
 			r.fetchMedia(ctx, state, kind, source)
-			c.Invalidate()
+			services.Invalidate()
 		}()
 		(*slot).state = state
 	}
@@ -184,10 +204,7 @@ func (r renderer) fetchMedia(ctx context.Context, state *mediaSource, kind, sour
 		switch kind {
 		case "Image":
 			var img image.Image
-			config, _, decodeErr := image.DecodeConfig(bytes.NewReader(data))
-			if decodeErr != nil || config.Width < 1 || config.Height < 1 || int64(config.Width)*int64(config.Height) > 16_000_000 {
-				err = fmt.Errorf("invalid A2UI image dimensions")
-			} else {
+			if _, err = mediaImageConfig(data); err == nil {
 				img, _, err = image.Decode(bytes.NewReader(data))
 				if err == nil {
 					bitmap = ui.NewBitmap(img)
@@ -199,7 +216,13 @@ func (r renderer) fetchMedia(ctx context.Context, state *mediaSource, kind, sour
 			if r.Media.DecodeVideo != nil {
 				decoder, err = r.Media.DecodeVideo(ctx, data)
 			} else if bytes.HasPrefix(data, []byte("GIF87a")) || bytes.HasPrefix(data, []byte("GIF89a")) {
-				decoder, err = ui.NewGIFDecoder(data)
+				if _, err = mediaImageConfig(data); err == nil {
+					decoder, err = ui.NewGIFDecoder(data)
+				}
+			} else if bytes.HasPrefix(data, []byte("\x89PNG\r\n\x1a\n")) {
+				if _, err = mediaImageConfig(data); err == nil {
+					decoder, err = ui.NewAPNGDecoder(data)
+				}
 			} else {
 				videoData = data
 			}
@@ -273,8 +296,8 @@ func (r renderer) videoView(c *ui.Context, node a2ui.Component, scope string, me
 		err = player.Err()
 	}
 	if err != nil {
-		r.fallback(c, err)
-		ui.Text(c, "Media unavailable").FontSize(12).TextColor(r.Style.Muted)
+		r.reportMediaError(err)
+		ui.Text(c, r.mediaUnavailable()).FontSize(12).TextColor(r.Style.Muted)
 		return
 	}
 	started := player != nil && (player.Position() > 0 || player.Playing() || player.Ended())
@@ -307,4 +330,26 @@ func (r renderer) videoView(c *ui.Context, node a2ui.Component, scope string, me
 			player.Seek(time.Duration(position * float64(time.Second)))
 		}
 	}
+}
+
+func (r renderer) mediaUnavailable() string {
+	if r.Media.UnavailableLabel != "" {
+		return r.Media.UnavailableLabel
+	}
+	return "Media unavailable"
+}
+
+func (r renderer) reportMediaError(err error) {
+	if r.OnError != nil {
+		r.OnError(err)
+	}
+}
+
+func mediaImageConfig(data []byte) (image.Config, error) {
+	config, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil || config.Width < 1 || config.Height < 1 ||
+		config.Width > 16_000_000/config.Height {
+		return config, fmt.Errorf("invalid A2UI image dimensions")
+	}
+	return config, nil
 }

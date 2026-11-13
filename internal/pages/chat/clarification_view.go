@@ -5,6 +5,7 @@ import (
 	"github.com/ggdream/microlight/internal/localtools"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/elastic"
 )
 
 func (app *chatApp) clarificationCards(c *ui.Context, chat *conversation, reply *turn) {
@@ -36,8 +37,9 @@ func (app *chatApp) approvalControls(c *ui.Context, chat *conversation, reply *t
 		return
 	}
 	if approval.Preview != "" {
-		ui.Scroll(c).FillWidth().MaxHeight(140).Background(side).Radius(7).Padding(8).Children(func() {
-			ui.Text(c, approval.Preview).FontSize(12).TextColor(ink).FillWidth().Selectable()
+		scroll, offset := elastic.Scroll(c)
+		scroll.FillWidth().MaxHeight(140).Background(side).Radius(7).Padding(8).Children(func() {
+			offset.Apply(ui.Text(c, approval.Preview)).FontSize(12).TextColor(ink).FillWidth().Selectable()
 		})
 	}
 	disabled := app.active != nil

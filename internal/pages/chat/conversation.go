@@ -67,6 +67,9 @@ func (app *chatApp) selectChat(id string) {
 	if id != "" && app.visibleChat(id) == nil {
 		return
 	}
+	if app.deferSettingsLeave(func() { app.selectChat(id) }) {
+		return
+	}
 	if id != app.history.Selected && (!app.persistDraft() || !app.restoreDraft(id)) {
 		return
 	}

@@ -12,13 +12,62 @@ import (
 	"testing"
 	"time"
 
-	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/assets/locales"
+	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/internal/localtools"
+	"github.com/ggdream/microlight/internal/pages/settings"
 	"github.com/ggdream/microlight/pkg/proxy"
 
 	"github.com/egoist/mygo/ui"
 )
+
+func TestLeavingModelSettingsRequiresDiscardConfirmation(t *testing.T) {
+	store, err := openLocalStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	app := &chatApp{store: store}
+	app.loadSettings()
+	app.openSettings()
+	app.settingsTab = settings.Model
+	window := ui.NewTester(app.settingsPage, 1000, 750)
+	click := func(label string) {
+		t.Helper()
+		if err := window.Click(label); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	savedModel := app.form.defaultModelID()
+	*app.form.defaultModel = "unsaved-model"
+	app.editProvider("") // The unsaved edit is now in a different provider draft.
+	click(locales.SettingsGeneral())
+	if app.settingsTab != settings.Model || !window.HasText(locales.UnsavedSettingsTitle()) {
+		t.Fatal("leaving with a parked provider draft should open confirmation")
+	}
+	window.Key(0, ui.KeyEscape)
+	if app.form.leave != nil || app.settingsTab != settings.Model {
+		t.Fatal("Escape should dismiss confirmation and keep the model page open")
+	}
+	app.editProvider(app.providers.Selected.ProviderID)
+	if app.form.defaultModelID() != "unsaved-model" {
+		t.Fatal("canceling should preserve the draft")
+	}
+	click(locales.SettingsGeneral())
+	click(locales.DiscardSettingsAndLeave())
+	if app.settingsTab != settings.General || app.form.defaultModelID() != savedModel || app.hasModelChanges() {
+		t.Fatal("confirming should discard drafts and open the requested page")
+	}
+
+	click(locales.SettingsModel())
+	*app.form.defaultModel = "saved-model"
+	click(locales.SaveSettings())
+	click(locales.BackToChat())
+	if app.settingsOpen || app.settings.Model != "saved-model" {
+		t.Fatal("after saving, returning to chat should proceed immediately")
+	}
+}
 
 func TestSettingsPagesSaveIndependently(t *testing.T) {
 	store, err := openLocalStore(t.TempDir())
@@ -29,20 +78,43 @@ func TestSettingsPagesSaveIndependently(t *testing.T) {
 	app := &chatApp{store: store}
 	app.loadSettings()
 	app.openSettings()
-	app.form.model = "new-model"
-	app.form.proxy.Mode = proxy.Direct
+	*app.form.defaultModel = "new-model"
 
 	window := ui.NewTester(app.settingsPage, 1000, 750)
-	if !window.HasText(locales.ProxyNetwork()) || window.HasText(locales.ModelID()) {
-		t.Fatal("General should contain network settings and exclude model settings")
+	if !window.HasText(locales.ProxyNetwork()) || window.HasText(locales.ModelID()) || window.HasText(locales.SaveSettings()) {
+		t.Fatal("General should contain network settings without model fields or a save button")
 	}
-	if err := window.Click(locales.SaveSettings()); err != nil {
+	if err := window.Click(locales.ProxySystem()); err != nil {
+		t.Fatal(err)
+	}
+	if err := window.Click(locales.ProxyDirect()); err != nil {
 		t.Fatal(err)
 	}
 	if app.settings.Proxy.Mode != proxy.Direct || app.settings.Model != defaultModel {
-		t.Fatal("saving General should apply the proxy without saving the model draft")
+		t.Fatal("changing the proxy should apply it without saving the model draft")
 	}
-	app.form.proxy = proxy.Config{Mode: proxy.Custom}
+	if saved, err := store.loadProxy(); err != nil || saved.Mode != proxy.Direct {
+		t.Fatalf("proxy should be persisted immediately: %+v, %v", saved, err)
+	}
+	if err := window.Click(locales.ProxyDirect()); err != nil {
+		t.Fatal(err)
+	}
+	if err := window.Click(locales.ProxyCustom()); err != nil {
+		t.Fatal(err)
+	}
+	if app.settings.Proxy.Mode != proxy.Direct || !window.HasText(locales.InvalidProxy()) {
+		t.Fatal("an incomplete custom proxy should leave the current proxy active and show an error")
+	}
+	label, ok := window.Find(locales.ProxyAddress())
+	if !ok {
+		t.Fatal("custom proxy address field is missing")
+	}
+	window.ClickAt(label.X+12, label.Y+label.H+18)
+	window.Type("http://127.0.0.1:7890")
+	custom := proxy.Config{Mode: proxy.Custom, URL: "http://127.0.0.1:7890"}
+	if saved, err := store.loadProxy(); err != nil || saved != custom || app.settings.Proxy != custom {
+		t.Fatalf("custom proxy should be applied and persisted as soon as it is valid: %+v, %v", saved, err)
+	}
 	if err := window.Click(locales.SettingsModel()); err != nil {
 		t.Fatal(err)
 	}
@@ -52,8 +124,8 @@ func TestSettingsPagesSaveIndependently(t *testing.T) {
 	if err := window.Click(locales.SaveSettings()); err != nil {
 		t.Fatal(err)
 	}
-	if app.settings.Model != "new-model" || app.settings.Proxy.Mode != proxy.Direct {
-		t.Fatal("saving Model should apply the model without saving the proxy draft")
+	if app.settings.Model != "new-model" || app.settings.Proxy != custom {
+		t.Fatal("saving Model should apply the model and retain the active proxy")
 	}
 }
 
@@ -104,7 +176,8 @@ func TestSavedSettingsDriveNextRequest(t *testing.T) {
 			app := &chatApp{store: store}
 			app.loadSettings()
 			app.openSettings()
-			app.form.baseURL, app.form.model, app.form.apiKey = server.URL+"/v1/", "test-model", apiKey
+			app.form.protocol = openAIChat
+			app.form.baseURL, *app.form.defaultModel, app.form.apiKey = server.URL+"/v1/", "test-model", apiKey
 			app.form.temperature, app.form.topP, app.form.maxTokens = "0", "0", "64"
 			app.saveSettings()
 			if app.form.failed {

@@ -1,15 +1,15 @@
 package settings
 
 import (
-	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/assets/locales"
+	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/internal/theme"
 	"github.com/ggdream/microlight/pkg/proxy"
 
 	"github.com/egoist/mygo/ui"
 )
 
-func Proxy(c *ui.Context, icons asseticon.Set, config *proxy.Config, openSystemSettings func(*ui.Context)) {
+func Proxy(c *ui.Context, icons asseticon.Set, config *proxy.Config, validationError string, onChange func(), openSystemSettings func(*ui.Context)) {
 	selected := config.EffectiveMode()
 	labels := map[proxy.Mode]string{
 		proxy.System: locales.ProxySystem(),
@@ -28,6 +28,7 @@ func Proxy(c *ui.Context, icons asseticon.Set, config *proxy.Config, openSystemS
 				ui.Icon(c, icons.SVG("ios_chevron_right")).Size(14, 14).Rotate(90).TextColor(theme.Muted)
 			}).OnChange(func() {
 				config.Mode = selected
+				onChange()
 			})
 			selectMode.Popup(func(panel ui.Element) {
 				panel.Padding(4).Gap(2).Background(theme.White).Border(1, theme.Border).Radius(8)
@@ -42,12 +43,15 @@ func Proxy(c *ui.Context, icons asseticon.Set, config *proxy.Config, openSystemS
 		})
 		if selected == proxy.Custom {
 			Field(c, locales.ProxyAddress(), "http://127.0.0.1:7890", &config.URL).
-				Password()
+				Password().OnChange(onChange)
 			ui.Text(c, locales.ProxyCustomHint()).FontSize(12).TextColor(theme.Muted)
 		}
 		if selected == proxy.System {
 			ui.Text(c, locales.ProxySystemHint()).FontSize(12).TextColor(theme.Muted)
 			openSystemSettings(c)
+		}
+		if validationError != "" {
+			ui.Text(c, validationError).FontSize(12).TextColor(theme.ErrorFG)
 		}
 	})
 }

@@ -21,7 +21,7 @@ func TestRunnerImportsCompactsAndReplaysContext(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var request struct {
 			Stream   bool
-			Messages []struct{ Role, Content string }
+			Messages []chatRequestMessage
 		}
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Error(err)
@@ -61,7 +61,7 @@ func TestRunnerImportsCompactsAndReplaysContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	config := modelSettings{BaseURL: server.URL, Model: "test", ContextThreshold: 2048}
+	config := modelSettings{Protocol: openAIChat, BaseURL: server.URL, Model: "test", ContextThreshold: 2048}
 	var updates []compressionUpdate
 	emit := func(delta replyDelta) error {
 		if delta.compression != 0 {

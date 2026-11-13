@@ -83,7 +83,11 @@ func (c *Catalog) ValidateFunction(call FunctionCall) error {
 	if err != nil {
 		return err
 	}
-	data, err := json.Marshal(call)
+	data, err := json.Marshal(struct {
+		Name    string          `json:"@call"`
+		Catalog string          `json:"catalogId,omitempty"`
+		Args    *map[string]any `json:"args,omitempty"`
+	}{Name: call.Name, Catalog: call.Catalog, Args: argumentPointer(call.Args)})
 	if err != nil {
 		return err
 	}
@@ -229,7 +233,7 @@ func portablePatterns(data []byte) []byte {
 	).Replace(string(data)))
 }
 
-func (c *Catalog) rendererMayCall(name string) bool {
+func (c *Catalog) RendererMayCall(name string) bool {
 	var declaration struct {
 		Callers string `json:"allowedCallers"`
 	}
@@ -244,4 +248,42 @@ func (c *Catalog) AgentMayCall(name string) bool {
 	}
 	_ = json.Unmarshal(c.Functions[name], &declaration)
 	return !declaration.Activation && (declaration.Callers == "agentOnly" || declaration.Callers == "rendererOrAgent")
+}
+
+// FunctionArguments validates the call before applying optional argument defaults.
+func (c *Catalog) FunctionArguments(call FunctionCall) (map[string]any, error) {
+	if err := c.ValidateFunction(call); err != nil {
+		return nil, err
+	}
+	var definition struct{ Properties map[string]json.RawMessage }
+	if err := json.Unmarshal(c.Functions[call.Name], &definition); err != nil {
+		return nil, err
+	}
+	args, _ := cloneJSON(call.Args).(map[string]any)
+	if args == nil {
+		args = make(map[string]any)
+	}
+	if err := applyFunctionDefaults(args, definition.Properties["args"], c.Definitions, 0); err != nil {
+		return nil, err
+	}
+	call.Args = args
+	if err := c.ValidateFunction(call); err != nil {
+		return nil, err
+	}
+	return args, nil
+}
+
+func argumentPointer(args map[string]any) *map[string]any {
+	if args == nil {
+		return nil
+	}
+	return &args
+}
+
+func (c *Catalog) requiresActivation(name string) bool {
+	var declaration struct {
+		Requires bool `json:"requiresUserActivation"`
+	}
+	_ = json.Unmarshal(c.Functions[name], &declaration)
+	return declaration.Requires
 }

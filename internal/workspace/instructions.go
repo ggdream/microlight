@@ -84,32 +84,32 @@ func readWorkspaceInstructions(root *os.Root, path string, maxBytes int) string 
 }
 
 type InstructionsMiddleware struct {
-	adk.BaseChatModelAgentMiddleware
+	adk.TypedBaseChatModelAgentMiddleware[*schema.AgenticMessage]
 }
 
 func (*InstructionsMiddleware) ChatModelAgentMiddlewareName() string {
 	return "microlight-workspace-instructions"
 }
 
-func (*InstructionsMiddleware) WrapModel(_ context.Context, next model.BaseModel[*schema.Message], _ *adk.ModelContext) (model.BaseModel[*schema.Message], error) {
+func (*InstructionsMiddleware) WrapModel(_ context.Context, next model.BaseModel[*schema.AgenticMessage], _ *adk.TypedModelContext[*schema.AgenticMessage]) (model.BaseModel[*schema.AgenticMessage], error) {
 	return workspaceInstructionsModel{next}, nil
 }
 
 type workspaceInstructionsModel struct {
-	model.BaseModel[*schema.Message]
+	model.BaseModel[*schema.AgenticMessage]
 }
 
-func (m workspaceInstructionsModel) Generate(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.Message, error) {
+func (m workspaceInstructionsModel) Generate(ctx context.Context, input []*schema.AgenticMessage, opts ...model.Option) (*schema.AgenticMessage, error) {
 	return m.BaseModel.Generate(ctx, withProjectGuidance(ctx, input), opts...)
 }
 
-func (m workspaceInstructionsModel) Stream(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.StreamReader[*schema.Message], error) {
+func (m workspaceInstructionsModel) Stream(ctx context.Context, input []*schema.AgenticMessage, opts ...model.Option) (*schema.StreamReader[*schema.AgenticMessage], error) {
 	return m.BaseModel.Stream(ctx, withProjectGuidance(ctx, input), opts...)
 }
 
 // Only change the model request. Keep project text out of Runner history,
 // checkpoints and summarization, so another turn can use a fresh snapshot.
-func withProjectGuidance(ctx context.Context, input []*schema.Message) []*schema.Message {
+func withProjectGuidance(ctx context.Context, input []*schema.AgenticMessage) []*schema.AgenticMessage {
 	guidance, _ := ctx.Value(workspaceInstructionsKey{}).(string)
 	if names, _ := ctx.Value(requestedSkillsKey{}).([]string); len(names) != 0 {
 		guidance += fmt.Sprintf("\n\nThe latest user message explicitly selects these skills: %q. Before answering or performing other work, call the skill tool for each selected name that has not already been loaded in this turn. Follow the relevant skill guidance subject to the user's request and the usual tool permissions.", names)
@@ -117,12 +117,12 @@ func withProjectGuidance(ctx context.Context, input []*schema.Message) []*schema
 	if guidance == "" {
 		return input
 	}
-	if len(input) > 0 && input[0].Role == schema.System {
+	if len(input) > 0 && input[0].Role == schema.AgenticRoleTypeSystem {
 		out := slices.Clone(input)
 		system := *out[0]
-		system.Content += guidance
+		system.ContentBlocks = append(slices.Clone(system.ContentBlocks), schema.NewContentBlock(&schema.UserInputText{Text: guidance}))
 		out[0] = &system
 		return out
 	}
-	return append([]*schema.Message{schema.SystemMessage(guidance)}, input...)
+	return append([]*schema.AgenticMessage{schema.SystemAgenticMessage(guidance)}, input...)
 }

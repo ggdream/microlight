@@ -44,7 +44,7 @@ func TestAgentUsesConfiguredSkillsAndMCPWithApproval(t *testing.T) {
 
 	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var request struct {
-			Messages []struct{ Role, Content string }
+			Messages []chatRequestMessage
 			Tools    []struct{ Function struct{ Name string } }
 		}
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -89,7 +89,7 @@ func TestAgentUsesConfiguredSkillsAndMCPWithApproval(t *testing.T) {
 	}
 	defer store.Close()
 	config := modelSettings{
-		BaseURL: model.URL, Model: "test",
+		Protocol: openAIChat, BaseURL: model.URL, Model: "test",
 		MCPServers: []mcptools.Server{{Name: "test", URL: endpoint.URL}},
 	}
 	if err := store.saveSettings(config); err != nil {

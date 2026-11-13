@@ -2,23 +2,30 @@ package a2uimygo_test
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"reflect"
 	"sort"
 	"strings"
 	"testing"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/pkg/a2ui"
 	"github.com/ggdream/microlight/pkg/a2uimygo"
 	"gopkg.in/yaml.v3"
+	"time"
 )
 
 type adapterNode struct {
 	ID               string
 	Type             string
 	Text             string
-	BadgeText        string   `yaml:"badgeText"`
+	BadgeText        string `yaml:"badgeText"`
+	URL              string
+	Name             string
+	State            string
 	IsValid          *bool    `yaml:"isValid"`
 	ValidationErrors []string `yaml:"validationErrors"`
 	Hints            []string
@@ -31,9 +38,10 @@ func TestOfficialMyGoAdapter(t *testing.T) {
 		t.Fatal(err)
 	}
 	var cases []struct {
-		Name     string
-		Catalogs []map[string]any
-		Steps    []struct {
+		Name       string
+		StrictMode *bool `yaml:"strictMode"`
+		Catalogs   []map[string]any
+		Steps      []struct {
 			Op            string
 			Messages      []map[string]any
 			Target        string           `yaml:"targetNode"`
@@ -49,28 +57,20 @@ func TestOfficialMyGoAdapter(t *testing.T) {
 				Live        string
 			} `yaml:"expectAccessibilityTree"`
 			SurfaceRemoved bool `yaml:"expectSurfaceRemoved"`
+			Errors         []struct {
+				Code      string
+				SurfaceID string `yaml:"surfaceId"`
+			} `yaml:"expectErrors"`
 		}
 	}
 	if err := yaml.Unmarshal(raw, &cases); err != nil {
 		t.Fatal(err)
 	}
-	reasons := map[string]string{
-		"action_execution_event_vs_local_function_call":          "fixture-local mutation needs a catalog evaluator",
-		"user_activation_gated_function_gesture_vs_programmatic": "programmatic dispatch diagnostics are not asserted",
-		"v10_theme_dropped_in_permissive_mode_renders_like_none": "requires a permissive envelope mode",
-		"fallback_states_unknown_type_and_cyclic_diagnostics":    "requires renderable diagnostic nodes",
-		"teardown_unmount_releases_subscriptions":                "requires subscription lifecycle instrumentation",
-		"removed_components_release_subscriptions":               "requires subscription lifecycle instrumentation",
-		"two_way_binding_inputs_checkbox_choice_slider_datetime": "control-specific input steps need adapter support",
-		"media_components_bind_url_and_name":                     "requires media widget state assertions",
-		"agent_function_action_failure_reports_expression_error": "requires agent RPC and renderer error assertions",
-	}
 	for _, tc := range cases {
 		t.Run(tc.Name, func(t *testing.T) {
-			if reason := reasons[tc.Name]; reason != "" {
-				t.Skip(reason)
-			}
 			var p a2ui.Processor
+			p.AllowViewFallbacks(tc.Name == "fallback_states_unknown_type_and_cyclic_diagnostics")
+			p.AllowUndeclaredFunctions(tc.Name == "action_execution_event_vs_local_function_call" || tc.Name == "agent_function_action_failure_reports_expression_error")
 			views := make(map[string]map[string]a2uimygo.ComponentView)
 			for _, doc := range tc.Catalogs {
 				raw, err := json.Marshal(doc)
@@ -89,14 +89,43 @@ func TestOfficialMyGoAdapter(t *testing.T) {
 				}
 			}
 			var actions []a2ui.ActionEvent
+			var opened []string
+			var remoteOptions *a2uimygo.AgentActionRPC
+			remoteRequests := make(chan a2ui.RendererMessage, 1)
+			var remoteErrors []a2ui.RendererMessage
+			var callID string
+			if tc.Name == "agent_function_action_failure_reports_expression_error" {
+				rpc := &a2ui.RPC{Send: func(event a2ui.RendererMessage) error { remoteRequests <- event; return nil }}
+				remoteOptions = &a2uimygo.AgentActionRPC{Transport: rpc, IsRemote: func(call a2ui.FunctionCall) bool { return call.Name == "lookupAccount" },
+					EvaluateLocal: func(model *a2ui.Model, call a2ui.FunctionCall, _ string) (any, error) {
+						path := a2ui.Text(call.Args["path"])
+						before, _ := model.Get(path)
+						return nil, model.Set(path, a2ui.Number(before)+a2ui.Number(call.Args["step"]))
+					}}
+			}
+			diagnostics := make(map[string]string)
 			id := "adapter_surface"
+			mounted := true
 			previousTexts := make(map[string]bool)
 			tester := ui.NewTester(func(c *ui.Context) {
+				if !mounted {
+					return
+				}
 				a2uimygo.View(c, p.Surface(id), a2uimygo.Options{
-					Components: views,
-					OnAction:   func(message a2ui.RendererMessage) { actions = append(actions, *message.Action) },
+					Components:      views,
+					AgentRPC:        remoteOptions,
+					OnRendererError: func(event a2ui.RendererMessage) { remoteErrors = append(remoteErrors, event) },
+					OnError: func(err error) {
+						var diagnostic *a2ui.ViewDiagnostic
+						if errors.As(err, &diagnostic) {
+							diagnostics[diagnostic.Code] = diagnostic.SurfaceID
+						}
+					},
+					OpenURL:  func(target string) error { opened = append(opened, target); return nil },
+					OnAction: func(message a2ui.RendererMessage) { actions = append(actions, *message.Action) },
 				})
 			}, 760, 640)
+			tester.SetRegion(i18n.Region{Locale: "en-US", FirstWeekday: time.Sunday, HourCycle: 24})
 			tester.UseScreenReader()
 			for _, step := range tc.Steps {
 				actions = nil
@@ -105,7 +134,26 @@ func TestOfficialMyGoAdapter(t *testing.T) {
 				case "process_messages":
 					// The adapter fixtures still use unprefixed component
 					// mixin aliases. Translate those to the 1.0 wire spelling.
+					var stateMessages []map[string]any
 					for _, message := range step.Messages {
+						if response, ok := message["agentFunctionResponse"].(map[string]any); ok {
+							response["functionCallId"] = callID
+							raw, _ := json.Marshal(response)
+							var result a2ui.FunctionResponse
+							if err := json.Unmarshal(raw, &result); err != nil || !remoteOptions.Transport.Resolve(result) {
+								t.Fatalf("missing pending call: %+v %v", result, err)
+							}
+							deadline := time.Now().Add(time.Second)
+							for len(remoteErrors) == 0 && time.Now().Before(deadline) {
+								tester.Frame()
+								time.Sleep(time.Millisecond)
+							}
+							if len(remoteErrors) != 1 || remoteErrors[0].Error.Code != "EXPRESSION_ERROR" || remoteErrors[0].Error.FunctionCallID != callID {
+								t.Fatalf("bad outbound error: %+v", remoteErrors)
+							}
+							continue
+						}
+						stateMessages = append(stateMessages, message)
 						for _, key := range []string{"createSurface", "updateComponents"} {
 							body, _ := message[key].(map[string]any)
 							nodes, _ := body["components"].([]any)
@@ -120,21 +168,62 @@ func TestOfficialMyGoAdapter(t *testing.T) {
 							}
 						}
 					}
-					raw, err := json.Marshal(step.Messages)
+					raw, err := json.Marshal(stateMessages)
 					if err != nil {
 						t.Fatal(err)
 					}
-					messages, err := a2ui.DecodeBatch(raw)
+					var messages []a2ui.AgentMessage
+					if tc.StrictMode != nil && !*tc.StrictMode {
+						for _, envelope := range step.Messages {
+							data, err := json.Marshal(envelope)
+							if err != nil {
+								t.Fatal(err)
+							}
+							message, err := a2ui.DecodePermissive(data)
+							if err != nil {
+								t.Fatal(err)
+							}
+							messages = append(messages, message)
+						}
+					} else {
+						messages, err = a2ui.DecodeBatch(raw)
+					}
 					if err != nil {
 						t.Fatal(err)
 					}
 					if err := p.ApplyBatch(messages); err != nil {
 						t.Fatal(err)
 					}
+					if tc.Name == "action_execution_event_vs_local_function_call" {
+						if surface := p.Surface(id); surface != nil {
+							surface.Data().EvaluateFunction = func(call a2ui.FunctionCall, _ string) (any, error) {
+								if call.Name != "incrementCounter" {
+									return nil, fmt.Errorf("unknown fixture function %s", call.Name)
+								}
+								path := a2ui.Text(call.Args["path"])
+								before, _ := surface.Data().Get(path)
+								return nil, surface.Data().Set(path, a2ui.Number(before)+a2ui.Number(call.Args["step"]))
+							}
+						}
+					}
+				case "programmatic_invoke":
+					_, err := surface.Invoke(step.Target, "", time.Now(), false, func(target string) error { opened = append(opened, target); return nil })
+					if err == nil || !strings.Contains(err.Error(), "openUrl requires user activation") || len(opened) != 1 || opened[0] != "https://example.com" {
+						t.Fatalf("programmatic invocation: opened %v, error %v", opened, err)
+					}
+					raw, _ := json.Marshal(a2ui.RendererMessage{Version: a2ui.Version, Error: &a2ui.RendererError{Code: "EXPRESSION_ERROR", SurfaceID: &id, Message: err.Error()}})
+					if _, err := a2ui.DecodeRenderer(raw); err != nil {
+						t.Fatal(err)
+					}
+				case "unmount_surface":
+					mounted = false
 				case "user_input", "user_gesture":
 					node, ok := surface.Component(step.Target)
 					if !ok {
 						t.Fatalf("unknown target %s", step.Target)
+					}
+					if step.Op == "user_input" && adapterControlInput(t, tester, surface, node, step.Input) {
+						break
 					}
 					label := adapterLabel(surface, node)
 					if node.Type == "Tabs" {
@@ -147,6 +236,17 @@ func TestOfficialMyGoAdapter(t *testing.T) {
 					if err := tester.Click(label); err != nil {
 						t.Fatal(err)
 					}
+					if remoteOptions != nil {
+						select {
+						case event := <-remoteRequests:
+							callID = event.CallAgent.ID
+							if callID == "" || event.CallAgent.Function.Name != "lookupAccount" || event.CallAgent.Function.Args["accountId"] != "acc-123" {
+								t.Fatalf("bad request %+v", event.CallAgent)
+							}
+						case <-time.After(time.Second):
+							t.Fatal("missing remote function call")
+						}
+					}
 					if node.Type == "TextField" {
 						tester.Command("selectAll")
 						tester.Type(step.Input.(string))
@@ -155,9 +255,19 @@ func TestOfficialMyGoAdapter(t *testing.T) {
 					t.Fatalf("unhandled adapter operation %q", step.Op)
 				}
 				tester.Frame()
+				if !mounted && len(tester.Texts()) != 0 {
+					t.Fatal("unmounted surface remains visible")
+				}
 				surface = p.Surface(id)
 				if step.SurfaceRemoved && (surface != nil || len(tester.Texts()) != 0) {
 					t.Fatal("deleted surface is still visible")
+				}
+				if tc.Name == "fallback_states_unknown_type_and_cyclic_diagnostics" {
+					for _, expected := range step.Errors {
+						if diagnostics[expected.Code] != expected.SurfaceID {
+							t.Errorf("missing %s diagnostic: %v", expected.Code, diagnostics)
+						}
+					}
 				}
 				if step.Tree != nil {
 					current := make(map[string]bool)
@@ -248,6 +358,13 @@ func assertAdapterNode(t *testing.T, tester *ui.Tester, surface *a2ui.Surface, w
 			}
 		}
 	}
+	for prop, expected := range map[string]string{"url": want.URL, "name": want.Name} {
+		if expected != "" {
+			if got := surface.String(node.Props[prop], ""); got != expected {
+				t.Errorf("%s.%s = %q, want %q", want.ID, prop, got, expected)
+			}
+		}
+	}
 	if want.IsValid != nil {
 		label := adapterLabel(surface, node)
 		access, ok := tester.Access(label)
@@ -265,4 +382,65 @@ func assertAdapterNode(t *testing.T, tester *ui.Tester, surface *a2ui.Surface, w
 	for _, child := range want.Children {
 		assertAdapterNode(t, tester, surface, child, texts)
 	}
+}
+
+func adapterControlInput(t *testing.T, tester *ui.Tester, surface *a2ui.Surface, node a2ui.Component, value any) bool {
+	t.Helper()
+	click := func(label string) {
+		t.Helper()
+		if err := tester.Click(label); err != nil {
+			t.Fatal(err)
+		}
+	}
+	switch node.Type {
+	case "ChoicePicker":
+		var options []struct {
+			Label json.RawMessage
+			Value string
+		}
+		if err := json.Unmarshal(node.Props["options"], &options); err != nil {
+			t.Fatal(err)
+		}
+		for _, selected := range value.([]any) {
+			for _, option := range options {
+				if option.Value == selected {
+					click(surface.String(option.Label, ""))
+				}
+			}
+		}
+	case "Slider":
+		for range 5 {
+			if tester.Focused(adapterLabel(surface, node)) {
+				break
+			}
+			tester.Key(0, ui.KeyTab)
+		}
+		if !tester.Focused(adapterLabel(surface, node)) {
+			t.Fatalf("slider not focused: %v", tester.Texts())
+		}
+		tester.Key(0, ui.KeyHome)
+		for range value.(int) {
+			tester.Key(0, ui.KeyRight)
+		}
+	case "DateTimeInput":
+		layout := "2006-01-02T15:04:05"
+		date, err := time.Parse(layout, value.(string))
+		if err != nil {
+			t.Fatal(err)
+		}
+		previous, err := time.Parse(layout, surface.String(node.Props["value"], ""))
+		if err != nil {
+			t.Fatal(err)
+		}
+		click(previous.Format("1/2/2006"))
+		click(date.Format("January 2, 2006"))
+		click(previous.Format("15"))
+		for _, digit := range date.Format("1504") {
+			keys := []ui.Key{ui.Key0, ui.Key1, ui.Key2, ui.Key3, ui.Key4, ui.Key5, ui.Key6, ui.Key7, ui.Key8, ui.Key9}
+			tester.Key(0, keys[digit-'0'])
+		}
+	default:
+		return false
+	}
+	return true
 }

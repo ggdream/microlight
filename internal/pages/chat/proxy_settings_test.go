@@ -56,7 +56,7 @@ func TestSharedProxyForModelAndMCP(t *testing.T) {
 		t.Fatalf("default proxy = %v, error = %v", defaultProxy, err)
 	}
 	cfg := modelSettings{
-		BaseURL: "http://model.example.invalid/v1", Model: "test",
+		Protocol: openAIChat, BaseURL: "http://model.example.invalid/v1", Model: "test",
 		Proxy: proxy.Config{Mode: proxy.Custom, URL: proxyServer.URL},
 		MCPServers: []mcptools.Server{{
 			Name: "test", URL: "http://mcp.example.invalid/mcp",

@@ -28,7 +28,7 @@ func (app *chatApp) view(c *ui.Context) {
 	width, _ := c.Size()
 	sidebarLimit := min(float32(440), max(float32(defaultSidebarWidth), width-360))
 	app.sidebarWidth = min(app.sidebarWidth, sidebarLimit)
-	ui.Box(c).Fill().Background(canvas).TextColor(ink).Children(func() {
+	root := ui.Box(c).Fill().Background(canvas).TextColor(ink).Children(func() {
 		if app.settingsOpen {
 			app.settingsPage(c.Key("settings"))
 			return
@@ -59,6 +59,7 @@ func (app *chatApp) view(c *ui.Context) {
 			}
 		})
 	})
+	app.linkPreview(c, root)
 	app.regenerateDialog(c.Key("regenerate-dialog"), selected)
 	app.fullAccessDialog(c.Key("full-access-dialog"))
 	app.conversationActionDialog(c.Key("conversation-action"))

@@ -20,7 +20,7 @@ func (store *localStore) migrate(dir string) error {
 		return err
 	}
 	switch version {
-	case 12:
+	case 14:
 		return nil
 	case 0:
 		if err := createBaseSchema(tx); err != nil {
@@ -144,6 +144,28 @@ func (store *localStore) migrate(dir string) error {
 			);
 			CREATE INDEX conversation_branches_by_chat ON conversation_branches(conversation_id, parent_id);
 			PRAGMA user_version = 12;
+		`); err != nil {
+			return err
+		}
+		fallthrough
+	case 12:
+		if _, err := tx.Exec(`
+			DELETE FROM adk_session_events;
+			DELETE FROM adk_checkpoints;
+			DELETE FROM adk_session_owners;
+			UPDATE conversations SET session_id = '' WHERE session_id <> '';
+			ALTER TABLE conversations ADD COLUMN session_model TEXT NOT NULL DEFAULT '';
+			UPDATE conversation_branches SET session_id = '' WHERE session_id <> '';
+			UPDATE turns SET state = 'stopped' WHERE state IN ('waiting', 'pending');
+			PRAGMA user_version = 13;
+		`); err != nil {
+			return err
+		}
+		fallthrough
+	case 13:
+		if _, err := tx.Exec(`
+			ALTER TABLE turns ADD COLUMN a2ui BLOB;
+			PRAGMA user_version = 14;
 		`); err != nil {
 			return err
 		}

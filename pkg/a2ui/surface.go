@@ -8,8 +8,10 @@ import (
 
 // Processor applies messages in arrival order. Call it from the owner of the UI state.
 type Processor struct {
-	surfaces map[string]*Surface
-	catalogs map[string]*Catalog
+	allowUndeclaredFunctions bool
+	allowViewFallbacks       bool
+	surfaces                 map[string]*Surface
+	catalogs                 map[string]*Catalog
 }
 
 type Surface struct {
@@ -18,9 +20,18 @@ type Surface struct {
 	components    map[string]Component
 	children      map[string][]string
 	data          Model
+	catalogs      map[string]*Catalog
 	sendDataModel bool
 	metadata      *Metadata
 }
+
+// AllowUndeclaredFunctions permits a registered catalog to route unknown
+// functions through a host-supplied evaluator.
+func (p *Processor) AllowUndeclaredFunctions(allow bool) { p.allowUndeclaredFunctions = allow }
+
+// AllowViewFallbacks lets a renderer mount valid nodes around unknown types
+// and cycles. Keep disabled when the host requires atomic strict validation.
+func (p *Processor) AllowViewFallbacks(allow bool) { p.allowViewFallbacks = allow }
 
 func (p *Processor) Surface(id string) *Surface { return p.surfaces[id] }
 func (s *Surface) ID() string                   { return s.id }
@@ -60,7 +71,7 @@ func (p *Processor) Apply(m AgentMessage) error {
 			data = make(map[string]any)
 		}
 		s := &Surface{id: c.ID, catalog: c.Catalog, components: make(map[string]Component),
-			data: Model{root: data}, sendDataModel: c.SendDataModel, metadata: c.Metadata}
+			data: Model{root: data}, catalogs: p.catalogs, sendDataModel: c.SendDataModel, metadata: c.Metadata}
 		if c.Catalog != "" || len(p.catalogs) > 0 {
 			s.data.defaultCatalog = new(c.Catalog)
 		}
@@ -74,13 +85,13 @@ func (p *Processor) Apply(m AgentMessage) error {
 	case m.Components != nil:
 		s := p.Surface(m.Components.ID)
 		if s == nil {
-			return fmt.Errorf("unknown surface %q", m.Components.ID)
+			return &IntegrityError{SurfaceID: m.Components.ID}
 		}
 		return p.update(s, m.Components.Components)
 	case m.Data != nil:
 		s := p.Surface(m.Data.ID)
 		if s == nil {
-			return fmt.Errorf("unknown surface %q", m.Data.ID)
+			return &IntegrityError{SurfaceID: m.Data.ID}
 		}
 		value, err := decodeValue(m.Data.Value)
 		if err != nil {
@@ -165,4 +176,12 @@ func (s *Surface) ActionWithMetadata(componentID, scope string, now time.Time, m
 		}
 	}
 	return message, nil
+}
+
+// Snapshot copies data and components for an independent evaluation.
+func (s *Surface) Snapshot() *Surface {
+	copy := *s
+	copy.data.root = cloneJSON(s.data.root)
+	copy.data.observers = nil
+	return &copy
 }

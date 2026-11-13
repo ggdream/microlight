@@ -14,12 +14,12 @@ type Store struct {
 	*sql.DB
 }
 
-type Event = adk.SessionEvent[*schema.Message]
+type Event = adk.SessionEvent[*schema.AgenticMessage]
 
 var (
-	_          adk.SessionEventStore[*schema.Message] = (*Store)(nil)
-	_          adk.CheckPointStore                    = (*Store)(nil)
-	serializer                                        = &schema.HumanReadableSerializer{}
+	_          adk.SessionEventStore[*schema.AgenticMessage] = (*Store)(nil)
+	_          adk.CheckPointStore                           = (*Store)(nil)
+	serializer                                               = &schema.HumanReadableSerializer{}
 )
 
 func (store *Store) AppendEvents(ctx context.Context, sessionID string, events []*Event) error {
@@ -57,7 +57,7 @@ func (store *Store) AppendEvents(ctx context.Context, sessionID string, events [
 	return tx.Commit()
 }
 
-func (store *Store) LoadEvents(ctx context.Context, sessionID string, req *adk.LoadSessionEventsRequest) (*adk.LoadSessionEventsResult[*schema.Message], error) {
+func (store *Store) LoadEvents(ctx context.Context, sessionID string, req *adk.LoadSessionEventsRequest) (*adk.LoadSessionEventsResult[*schema.AgenticMessage], error) {
 	if req == nil {
 		req = &adk.LoadSessionEventsRequest{}
 	}
@@ -95,7 +95,7 @@ func (store *Store) LoadEvents(ctx context.Context, sessionID string, req *adk.L
 		return nil, err
 	}
 	defer rows.Close()
-	result := &adk.LoadSessionEventsResult[*schema.Message]{}
+	result := &adk.LoadSessionEventsResult[*schema.AgenticMessage]{}
 	for rows.Next() {
 		var data []byte
 		if err := rows.Scan(&data); err != nil {

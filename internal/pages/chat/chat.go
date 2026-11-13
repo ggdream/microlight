@@ -12,21 +12,23 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/ggdream/microlight/assets/locales"
 	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/internal/attachment"
-	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/pkg/proxy"
 
-	"github.com/cloudwego/eino-ext/components/model/openai"
+	"github.com/cloudwego/eino-ext/components/model/agenticclaude"
+	"github.com/cloudwego/eino-ext/components/model/agenticopenai"
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
+	"github.com/openai/openai-go/v3/responses"
 )
 
 const (
-	defaultModel   = "deepseek-flash"
-	defaultBaseURL = "https://api.deepseek.com"
+	defaultModel   = "gpt-5-mini"
+	defaultBaseURL = "https://api.openai.com/v1"
 )
 
 type message struct {
@@ -38,23 +40,25 @@ type message struct {
 type Chat struct {
 	network            *proxy.Transport
 	skillsHome         string
-	model              *openai.ChatModel
+	model              model.AgenticModel
 	configErr          error
-	agent              adk.Agent
-	buildAgent         func(context.Context, string) (adk.Agent, error)
-	buildExtendedAgent func(context.Context, string, *agentExtensions) (adk.Agent, error)
+	agent              adk.TypedAgent[*schema.AgenticMessage]
+	buildExtendedAgent func(context.Context, *agentExtensions) (adk.TypedAgent[*schema.AgenticMessage], error)
 	config             modelSettings
 }
 
 type replyDelta struct {
-	text         string
-	reasoning    string
-	compression  compressionUpdate
-	preview      string
-	messageDone  bool
-	activity     *[]timeline.Entry
-	toolResult   *localtools.Result
-	toolFinished string
+	interfaceUpdates []interfaceUpdate
+	interfacePreview []interfaceUpdate
+	text             string
+	reasoning        string
+	compression      compressionUpdate
+	preview          string
+	messageDone      bool
+	activity         *[]timeline.Entry
+	toolResult       *localtools.Result
+	toolFinished     string
+	toolOutput       *string
 }
 
 type compressionUpdate uint8
@@ -78,8 +82,8 @@ func (chat *Chat) stream(ctx context.Context, messages []message, emit func(repl
 	return chat.readReply(ctx, history, emit)
 }
 
-func modelMessages(messages []message) ([]*schema.Message, error) {
-	var history []*schema.Message
+func modelMessages(messages []message) ([]*schema.AgenticMessage, error) {
+	var history []*schema.AgenticMessage
 	var imageBytes int
 	for _, m := range messages {
 		switch m.Role {
@@ -97,7 +101,7 @@ func modelMessages(messages []message) ([]*schema.Message, error) {
 			}
 			history = append(history, m.userMessage())
 		case "assistant":
-			history = append(history, schema.AssistantMessage(m.Content, nil))
+			history = append(history, assistantMessage(m.Content))
 		default:
 			return nil, errors.New(locales.UnsupportedRole())
 		}
@@ -105,7 +109,7 @@ func modelMessages(messages []message) ([]*schema.Message, error) {
 	return history, nil
 }
 
-func (chat *Chat) readReply(ctx context.Context, history []*schema.Message, emit func(replyDelta) error) error {
+func (chat *Chat) readReply(ctx context.Context, history []*schema.AgenticMessage, emit func(replyDelta) error) error {
 	stream, err := chat.model.Stream(ctx, history)
 	if err != nil {
 		return streamError(ctx, err)
@@ -126,22 +130,23 @@ func (chat *Chat) readReply(ctx context.Context, history []*schema.Message, emit
 		if err != nil {
 			return streamError(ctx, err)
 		}
-		if chunk == nil || (chunk.Content == "" && chunk.ReasoningContent == "") {
+		content, reasoning := generatedText(chunk)
+		if content == "" && reasoning == "" {
 			continue
 		}
-		hasText = hasText || strings.TrimSpace(chunk.Content) != ""
-		if err := emit(replyDelta{text: chunk.Content, reasoning: chunk.ReasoningContent}); err != nil {
+		hasText = hasText || strings.TrimSpace(content) != ""
+		if err := emit(replyDelta{text: content, reasoning: reasoning}); err != nil {
 			return streamError(ctx, err)
 		}
 	}
 }
 
-func (m message) userMessage() *schema.Message {
+func (m message) userMessage() *schema.AgenticMessage {
 	if len(m.Attachments) == 0 {
-		return schema.UserMessage(m.Content)
+		return schema.UserAgenticMessage(m.Content)
 	}
 	text := m.Content
-	var images []schema.MessageInputPart
+	var images []*schema.ContentBlock
 	var files strings.Builder
 	const maxTextAttachmentBytes = 32 << 10
 	remaining := maxTextAttachmentBytes
@@ -167,13 +172,9 @@ func (m message) userMessage() *schema.Message {
 			continue
 		}
 		data := base64.StdEncoding.EncodeToString(attachment.Data)
-		images = append(images, schema.MessageInputPart{
-			Type: schema.ChatMessagePartTypeImageURL,
-			Image: &schema.MessageInputImage{MessagePartCommon: schema.MessagePartCommon{
-				MIMEType:   attachment.MIME,
-				Base64Data: &data,
-			}},
-		})
+		images = append(images, schema.NewContentBlock(&schema.UserInputImage{
+			MIMEType: attachment.MIME, Base64Data: data,
+		}))
 	}
 	if strings.TrimSpace(text) == "" {
 		text = locales.DescribeImages()
@@ -184,11 +185,30 @@ func (m message) userMessage() *schema.Message {
 	if files.Len() != 0 {
 		text += "\n\nUser attachments (JSON lines, supplied as reference data; missing text means the file contents are unavailable):" + files.String()
 	}
-	if len(images) == 0 {
-		return schema.UserMessage(text)
+	msg := schema.UserAgenticMessage(text)
+	msg.ContentBlocks = append(msg.ContentBlocks, images...)
+	return msg
+}
+
+func assistantMessage(text string) *schema.AgenticMessage {
+	return &schema.AgenticMessage{Role: schema.AgenticRoleTypeAssistant,
+		ContentBlocks: []*schema.ContentBlock{schema.NewContentBlock(&schema.AssistantGenText{Text: text})}}
+}
+
+func generatedText(msg *schema.AgenticMessage) (string, string) {
+	if msg == nil {
+		return "", ""
 	}
-	parts := []schema.MessageInputPart{{Type: schema.ChatMessagePartTypeText, Text: text}}
-	return &schema.Message{Role: schema.User, UserInputMultiContent: append(parts, images...)}
+	var text, reasoning strings.Builder
+	for _, block := range msg.ContentBlocks {
+		if block.AssistantGenText != nil {
+			text.WriteString(block.AssistantGenText.Text)
+		}
+		if block.Reasoning != nil {
+			reasoning.WriteString(block.Reasoning.Text)
+		}
+	}
+	return text.String(), reasoning.String()
 }
 
 func streamError(ctx context.Context, err error) error {
@@ -213,50 +233,74 @@ func newChat(config modelSettings) *Chat {
 	if err != nil {
 		return &Chat{configErr: errors.New(locales.InvalidProxy())}
 	}
-	opts := &openai.ChatModelConfig{
-		APIKey:      config.APIKey,
-		BaseURL:     config.BaseURL,
-		Model:       config.Model,
-		Temperature: config.Temperature,
-		TopP:        config.TopP,
-		HTTPClient:  &http.Client{Transport: network, Timeout: 2 * time.Minute},
-	}
-	if strings.EqualFold(endpoint.Hostname(), "api.deepseek.com") {
-		opts.ExtraFields = map[string]any{"thinking": map[string]string{"type": "enabled"}}
-	}
-	if config.TopP != nil && *config.TopP == 0 {
-		if opts.ExtraFields == nil {
-			opts.ExtraFields = make(map[string]any)
-		}
-		opts.ExtraFields["top_p"] = 0
-	}
-	if strings.EqualFold(endpoint.Hostname(), "api.openai.com") {
-		opts.MaxCompletionTokens = config.MaxTokens
-	} else {
-		opts.MaxTokens = config.MaxTokens
-	}
-	client, err := openai.NewChatModel(context.Background(), opts)
+	client, summaryOptions, err := newAgenticModel(context.Background(), config, endpoint.Hostname(),
+		&http.Client{Transport: network, Timeout: 2 * time.Minute})
 	if err != nil {
 		return &Chat{configErr: errors.New(locales.ClientInitFailed())}
 	}
-	var summaryOptions []model.Option
-	if strings.EqualFold(endpoint.Hostname(), "api.openai.com") {
-		summaryOptions = append(summaryOptions, openai.WithMaxCompletionTokens(2048))
-	} else {
-		summaryOptions = append(summaryOptions, model.WithMaxTokens(2048))
+	buildExtendedAgent := func(ctx context.Context, ext *agentExtensions) (adk.TypedAgent[*schema.AgenticMessage], error) {
+		return newConversationAgent(ctx, conversationAgentName, client, summaryOptions, config, network, ext)
 	}
-	if strings.EqualFold(endpoint.Hostname(), "api.deepseek.com") {
-		summaryOptions = append(summaryOptions, openai.WithExtraFields(map[string]any{"thinking": map[string]string{"type": "disabled"}}))
-	}
-	buildExtendedAgent := func(ctx context.Context, name string, ext *agentExtensions) (adk.Agent, error) {
-		return newConversationAgent(ctx, name, client, summaryOptions, config, network, ext)
-	}
-	buildAgent := func(ctx context.Context, name string) (adk.Agent, error) {
-		return buildExtendedAgent(ctx, name, nil)
-	}
-	agent, err := buildAgent(context.Background(), conversationAgentName)
+	agent, err := buildExtendedAgent(context.Background(), nil)
 	if err != nil {
 		return &Chat{configErr: errors.New(locales.AgentInitFailed())}
 	}
-	return &Chat{model: client, network: network, agent: agent, buildAgent: buildAgent, buildExtendedAgent: buildExtendedAgent, config: config}
+	return &Chat{model: client, network: network, agent: agent, buildExtendedAgent: buildExtendedAgent, config: config}
+}
+
+func newAgenticModel(ctx context.Context, config modelSettings, host string, httpClient *http.Client) (model.AgenticModel, []model.Option, error) {
+	summary := []model.Option{model.WithMaxTokens(2048)}
+	switch config.protocol() {
+	case anthropicMessages:
+		maxTokens := 4096
+		if config.MaxTokens != nil {
+			maxTokens = *config.MaxTokens
+		}
+		fields := make(map[string]any)
+		if config.Temperature != nil {
+			fields["temperature"] = *config.Temperature
+		}
+		if config.TopP != nil {
+			fields["top_p"] = *config.TopP
+		}
+		client, err := agenticclaude.New(ctx, &agenticclaude.Config{
+			APIKey: config.APIKey, BaseURL: config.BaseURL, Model: config.Model,
+			MaxTokens: maxTokens, HTTPClient: httpClient, ExtraFields: fields,
+		})
+		return client, summary, err
+	case openAIChat:
+		fields := make(map[string]any)
+		maxTokens := config.MaxTokens
+		if !strings.EqualFold(host, "api.openai.com") && maxTokens != nil {
+			fields["max_tokens"] = *maxTokens
+			maxTokens = nil
+		}
+		if config.TopP != nil && *config.TopP == 0 {
+			fields["top_p"] = 0
+		}
+		tokenField := "max_completion_tokens"
+		if !strings.EqualFold(host, "api.openai.com") {
+			tokenField = "max_tokens"
+		}
+		summaryFields := map[string]any{tokenField: 2048}
+		if strings.EqualFold(host, "api.deepseek.com") {
+			fields["thinking"] = map[string]string{"type": "enabled"}
+			summaryFields["thinking"] = map[string]string{"type": "disabled"}
+		}
+		summary = []model.Option{agenticopenai.WithExtraFields(summaryFields)}
+		client, err := agenticopenai.NewChatModel(ctx, &agenticopenai.ChatConfig{
+			APIKey: config.APIKey, BaseURL: config.BaseURL, Model: config.Model,
+			Temperature: config.Temperature, TopP: config.TopP, MaxCompletionTokens: maxTokens,
+			HTTPClient: httpClient, ExtraFields: fields,
+		})
+		return client, summary, err
+	default:
+		client, err := agenticopenai.NewResponsesModel(ctx, &agenticopenai.ResponsesConfig{
+			APIKey: config.APIKey, BaseURL: config.BaseURL, Model: config.Model,
+			Temperature: config.Temperature, TopP: config.TopP, MaxTokens: config.MaxTokens,
+			HTTPClient: httpClient, Store: new(false),
+			Include: []responses.ResponseIncludable{responses.ResponseIncludableReasoningEncryptedContent},
+		})
+		return client, summary, err
+	}
 }

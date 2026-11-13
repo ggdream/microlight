@@ -21,9 +21,11 @@ type officialPart struct {
 }
 
 type officialCase struct {
-	Name  string
-	Input string
-	Args  struct {
+	Action string
+	Name   string
+	Input  string
+	Args   struct {
+		Format             a2uiagent.Format
 		Catalog            any
 		Catalogs           []any
 		Wrapped            *bool
@@ -37,6 +39,7 @@ type officialCase struct {
 	}
 	Messages        []map[string]any
 	ExpectContains  []string `yaml:"expect_contains"`
+	ExpectAbsent    []string `yaml:"expect_absent"`
 	ExpectRoundTrip bool     `yaml:"expect_round_trip"`
 	Expect          []map[string]any
 	ExpectError     map[string]any `yaml:"expect_error"`

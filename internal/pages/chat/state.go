@@ -20,15 +20,18 @@ const replyRequestFailed = "request_failed"
 
 type turn struct {
 	message
-	State          string           `json:"state,omitempty"`
-	Error          string           `json:"error,omitempty"`
-	Activity       []timeline.Entry `json:"activity,omitempty"`
-	Reasoning      string           `json:"reasoning,omitempty"`
-	StartedAt      time.Time        `json:"started_at,omitempty"`
-	FinishedAt     time.Time        `json:"finished_at,omitempty"`
-	Clarifications []clarification  `json:"clarifications,omitempty"`
+	State           string                `json:"state,omitempty"`
+	Error           string                `json:"error,omitempty"`
+	Activity        []timeline.Entry      `json:"activity,omitempty"`
+	Reasoning       string                `json:"reasoning,omitempty"`
+	StartedAt       time.Time             `json:"started_at,omitempty"`
+	FinishedAt      time.Time             `json:"finished_at,omitempty"`
+	Clarifications  []clarification       `json:"clarifications,omitempty"`
+	Interface       []interfaceUpdate     `json:"a2ui,omitempty"`
+	InterfaceAction *a2ui.RendererMessage `json:"a2ui_action,omitempty"`
 
 	reasoningOpen        *bool
+	interfacePreview     []interfaceUpdate
 	processPreview       string
 	compressing          bool
 	clarificationSurface *a2ui.Surface
@@ -36,19 +39,21 @@ type turn struct {
 }
 
 type conversation struct {
-	ID         string  `json:"id"`
-	Title      string  `json:"title"`
-	Turns      []*turn `json:"turns"`
-	queue      []queuedMessage
-	list       ui.ListState
-	sessionID  string
-	branchID   string
-	accessMode localtools.Mode
-	workspace  string
-	sentDraft  *string
-	pinned     bool
-	archived   bool
-	menuOpen   bool
+	ID                 string  `json:"id"`
+	Title              string  `json:"title"`
+	Turns              []*turn `json:"turns"`
+	queue              []queuedMessage
+	list               ui.ListState
+	sessionID          string
+	sessionModel       string
+	branchID           string
+	accessMode         localtools.Mode
+	workspace          string
+	sentDraft          *string
+	pinned             bool
+	archived           bool
+	menuOpen           bool
+	projectedInterface *interfaceProjection
 }
 
 type history struct {
@@ -99,4 +104,5 @@ type chatApp struct {
 	retryReply         *turn
 	unreadReplies      int
 	md                 *markdown.Options
+	links              linkPreviews
 }

@@ -5,11 +5,90 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/pages/settings"
 
 	"github.com/egoist/mygo/ui"
 )
+
+func TestProviderChipDeletionRequiresConfirmation(t *testing.T) {
+	dir := t.TempDir()
+	store, err := openLocalStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	app := &chatApp{store: store}
+	app.loadSettings()
+	app.openSettings()
+	app.settingsTab = settings.Model
+	provider := app.providers.Providers[0]
+	window := ui.NewTester(app.settingsPage, 1000, 750)
+	remove := locales.RemoveProvider(provider.Name)
+	openDelete := func() {
+		t.Helper()
+		chip, ok := window.Find(provider.Name)
+		if !ok {
+			t.Fatal("provider chip is missing")
+		}
+		window.Move(chip.X+chip.W/2, chip.Y+chip.H/2)
+		window.Advance(200 * time.Millisecond)
+		if err := window.Click(remove); err != nil {
+			t.Fatal(err)
+		}
+		if !window.HasText(locales.DeleteProviderTitle()) || len(app.providers.Providers) != 1 {
+			t.Fatal("clicking remove should open confirmation without deleting the provider")
+		}
+	}
+	if _, ok := window.Find(remove); ok {
+		t.Fatal("remove should be hidden before hover")
+	}
+	openDelete()
+	if err := window.Click(locales.Cancel()); err != nil {
+		t.Fatal(err)
+	}
+	openDelete()
+	if err := window.Click(locales.DeleteProvider()); err != nil {
+		t.Fatal(err)
+	}
+	reopened := &chatApp{store: store}
+	reopened.loadSettings()
+	if len(reopened.providers.Providers) != 0 || reopened.backend.configErr == nil {
+		t.Fatal("deleting the last provider should persist an empty catalog")
+	}
+}
+
+func TestModelRowsKeepOrderAndSeparateDefaultFromTestSelection(t *testing.T) {
+	app := &chatApp{}
+	app.form.modelForm = app.providerForm("")
+	*app.form.defaultModel = "primary"
+	window := ui.NewTester(app.providerModelsControl, 610, 550)
+	click := func(label string) {
+		t.Helper()
+		if err := window.Click(label); err != nil {
+			t.Fatal(err)
+		}
+	}
+	click(locales.AddProviderModel())
+	if len(app.form.models) != 2 || *app.form.models[1] != "" {
+		t.Fatal("add should create an editable model row immediately")
+	}
+
+	// Rebuild after updating the second row so the radio and picker use its ID.
+	*app.form.models[1] = "alternate"
+	window = ui.NewTester(app.providerModelsControl, 610, 550)
+	click(locales.ChooseDefaultModel("alternate"))
+	if app.connectionConfig().Model != "alternate" || *app.form.models[0] != "primary" {
+		t.Fatal("selecting the default should preserve model order")
+	}
+	click("alternate")
+	click("primary")
+	if app.form.testModel != "primary" || app.connectionConfig().Model != "alternate" {
+		t.Fatal("the test selection should be independent of the default model")
+	}
+}
 
 func TestProviderSelectionRoutesRequestsAndSurvivesRestart(t *testing.T) {
 	requests := make(chan struct{ model, auth string }, 1)
@@ -28,7 +107,7 @@ func TestProviderSelectionRoutesRequestsAndSurvivesRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer store.Close()
-	legacy := modelSettings{BaseURL: server.URL, Model: "legacy-model", APIKey: "legacy-key"}
+	legacy := modelSettings{Protocol: openAIChat, BaseURL: server.URL, Model: "legacy-model", APIKey: "legacy-key"}
 	if err := store.saveSettings(legacy); err != nil {
 		t.Fatal(err)
 	}
@@ -36,15 +115,17 @@ func TestProviderSelectionRoutesRequestsAndSurvivesRestart(t *testing.T) {
 	app.loadSettings()
 	legacyChoice := app.currentModelChoice()
 	app.openSettings()
-	if app.savedKeyForForm() != "legacy-key" || app.form.model != "legacy-model" {
+	if app.savedKeyForForm() != "legacy-key" || app.form.defaultModelID() != "legacy-model" {
 		t.Fatal("legacy settings were not migrated into the first provider")
 	}
 
 	app.editProvider("")
-	app.form.providerName, app.form.baseURL, app.form.model = "Second Provider", server.URL, "primary"
+	app.form.providerName, app.form.baseURL = "Second Provider", server.URL
+	app.form.protocol = openAIChat
+	*app.form.defaultModel = "primary"
 	app.form.apiKey, app.form.maxTokens = "second-key", "64"
 	alternate := "alternate"
-	app.form.extraModels = []*string{&alternate}
+	app.form.models = append(app.form.models, &alternate)
 	app.saveSettings()
 	if app.form.failed || len(app.providers.Providers) != 2 {
 		t.Fatalf("second provider did not save: %s", app.form.message)

@@ -7,6 +7,7 @@ import (
 	"github.com/ggdream/microlight/assets/locales"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/elastic"
 )
 
 func (app *chatApp) composer(c *ui.Context, selected *conversation) {
@@ -43,8 +44,9 @@ func (app *chatApp) composer(c *ui.Context, selected *conversation) {
 				return
 			}
 			if len(app.draftAttachments) > 0 {
-				ui.ScrollHorizontal(c).FillWidth().Height(77).Children(func() {
-					ui.Row(c).Gap(8).Children(func() {
+				scroll, offset := elastic.Horizontal(c)
+				scroll.FillWidth().Height(77).Children(func() {
+					offset.Apply(ui.Row(c)).Gap(8).Children(func() {
 						for i, attachment := range app.draftAttachments {
 							attachmentTile(c.Key(attachment), attachment, 62, func() {
 								app.draftAttachments = slices.Delete(app.draftAttachments, i, i+1)

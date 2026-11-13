@@ -2,6 +2,7 @@ package a2uimygo_test
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,9 +48,6 @@ func TestOfficialMyGoConversation(t *testing.T) {
 		for _, tc := range cases {
 			for _, format := range tc.Formats {
 				t.Run(tc.Name+"/"+string(format), func(t *testing.T) {
-					if tc.Name == "missing_surface_error" {
-						t.Skip("the end-to-end fixture requires structured outbound integrity errors")
-					}
 					catalog, err := a2ui.ParseCatalog(a2ui.BasicCatalogDocument())
 					if err != nil {
 						t.Fatal(err)
@@ -67,22 +65,22 @@ func TestOfficialMyGoConversation(t *testing.T) {
 						actions = make([]a2ui.RendererMessage, 0)
 						stream := a2uiagent.Stream{State: &p, Format: format, Catalog: catalog}
 						var prose strings.Builder
-						for _, chunk := range turn.Chunks[format] {
-							parts, err := stream.Push(chunk)
+						consume := func(parts []a2uiagent.Part, err error) {
 							if err != nil {
-								t.Fatalf("turn %d: %v", index+1, err)
+								var integrity *a2ui.IntegrityError
+								if !errors.As(err, &integrity) {
+									t.Fatalf("turn %d: %v", index+1, err)
+								}
+								actions = append(actions, integrity.RendererMessage())
 							}
 							for _, part := range parts {
 								prose.WriteString(part.Text)
 							}
 						}
-						parts, err := stream.Close()
-						if err != nil {
-							t.Fatalf("turn %d: %v", index+1, err)
+						for _, chunk := range turn.Chunks[format] {
+							consume(stream.Push(chunk))
 						}
-						for _, part := range parts {
-							prose.WriteString(part.Text)
-						}
+						consume(stream.Close())
 						var expectedText []string
 						for _, part := range turn.Wire {
 							if text, ok := part["text"].(string); ok {
@@ -130,6 +128,18 @@ func TestOfficialMyGoConversation(t *testing.T) {
 								t.Fatalf("got %s, want %v", raw, turn.Outbound)
 							}
 							for i, event := range actual {
+								if reported, ok := event["error"].(map[string]any); ok {
+									want := turn.Outbound[i]["error"].(map[string]any)
+									for key, value := range want {
+										if match, ok := value.(map[string]any); ok && match["$match"] == "any" {
+											if value, ok := reported[key].(string); !ok || value == "" {
+												t.Fatalf("missing %s: %v", key, reported)
+											}
+											reported[key] = match
+										}
+									}
+									continue
+								}
 								action := event["action"].(map[string]any)
 								want := turn.Outbound[i]["action"].(map[string]any)
 								if _, wildcard := want["timestamp"].(map[string]any); wildcard {

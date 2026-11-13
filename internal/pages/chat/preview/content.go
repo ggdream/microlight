@@ -5,13 +5,14 @@ import (
 	"strconv"
 	"strings"
 
-	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/assets/locales"
+	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/theme"
 	"github.com/ggdream/microlight/pkg/diff"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/elastic"
 )
 
 func Content(c *ui.Context, state *ui.ListState, activity timeline.Entry, name string, fallback *string) {
@@ -44,17 +45,18 @@ func Content(c *ui.Context, state *ui.ListState, activity timeline.Entry, name s
 		if details == "" && content == nil {
 			details = locales.PreviewUnavailable()
 		}
-		ui.Scroll(c.Key("content")).Grow(1).MinHeight(0).Children(func() {
-			ui.Text(c, details).Font("monospace").FontSize(12).Selectable().FillWidth().Padding(12)
+		scroll, offset := elastic.Scroll(c.Key("content"))
+		scroll.Grow(1).MinHeight(0).Children(func() {
+			offset.Apply(ui.Text(c, details)).Font("monospace").FontSize(12).Selectable().FillWidth().Padding(12)
 		})
 	})
 }
 
 func showFileDiff(c *ui.Context, state *ui.ListState, diff *diff.Lines) {
-	ui.List(c, state, len(diff.Rows), func(i int) {
+	elastic.List(c, state, len(diff.Rows), func(i int, offset elastic.Offset) {
 		line := diff.Rows[i]
 		if line.Omitted > 0 {
-			ui.Text(c, locales.DiffUnchangedLines(strconv.Itoa(line.Omitted))).FillWidth().Padding(4, 7).
+			offset.Apply(ui.Text(c, locales.DiffUnchangedLines(strconv.Itoa(line.Omitted)))).FillWidth().Padding(4, 7).
 				Background(theme.Side).FontSize(11).TextColor(theme.Muted)
 			return
 		}
@@ -65,7 +67,7 @@ func showFileDiff(c *ui.Context, state *ui.ListState, diff *diff.Lines) {
 		case "-":
 			background, color = ui.Hex("#FCEDEE"), theme.ErrorFG
 		}
-		ui.Row(c).FillWidth().MinHeight(22).Padding(2, 7).Gap(5).AlignItems(ui.Start).Background(background).Children(func() {
+		offset.Apply(ui.Row(c)).FillWidth().MinHeight(22).Padding(2, 7).Gap(5).AlignItems(ui.Start).Background(background).Children(func() {
 			ui.Text(c, strconv.Itoa(line.Line)).Width(37).Shrink(0).TextAlign(ui.End).
 				Font("monospace").FontSize(11).TextColor(color)
 			ui.Text(c, line.Kind).Width(12).Shrink(0).Font("monospace").FontSize(12).TextColor(color)

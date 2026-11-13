@@ -73,13 +73,13 @@ func (s *Stream) compileExpress(parts *[]Part, final bool) error {
 		}
 		if message.Components != nil && s.State.Surface(message.Components.ID) == nil {
 			if final {
-				return fmt.Errorf("unknown surface %q", message.Components.ID)
+				return &a2ui.IntegrityError{SurfaceID: message.Components.ID}
 			}
 			continue
 		}
 		if message.Data != nil && s.State.Surface(message.Data.ID) == nil {
 			if final {
-				return fmt.Errorf("unknown surface %q", message.Data.ID)
+				return &a2ui.IntegrityError{SurfaceID: message.Data.ID}
 			}
 			continue
 		}

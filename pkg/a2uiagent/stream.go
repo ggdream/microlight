@@ -52,13 +52,23 @@ type Stream struct {
 	done                bool
 	expressFencePending bool
 	expressStripFence   bool
+	blockFormat         Format
+	markdown            markdownBoundary
+	markdownStarted     bool
 }
 
 func (s *Stream) InBlock() bool { return s.inBlock }
 
+func (s *Stream) isExpress() bool {
+	return s.Format == Express || (s.Format == Mixed && s.blockFormat == Express)
+}
+
 func (s *Stream) Push(chunk string) ([]Part, error) {
 	if s.done {
 		return nil, fmt.Errorf("A2UI stream is closed")
+	}
+	if s.Unwrapped && s.Format == Mixed {
+		return nil, fmt.Errorf("mixed A2UI stream requires format tags")
 	}
 	if s.Unwrapped && !s.inBlock {
 		s.inBlock = true
@@ -86,12 +96,34 @@ func Parse(response string, state *a2ui.Processor) ([]Part, error) {
 
 func (s *Stream) consume(final bool) ([]Part, error) {
 	var parts []Part
-	open, close, openPrefix, closePrefix := openTag, closeTag, "<a2ui-json", "</a2ui-json"
-	if s.Format == Express {
-		open, close, openPrefix, closePrefix = expressOpen, expressClose, "<a2ui", "</a2ui"
-	}
 	for {
 		if !s.inBlock {
+			if s.Format == Mixed {
+				if !s.markdownStarted {
+					s.markdown.lineStart = true
+					s.markdownStarted = true
+				}
+				end, tag, format := s.mixedText(final)
+				if tag != nil {
+					if before := s.pending[:tag[0]]; before != "" {
+						parts = append(parts, Part{Text: before})
+					}
+					s.pending = s.pending[tag[1]:]
+					s.block, s.sent, s.touched, s.inBlock, s.rejected = "", nil, make(map[string]bool), true, false
+					s.blockFormat = format
+					s.markdown.lineStart = false
+					continue
+				}
+				if end > 0 {
+					parts = append(parts, Part{Text: s.pending[:end]})
+					s.pending = s.pending[end:]
+				}
+				return parts, nil
+			}
+			open, openPrefix := openTag, "<a2ui-json"
+			if s.isExpress() {
+				open, openPrefix = expressOpen, "<a2ui"
+			}
 			if s.Format == Express && s.expressStripFence {
 				trimmed := strings.TrimLeftFunc(s.pending, unicode.IsSpace)
 				if !final && strings.HasPrefix("```", trimmed) && len(trimmed) < 3 {
@@ -158,8 +190,10 @@ func (s *Stream) consume(final bool) ([]Part, error) {
 			return parts, nil
 		}
 
-		tag := blockClose(close, s.pending, s.block)
-		if s.Format == Express {
+		closePrefix := "</a2ui-json"
+		tag := blockClose(closeTag, s.pending, s.block)
+		if s.isExpress() {
+			closePrefix = "</a2ui"
 			tag = expressClosingTag(s.block, s.pending)
 		}
 		end := len(s.pending)
@@ -176,8 +210,17 @@ func (s *Stream) consume(final bool) ([]Part, error) {
 			s.pending = s.pending[tag[1]-end:]
 		}
 		finished := tag != nil || final
-		if !s.rejected {
-			err := s.compile(&parts, finished)
+		if !s.rejected && (s.Format != Mixed || finished || len(s.block) > maxBlock) {
+			var err error
+			if s.Format == Mixed {
+				if tag == nil {
+					err = fmt.Errorf("unclosed or oversized A2UI block")
+				} else {
+					err = s.compileMixed(&parts)
+				}
+			} else {
+				err = s.compile(&parts, finished)
+			}
 			if err != nil {
 				if !s.Continue {
 					s.done = true
@@ -262,7 +305,7 @@ func (s *Stream) compile(parts *[]Part, final bool) error {
 	if len(s.block) > maxBlock {
 		return fmt.Errorf("A2UI JSON block exceeds %d bytes", maxBlock)
 	}
-	if s.Format == Express {
+	if s.isExpress() {
 		return s.compileExpress(parts, final)
 	}
 	source := cleanJSON(s.block)
@@ -405,4 +448,48 @@ func completeMessages(source string, progressive []string) ([]a2ui.AgentMessage,
 		messages = append(messages, m)
 	}
 	return messages, nil
+}
+
+// A mixed response may contain prose and several UI blocks. Commit each
+// complete block independently so a malformed surface cannot leak into chat.
+func (s *Stream) compileMixed(parts *[]Part) error {
+	if len(s.block) > maxBlock {
+		return fmt.Errorf("A2UI block exceeds %d bytes", maxBlock)
+	}
+	if s.State == nil {
+		s.State = new(a2ui.Processor)
+	}
+	var messages []a2ui.AgentMessage
+	var err error
+	if s.isExpress() {
+		messages, err = compileExpress(cleanExpress(s.block), s.Catalogs, s.State, true)
+	} else {
+		messages, err = decodeDirectJSON(cleanJSON(s.block))
+	}
+	if err != nil {
+		return err
+	}
+	if len(messages) == 0 {
+		return fmt.Errorf("empty A2UI block")
+	}
+	var updates, calls []a2ui.AgentMessage
+	for _, message := range messages {
+		if message.CallRenderer != nil || message.AgentResponse != nil {
+			calls = append(calls, message)
+		} else {
+			updates = append(updates, message)
+		}
+	}
+	if err := s.State.ApplyViewBatch(updates); err != nil {
+		return err
+	}
+	for _, call := range calls {
+		if s.ReceiveRPC != nil {
+			if err := s.ReceiveRPC(call); err != nil {
+				return err
+			}
+		}
+	}
+	*parts = append(*parts, Part{Messages: messages})
+	return nil
 }
