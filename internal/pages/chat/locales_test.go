@@ -1,6 +1,8 @@
 package chat
 
 import (
+	"encoding/json"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -38,6 +40,8 @@ func TestInterfaceLocaleMatchesSystemPreferences(t *testing.T) {
 
 func TestConfigMigrationKeepsModelSettingsAndStoresLanguage(t *testing.T) {
 	dir := t.TempDir()
+	legacyWorkspace := filepath.Join(dir, "legacy-workspace")
+	otherWorkspace := filepath.Join(dir, "other-workspace")
 	store, err := openLocalStore(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -64,7 +68,14 @@ func TestConfigMigrationKeepsModelSettingsAndStoresLanguage(t *testing.T) {
 	if _, err := store.Exec("INSERT INTO conversations (id, title, position) VALUES ('chat-1', 'Existing', 1)"); err != nil {
 		t.Fatal(err)
 	}
-	if err := storage.PutData(store.DB, "settings", []byte(`{"base_url":"https://example.com/v1","model":"test","access_mode":"smart","workspace":"/legacy-workspace"}`)); err != nil {
+	legacySettings, err := json.Marshal(map[string]string{
+		"base_url": "https://example.com/v1", "model": "test",
+		"access_mode": "smart", "workspace": legacyWorkspace,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.PutData(store.DB, "settings", legacySettings); err != nil {
 		t.Fatal(err)
 	}
 	if err := storage.PutData(store.DB, "selected", []byte("chat-1")); err != nil {
@@ -88,11 +99,11 @@ func TestConfigMigrationKeepsModelSettingsAndStoresLanguage(t *testing.T) {
 		t.Fatalf("selected conversation was not preserved: %v", err)
 	}
 	h, err := store.loadHistory()
-	if err != nil || len(h.Chats) != 1 || h.Chats[0].accessMode != localtools.Smart || h.Chats[0].workspace != "/legacy-workspace" {
+	if err != nil || len(h.Chats) != 1 || h.Chats[0].accessMode != localtools.Smart || h.Chats[0].workspace != legacyWorkspace {
 		t.Fatalf("existing workspace and permission were not migrated: %+v, %v", h, err)
 	}
 	app := &chatApp{store: store, history: h}
-	other := app.newConversation("Other", localtools.Ask, "/other-workspace")
+	other := app.newConversation("Other", localtools.Ask, otherWorkspace)
 	app.save(other)
 	app.chooseAccess(other, localtools.Full, time.Now())
 	if app.fullAccess == nil || other.accessMode != localtools.Ask {
@@ -126,8 +137,8 @@ func TestConfigMigrationKeepsModelSettingsAndStoresLanguage(t *testing.T) {
 	}
 	h, err = store.loadHistory()
 	if err != nil || len(h.Chats) != 2 || h.Chats[0].accessMode != localtools.Full ||
-		h.Chats[0].workspace != "/other-workspace" || h.Chats[1].accessMode != localtools.Smart ||
-		h.Chats[1].workspace != "/legacy-workspace" {
+		h.Chats[0].workspace != otherWorkspace || h.Chats[1].accessMode != localtools.Smart ||
+		h.Chats[1].workspace != legacyWorkspace {
 		t.Fatalf("per-conversation policy did not survive restart: %+v, %v", h, err)
 	}
 

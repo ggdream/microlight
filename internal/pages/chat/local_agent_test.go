@@ -24,6 +24,7 @@ func TestSessionPermissionChangesBetweenToolCalls(t *testing.T) {
 	}
 	access := localtools.NewAccess(workspace, localtools.Ask)
 	access.SetMode(localtools.Full)
+	workspaceInstruction := fmt.Sprintf("The workspace path is %q.", workspace)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var request struct {
 			Messages []struct{ Role, Content string }
@@ -33,7 +34,7 @@ func TestSessionPermissionChangesBetweenToolCalls(t *testing.T) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		if !strings.Contains(request.Messages[0].Content, workspace) {
+		if !strings.Contains(request.Messages[0].Content, workspaceInstruction) {
 			t.Error("session workspace missing from the agent instruction")
 		}
 		target := "first.txt"
