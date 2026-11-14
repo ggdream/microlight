@@ -158,6 +158,9 @@ func (app *chatApp) workspaceDialog(c *ui.Context) {
 					}
 					settings.Card(body.Key("endpoint"), locales.WorkspaceConnection(), func() {
 						settings.Field(body.Key("endpoint"), label, placeholder, &f.target.Resource).Disabled(f.busy)
+						if f.kind == "desktop" {
+							settings.Field(body.Key("directory"), locales.WorkspaceDesktopFileFolder(), "/", &f.target.Directory).Disabled(f.busy)
+						}
 						settings.Field(body.Key("token"), tokenLabel, "", &f.secret).Password().Disabled(f.busy)
 						theme.Checkbox(body.Key("remember"), &f.remember, locales.WorkspaceRemember(), f.busy)
 					})

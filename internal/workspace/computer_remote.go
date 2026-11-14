@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -29,11 +30,26 @@ type desktopRequest struct {
 type desktopInfo struct {
 	SessionID    string
 	Capabilities ComputerCapabilities
+	Files        bool
+	Environment  Environment
 }
 
 // DesktopHandler serves a single interactive desktop for the lifetime of
 // sessionID. The process running it owns the native driver.
 func DesktopHandler(driver ComputerDriver, sessionID, token string) http.Handler {
+	return desktopHandler(driver, sessionID, token, nil)
+}
+
+// DesktopWorkspaceHandler serves native desktop operations and files under root.
+func DesktopWorkspaceHandler(driver ComputerDriver, sessionID, token, root string) (http.Handler, error) {
+	files, err := openDesktopFiles(root)
+	if err != nil {
+		return nil, err
+	}
+	return desktopHandler(driver, sessionID, token, files), nil
+}
+
+func desktopHandler(driver ComputerDriver, sessionID, token string, files *desktopFiles) http.Handler {
 	gate := make(chan struct{}, 1)
 	auth := sha256.Sum256([]byte("Bearer " + token))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -58,6 +74,14 @@ func DesktopHandler(driver ComputerDriver, sessionID, token string) http.Handler
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 		defer cancel()
+		if method, ok := strings.CutPrefix(method, "files/"); ok {
+			if files == nil {
+				http.Error(w, "desktop file operations unavailable", http.StatusForbidden)
+				return
+			}
+			files.serve(ctx, w, r, method, sessionID)
+			return
+		}
 		select {
 		case gate <- struct{}{}:
 			defer func() { <-gate }()
@@ -89,7 +113,7 @@ func DesktopHandler(driver ComputerDriver, sessionID, token string) http.Handler
 		var result any
 		switch method {
 		case "info":
-			result = desktopInfo{SessionID: sessionID, Capabilities: caps}
+			result = desktopInfo{SessionID: sessionID, Capabilities: caps, Files: files != nil, Environment: desktopEnvironment()}
 		case "screenshot":
 			result, err = driver.Screenshot(ctx)
 		case "windows":
@@ -133,6 +157,8 @@ type remoteDesktop struct {
 	client          *http.Client
 	endpoint, token string
 	info            desktopInfo
+	files           bool
+	directory       string
 }
 
 func connectDesktop(ctx context.Context, target Target, token string) (Runtime, error) {
@@ -167,14 +193,39 @@ func connectDesktop(ctx context.Context, target Target, token string) (Runtime, 
 		d.Close()
 		return nil, err
 	}
-	if d.info.SessionID == "" || d.info.Capabilities == (ComputerCapabilities{}) {
+	if d.info.SessionID == "" {
+		d.Close()
+		return nil, errors.New("desktop executor did not provide a session identity")
+	}
+	if target.Directory != "" {
+		if !path.IsAbs(target.Directory) {
+			d.Close()
+			return nil, errors.New("desktop workspace path must start with /")
+		}
+		var result desktopFileReply
+		if !d.info.Files {
+			d.Close()
+			return nil, errors.New("desktop executor file access is disabled")
+		}
+		if err := d.call(ctx, "files/resolve", desktopFileRequest{Path: path.Clean(target.Directory)}, &result); err != nil {
+			d.Close()
+			return nil, err
+		}
+		if !result.IsDir {
+			d.Close()
+			return nil, errors.New("desktop workspace path must be a directory")
+		}
+		d.files = true
+		d.directory = result.Path
+	}
+	if !d.files && d.info.Capabilities == (ComputerCapabilities{}) {
 		d.Close()
 		return nil, errors.New("remote interactive desktop unavailable")
 	}
 	return d, nil
 }
 
-func (d *remoteDesktop) call(ctx context.Context, method string, args desktopRequest, result any) error {
+func (d *remoteDesktop) call(ctx context.Context, method string, args any, result any) error {
 	body, err := json.Marshal(args)
 	if err != nil {
 		return err
@@ -215,7 +266,7 @@ func (d *remoteDesktop) call(ctx context.Context, method string, args desktopReq
 	return json.Unmarshal(body, result)
 }
 
-func (d *remoteDesktop) Environment() Environment  { return Environment{} }
+func (d *remoteDesktop) Environment() Environment  { return d.info.Environment }
 func (d *remoteDesktop) Close() error              { d.client.CloseIdleConnections(); return nil }
 func (d *remoteDesktop) Computer() ComputerDriver  { return d }
 func (d *remoteDesktop) ComputerSessionID() string { return d.info.SessionID }

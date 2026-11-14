@@ -14,6 +14,7 @@ import (
 
 func main() {
 	addr := flag.String("listen", "127.0.0.1:9420", "loopback address for a local client, SSH tunnel or TLS reverse proxy")
+	root := flag.String("workspace", "", "directory to expose to authenticated workspace file tools")
 	flag.Parse()
 	host, _, err := net.SplitHostPort(*addr)
 	if err != nil || !net.ParseIP(host).IsLoopback() {
@@ -27,8 +28,16 @@ func main() {
 	if driver == nil {
 		log.Fatal("native desktop execution is unavailable on this platform")
 	}
+	sessionID := uuid.NewV7().String()
+	handler := workspace.DesktopHandler(driver, sessionID, token)
+	if *root != "" {
+		handler, err = workspace.DesktopWorkspaceHandler(driver, sessionID, token, *root)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 	server := &http.Server{
-		Addr: *addr, Handler: workspace.DesktopHandler(driver, uuid.NewV7().String(), token),
+		Addr: *addr, Handler: handler,
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second,
 		WriteTimeout: 30 * time.Second, IdleTimeout: 30 * time.Second,
 	}

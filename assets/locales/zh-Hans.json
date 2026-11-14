@@ -185,6 +185,7 @@
   "workspaceBrowserToken": "Bearer 令牌（可选）",
   "workspaceDesktop": "远程桌面",
   "workspaceDesktopEndpoint": "桌面执行器地址",
+  "workspaceDesktopFileFolder": "执行器共享目录内的路径（选填）",
   "workspaceDesktopToken": "桌面执行器令牌",
   "workspaceE2B": "E2B 沙箱",
   "workspaceE2BSandboxID": "运行中的沙箱 ID",

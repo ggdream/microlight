@@ -66,6 +66,10 @@ type BrowserProvider interface {
 	Browser() BrowserDriver
 }
 
+type FilesProvider interface {
+	Files() ResolvedFileSystem
+}
+
 // BrowserSession identifies the same browser state across executor reconnects.
 // Replace the identity when launching a different browser or profile.
 type BrowserSession interface {
@@ -98,6 +102,9 @@ type Operations struct {
 func DiscoverOperations(ctx context.Context, runtime Runtime) (Operations, error) {
 	var ops Operations
 	ops.Files, _ = runtime.(ResolvedFileSystem)
+	if provider, ok := runtime.(FilesProvider); ok {
+		ops.Files = provider.Files()
+	}
 	ops.Shell, _ = runtime.(filesystem.Shell)
 	if provider, ok := runtime.(CommandProvider); ok {
 		ops.Commands = provider.Commands()

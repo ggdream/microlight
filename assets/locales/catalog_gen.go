@@ -1808,6 +1808,16 @@ func (msgs Messages) WorkspaceDesktopEndpoint() string {
 	return Catalog.Format(msgs.locale, "workspaceDesktopEndpoint", nil)
 }
 
+// WorkspaceDesktopFileFolder says "Folder under the executor’s file root (optional)"
+// in the language the app shows.
+func WorkspaceDesktopFileFolder() string { return In(i18n.Locale()).WorkspaceDesktopFileFolder() }
+
+// WorkspaceDesktopFileFolder says "Folder under the executor’s file root (optional)"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDesktopFileFolder() string {
+	return Catalog.Format(msgs.locale, "workspaceDesktopFileFolder", nil)
+}
+
 // WorkspaceDesktopToken says "Desktop executor token"
 // in the language the app shows.
 func WorkspaceDesktopToken() string { return In(i18n.Locale()).WorkspaceDesktopToken() }

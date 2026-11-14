@@ -192,6 +192,7 @@
   "workspaceBrowserToken": "Bearer token (optional)",
   "workspaceDesktop": "Remote Desktop",
   "workspaceDesktopEndpoint": "Desktop executor URL",
+  "workspaceDesktopFileFolder": "Folder under the executor’s file root (optional)",
   "workspaceDesktopToken": "Desktop executor token",
   "workspaceE2B": "E2B Sandbox",
   "workspaceE2BSandboxID": "Running sandbox ID",

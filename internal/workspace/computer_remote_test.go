@@ -5,10 +5,84 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/cloudwego/eino/adk/filesystem"
 )
+
+func TestRemoteDesktopWorkspaceFiles(t *testing.T) {
+	const token = "desktop-test-token-00000000000000"
+	root := t.TempDir()
+	project := filepath.Join(root, "project")
+	if err := os.Mkdir(project, 0700); err != nil {
+		t.Fatal(err)
+	}
+	handler, err := DesktopWorkspaceHandler(&testDesktop{}, "desktop-session", token, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	ctx := t.Context()
+	rt, err := Open(ctx, Target{Kind: "desktop", Resource: server.URL, Directory: "/project"}, token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rt.Close()
+	ops, err := DiscoverOperations(ctx, rt)
+	if err != nil || ops.Files == nil || ops.Computer == nil {
+		t.Fatalf("capabilities %+v: %v", ops.Capabilities, err)
+	}
+	name, version, err := ops.Files.Resolve(ctx, "notes.txt", true)
+	if err != nil || name != "/project/notes.txt" || version != "missing" {
+		t.Fatalf("resolve returned %q, %q, %v", name, version, err)
+	}
+	if err := ops.Files.Write(WithWriteVersion(ctx, name, version), &filesystem.WriteRequest{FilePath: name, Content: "remote file"}); err != nil {
+		t.Fatal(err)
+	}
+	current, err := os.ReadFile(filepath.Join(project, "notes.txt"))
+	if err != nil || string(current) != "remote file" {
+		t.Fatalf("file on executor: %q, %v", current, err)
+	}
+	read, err := ops.Files.Read(ctx, &filesystem.ReadRequest{FilePath: name})
+	if err != nil || read.Content != "remote file" {
+		t.Fatalf("read returned %+v, %v", read, err)
+	}
+	list, err := ops.Files.LsInfo(ctx, &filesystem.LsInfoRequest{Path: "/project"})
+	if err != nil || len(list) != 1 || list[0].Path != "notes.txt" {
+		t.Fatalf("list returned %+v, %v", list, err)
+	}
+	_, version, err = ops.Files.Resolve(ctx, name, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ops.Files.Write(WithWriteVersion(ctx, name, version), &filesystem.WriteRequest{FilePath: name, Content: "fresh file"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := ops.Files.Write(WithWriteVersion(ctx, name, version), &filesystem.WriteRequest{FilePath: name, Content: "stale write"}); err == nil {
+		t.Fatal("stale version allowed overwrite")
+	}
+	if _, err := ops.Files.Read(ctx, &filesystem.ReadRequest{FilePath: "/../outside.txt"}); err == nil {
+		t.Fatal("allowed path traversal")
+	}
+	other := t.TempDir()
+	if err := os.WriteFile(filepath.Join(other, "notes.txt"), []byte("outside"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(other, filepath.Join(root, "external")); err == nil {
+		if _, err := ops.Files.Read(ctx, &filesystem.ReadRequest{FilePath: "/external/notes.txt"}); err == nil {
+			t.Fatal("allowed access through an external symlink")
+		}
+	}
+	ops.Computer.(*remoteDesktop).info.SessionID = "stale-session"
+	if _, err := ops.Files.Read(ctx, &filesystem.ReadRequest{FilePath: name}); err == nil || !strings.Contains(err.Error(), "409") {
+		t.Fatalf("old session read: %v", err)
+	}
+}
 
 type testDesktop struct {
 	ComputerDriver

@@ -587,6 +587,9 @@ func resolveRuntime(ctx context.Context, access runtimeAccess, name, raw string)
 		return op, err
 	}
 	identity := access.target.Identity()
+	if session, ok := access.runtime.(project.ComputerSession); ok {
+		identity += "/" + session.ComputerSessionID()
+	}
 	if name == Execute {
 		if strings.TrimSpace(args.Command) == "" || len(args.Command) > maxLocalWrite || strings.ContainsRune(args.Command, 0) {
 			return op, errors.New("需要有效的命令，且不能超过 16 KiB")
