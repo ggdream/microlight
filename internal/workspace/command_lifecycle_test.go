@@ -70,6 +70,40 @@ func TestSSHCommandLifecycle(t *testing.T) {
 		return rt
 	}
 	testCommandLifecycle(t, ctx, connect)
+	t.Run("MicroVMTaskIsolation", func(t *testing.T) {
+		guest := target
+		guest.Kind = "microvm"
+		vm, err := Open(ctx, guest, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer vm.Close()
+		vmCommands := vm.(CommandProvider).Commands()
+		if vmCommands == nil {
+			t.Fatal("MicroVM recoverable shell capability is missing")
+		}
+		id := uuid.NewV7().String()
+		command := "printf vm"
+		run, err := vmCommands.StartCommand(ctx, &backgroundshell.StartCommandRequest{TaskID: id, Command: command})
+		if err != nil {
+			t.Fatal(err)
+		}
+		sshCommands := connect().(CommandProvider).Commands()
+		request := &backgroundshell.RecoverCommandRequest{TaskID: id, Command: command}
+		if _, err := sshCommands.RecoverCommand(ctx, request); !errors.Is(err, backgroundtask.ErrNotFound) {
+			t.Fatalf("ordinary SSH recovered a MicroVM task: %v", err)
+		}
+		stop, err := sshCommands.(CommandStopper).StopCommand(ctx, request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if outcome, err := stop.Wait(ctx); err != nil || outcome.Status != backgroundtask.StatusCanceled {
+			t.Fatalf("SSH cancellation did not stay in its own scope: %+v, %v", outcome, err)
+		}
+		if outcome, err := run.Wait(ctx); err != nil || outcome.Status != backgroundtask.StatusCompleted {
+			t.Fatalf("MicroVM task affected by SSH cancellation: %+v, %v", outcome, err)
+		}
+	})
 }
 
 func testCommandLifecycle(t *testing.T, ctx context.Context, connect func() Runtime) {
