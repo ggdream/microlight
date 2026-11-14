@@ -42,6 +42,7 @@ type remoteCommands struct {
 	run       func(context.Context, string) (string, error)
 	directory string
 	scope     string
+	launchErr error
 }
 
 func supportsRemoteCommands(ctx context.Context, run func(context.Context, string) (string, error)) bool {
@@ -63,6 +64,14 @@ func (c remoteCommands) StartCommandOnce(ctx context.Context, req *backgroundshe
 	task, err := c.task(req.TaskID, req.Command)
 	if err != nil {
 		return nil, err
+	}
+	if c.launchErr != nil {
+		if _, err := task.observe(ctx); errors.Is(err, backgroundtask.ErrNotFound) {
+			return nil, c.launchErr
+		} else if err != nil {
+			return nil, err
+		}
+		return task, nil
 	}
 	// The remote worker owns the claim. A dropped launch response can be
 	// retried with the same ID without executing the command again.

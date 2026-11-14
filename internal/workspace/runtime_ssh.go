@@ -31,12 +31,13 @@ type UnknownHostKey struct{ Fingerprint string }
 func (e *UnknownHostKey) Error() string { return "SSH 主机指纹 " + e.Fingerprint }
 
 type sshRuntime struct {
-	client     *ssh.Client
-	files      *sftp.Client
-	connection net.Conn
-	target     Target
-	env        Environment
-	jobs       bool
+	client       *ssh.Client
+	files        *sftp.Client
+	connection   net.Conn
+	target       Target
+	env          Environment
+	jobs         bool
+	directoryErr error
 }
 
 func openSSH(ctx context.Context, target Target, secret string) (*sshRuntime, error) {
@@ -126,13 +127,24 @@ func openSSH(ctx context.Context, target Target, secret string) (*sshRuntime, er
 		if !path.IsAbs(name) && !(r.env.OS == "windows" && len(name) > 2 && name[1:3] == ":/") {
 			err = errors.New("请输入远端绝对路径")
 		} else {
-			r.target.Directory, err = r.files.RealPath(name)
+			directory, resolveErr := r.files.RealPath(name)
+			err = resolveErr
 			if err == nil {
+				r.target.Directory = directory
 				var info os.FileInfo
-				info, err = r.files.Stat(r.target.Directory)
+				info, err = r.files.Stat(directory)
 				if err == nil && !info.IsDir() {
 					err = errors.New("SSH 工作目录不可用")
 				}
+			}
+			if r.env.OS == "linux" && errors.Is(err, os.ErrNotExist) {
+				// Preserve the existing canonical command scope if SFTP can
+				// resolve the path despite the missing directory.
+				if directory == "" {
+					r.target.Directory = path.Clean(name)
+				}
+				r.directoryErr = err
+				err = nil
 			}
 		}
 	}
@@ -148,6 +160,10 @@ func openSSH(ctx context.Context, target Target, secret string) (*sshRuntime, er
 		r.Close()
 		return nil, err
 	}
+	if r.directoryErr != nil && !r.jobs {
+		r.Close()
+		return nil, r.directoryErr
+	}
 	return r, nil
 }
 
@@ -155,7 +171,11 @@ func (r *sshRuntime) Commands() backgroundshell.RecoverableShell {
 	if !r.jobs {
 		return nil
 	}
-	return remoteCommands{run: r.runCommandControl, directory: r.target.Directory, scope: r.target.Identity()}
+	return remoteCommands{run: r.runCommandControl, directory: r.target.Directory, scope: r.target.Identity(), launchErr: r.directoryErr}
+}
+
+func (r *sshRuntime) GetCapabilities(ctx context.Context) (Capabilities, error) {
+	return Capabilities{Files: r.directoryErr == nil, Shell: true, RecoverableShell: r.jobs}, ctx.Err()
 }
 
 func (r *sshRuntime) runCommandControl(ctx context.Context, script string) (string, error) {
@@ -201,6 +221,9 @@ func (r *sshRuntime) run(ctx context.Context, command string) (string, bool, err
 }
 
 func (r *sshRuntime) Execute(ctx context.Context, req *filesystem.ExecuteRequest) (*filesystem.ExecuteResponse, error) {
+	if r.directoryErr != nil {
+		return nil, r.directoryErr
+	}
 	command := "cd " + quotePOSIX(r.target.Directory) + " && exec /bin/sh -c " + quotePOSIX(req.Command)
 	if r.env.OS == "windows" {
 		dir := strings.TrimPrefix(r.target.Directory, "/")

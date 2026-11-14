@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"path"
 	"testing"
 	"time"
 	"uuid"
@@ -150,6 +151,55 @@ func TestSSHCommandLifecycle(t *testing.T) {
 			t.Fatalf("MicroVM task affected by SSH cancellation: %+v, %v", outcome, err)
 		}
 	})
+	for _, kind := range []string{"remote", "microvm"} {
+		t.Run(kind+"/RecoverWithoutWorkingDirectory", func(t *testing.T) {
+			rt := connect().(*sshRuntime)
+			target := target
+			target.Kind = kind
+			target.Directory = path.Join(target.Directory, uuid.NewV7().String())
+			dir := quotePOSIX(target.Directory)
+			if _, err := rt.runCommandControl(ctx, "mkdir "+dir); err != nil {
+				t.Fatal(err)
+			}
+			open := func() Runtime {
+				t.Helper()
+				session, err := Open(ctx, target, "")
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() { session.Close() })
+				return session
+			}
+			commands := open().(CommandProvider).Commands()
+			req := &backgroundshell.StartCommandRequest{TaskID: uuid.NewV7().String(), Command: "sleep 30"}
+			if _, err := commands.StartCommand(ctx, req); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := rt.runCommandControl(ctx, "rmdir "+dir); err != nil {
+				t.Fatal(err)
+			}
+			session := open()
+			ops, err := DiscoverOperations(ctx, session)
+			if err != nil || ops.Files != nil || ops.Commands == nil {
+				t.Fatalf("operations without directory: %+v, %v", ops.Capabilities, err)
+			}
+			recover := &backgroundshell.RecoverCommandRequest{TaskID: req.TaskID, Command: req.Command}
+			if _, err := ops.Commands.RecoverCommand(ctx, recover); err != nil {
+				t.Fatal(err)
+			}
+			run, err := ops.Commands.(CommandStopper).StopCommand(ctx, recover)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result, err := run.Wait(ctx); err != nil || result.Status != backgroundtask.StatusCanceled {
+				t.Fatalf("cancellation = %+v, %v", result, err)
+			}
+			req.TaskID = uuid.NewV7().String()
+			if _, err := ops.Commands.StartCommand(ctx, req); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("new launch without directory: %v", err)
+			}
+		})
+	}
 }
 
 func testCommandLifecycle(t *testing.T, ctx context.Context, connect func() Runtime) {
