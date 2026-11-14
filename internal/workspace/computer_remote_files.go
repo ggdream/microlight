@@ -78,6 +78,10 @@ func (f *desktopFiles) serve(ctx context.Context, w http.ResponseWriter, r *http
 	}
 	result, err := f.execute(ctx, method, session, args)
 	if err != nil {
+		if method == "resolve" && errors.Is(err, os.ErrNotExist) {
+			http.Error(w, "desktop-path-not-found", http.StatusNotFound)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}

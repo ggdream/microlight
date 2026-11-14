@@ -185,3 +185,73 @@ func TestDesktopCommandReconnect(t *testing.T) {
 		t.Fatalf("child survived cancellation: %v", err)
 	}
 }
+
+type unavailableDesktop struct{ ComputerDriver }
+
+func (unavailableDesktop) GetCapabilities(context.Context) (ComputerCapabilities, error) {
+	return ComputerCapabilities{}, errors.New("interactive desktop unavailable")
+}
+
+func TestDesktopCommandRecoveryWithoutWorkspaceDirectory(t *testing.T) {
+	const token = "desktop-test-token-00000000000000"
+	root := t.TempDir()
+	dir := filepath.Join(root, "work")
+	if err := os.Mkdir(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	files, err := openDesktopFiles(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := newDesktopCommandStore(filepath.Join(t.TempDir(), "commands.sqlite3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.db.Close()
+	server := httptest.NewServer(desktopHandler(unavailableDesktop{}, "desktop-session", token, files, store))
+	defer server.Close()
+	target := Target{Kind: "desktop", Resource: server.URL, Directory: "/work"}
+	ctx := t.Context()
+	open := func() Runtime {
+		t.Helper()
+		rt, err := Open(ctx, target, token)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { rt.Close() })
+		return rt
+	}
+	const command = "echo original"
+	start := &backgroundshell.StartCommandRequest{TaskID: "existing", Command: command}
+	run, err := open().(CommandProvider).Commands().StartCommand(ctx, start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outcome, err := run.Wait(ctx)
+	if err != nil || outcome.Status != backgroundtask.StatusCompleted {
+		t.Fatalf("first outcome = %+v, %v", outcome, err)
+	}
+	if err := os.Remove(dir); err != nil {
+		t.Fatal(err)
+	}
+	rt := open()
+	operations, err := DiscoverOperations(ctx, rt)
+	if err != nil || operations.Files != nil || operations.Capabilities.Computer != (ComputerCapabilities{}) {
+		t.Fatalf("operations after directory removal: %+v, %v", operations.Capabilities, err)
+	}
+	commands, err := DiscoverCommands(ctx, rt)
+	if err != nil || commands == nil {
+		t.Fatalf("command capability after directory removal: %v", err)
+	}
+	run, err = commands.RecoverCommand(ctx, &backgroundshell.RecoverCommandRequest{TaskID: start.TaskID, Command: command})
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, err := run.Wait(ctx)
+	if err != nil || string(saved.Data) != string(outcome.Data) {
+		t.Fatalf("recovered outcome = %+v, %v", saved, err)
+	}
+	if _, err := commands.StartCommand(ctx, &backgroundshell.StartCommandRequest{TaskID: "new", Command: command}); err == nil {
+		t.Fatal("new command started without its directory")
+	}
+}

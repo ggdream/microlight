@@ -97,31 +97,49 @@ type Operations struct {
 	Computer     ComputerDriver
 }
 
+// DiscoverCommands checks the command capability independently of the
+// interactive drivers. Recovery can run without a usable desktop session.
+func DiscoverCommands(ctx context.Context, runtime Runtime) (backgroundshell.RecoverableShell, error) {
+	declared, err := declaredCapabilities(ctx, runtime)
+	if err != nil {
+		return nil, err
+	}
+	return discoverCommands(runtime, declared), ctx.Err()
+}
+
+func declaredCapabilities(ctx context.Context, runtime Runtime) (Capabilities, error) {
+	if provider, ok := runtime.(CapabilityProvider); ok {
+		return provider.GetCapabilities(ctx)
+	}
+	return Capabilities{Files: true, Shell: true}, ctx.Err()
+}
+
+func discoverCommands(runtime Runtime, declared Capabilities) backgroundshell.RecoverableShell {
+	if provider, ok := runtime.(CommandProvider); ok && declared.Shell {
+		return provider.Commands()
+	}
+	return nil
+}
+
 // DiscoverOperations probes the connected executor. Browser and desktop are
 // independent, since a browser may be available in a headless environment.
 func DiscoverOperations(ctx context.Context, runtime Runtime) (Operations, error) {
+	declared, err := declaredCapabilities(ctx, runtime)
+	if err != nil {
+		return Operations{}, err
+	}
 	var ops Operations
-	ops.Files, _ = runtime.(ResolvedFileSystem)
-	if provider, ok := runtime.(FilesProvider); ok {
-		ops.Files = provider.Files()
+	if declared.Files {
+		ops.Files, _ = runtime.(ResolvedFileSystem)
+		if provider, ok := runtime.(FilesProvider); ok {
+			ops.Files = provider.Files()
+		}
 	}
-	ops.Shell, _ = runtime.(filesystem.Shell)
-	if provider, ok := runtime.(CommandProvider); ok {
-		ops.Commands = provider.Commands()
+	if declared.Shell {
+		ops.Shell, _ = runtime.(filesystem.Shell)
 	}
+	ops.Commands = discoverCommands(runtime, declared)
 	capabilities := &ops.Capabilities
-	if provider, ok := runtime.(CapabilityProvider); ok {
-		discovered, err := provider.GetCapabilities(ctx)
-		if err != nil {
-			return Operations{}, err
-		}
-		if !discovered.Files {
-			ops.Files = nil
-		}
-		if !discovered.Shell {
-			ops.Shell, ops.Commands = nil, nil
-		}
-	}
 	capabilities.Files = ops.Files != nil
 	capabilities.Shell = ops.Shell != nil || ops.Commands != nil
 	capabilities.RecoverableShell = ops.Commands != nil

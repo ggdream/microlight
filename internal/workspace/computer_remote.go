@@ -121,8 +121,12 @@ func desktopHandler(driver ComputerDriver, sessionID, token string, files *deskt
 		}
 		caps, err := driver.GetCapabilities(ctx)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusServiceUnavailable)
-			return
+			if method != "info" || files == nil {
+				http.Error(w, err.Error(), http.StatusServiceUnavailable)
+				return
+			}
+			caps = ComputerCapabilities{}
+			err = nil
 		}
 		if method != "info" && !desktopOperationAvailable(caps, method) {
 			http.Error(w, "desktop operation unavailable", http.StatusForbidden)
@@ -229,22 +233,27 @@ func connectDesktop(ctx context.Context, target Target, token string) (Runtime, 
 			return nil, errors.New("desktop workspace path must start with /")
 		}
 		var result desktopFileReply
+		d.directory = path.Clean(target.Directory)
 		if !d.info.Files {
 			d.Close()
 			return nil, errors.New("desktop executor file access is disabled")
 		}
-		if err := d.call(ctx, "files/resolve", desktopFileRequest{Path: path.Clean(target.Directory)}, &result); err != nil {
+		err := d.call(ctx, "files/resolve", desktopFileRequest{Path: d.directory}, &result)
+		var status *desktopHTTPError
+		if err != nil && !(d.info.Commands && errors.As(err, &status) &&
+			status.code == http.StatusNotFound && status.detail == "desktop-path-not-found") {
 			d.Close()
 			return nil, err
 		}
-		if !result.IsDir {
-			d.Close()
-			return nil, errors.New("desktop workspace path must be a directory")
+		if err == nil {
+			if !result.IsDir {
+				d.Close()
+				return nil, errors.New("desktop workspace path must be a directory")
+			}
+			d.files = true
 		}
-		d.files = true
-		d.directory = result.Path
 	}
-	if !d.files && d.info.Capabilities == (ComputerCapabilities{}) {
+	if !d.files && d.Commands() == nil && d.info.Capabilities == (ComputerCapabilities{}) {
 		d.Close()
 		return nil, errors.New("remote interactive desktop unavailable")
 	}

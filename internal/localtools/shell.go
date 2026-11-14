@@ -201,11 +201,11 @@ func executeRecoverable(ctx context.Context, commands backgroundshell.Recoverabl
 		runtime, openErr := reconnect(openCtx)
 		if openErr == nil {
 			defer runtime.Close()
-			operations, discoverErr := workspace.DiscoverOperations(openCtx, runtime)
+			recovered, discoverErr := workspace.DiscoverCommands(openCtx, runtime)
 			cancel()
-			if discoverErr == nil && operations.Commands != nil {
+			if discoverErr == nil && recovered != nil {
 				request.Attempt++
-				response, err = wait(operations.Commands)
+				response, err = wait(recovered)
 			}
 		} else {
 			cancel()
@@ -253,12 +253,11 @@ func RecoverRemoteCommand(ctx context.Context, connect func(context.Context) (wo
 		return nil, err
 	}
 	defer runtime.Close()
-	operations, err := workspace.DiscoverOperations(connectCtx, runtime)
+	commands, err := workspace.DiscoverCommands(connectCtx, runtime)
 	cancel()
 	if err != nil {
 		return nil, err
 	}
-	commands := operations.Commands
 	if commands == nil {
 		return nil, errors.New("recoverable shell capability is unavailable")
 	}

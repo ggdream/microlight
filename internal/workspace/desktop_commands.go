@@ -231,7 +231,7 @@ func waitDesktopProcess(ctx context.Context, cmd *exec.Cmd, terminate func()) er
 type desktopCommandClient struct{ desktop *remoteDesktop }
 
 func (d *remoteDesktop) Commands() backgroundshell.RecoverableShell {
-	if !d.files || !d.info.Commands {
+	if d.directory == "" || !d.info.Commands {
 		return nil
 	}
 	return desktopCommandClient{d}
