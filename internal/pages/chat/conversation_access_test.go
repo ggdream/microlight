@@ -81,7 +81,7 @@ func TestWorkspaceMenuAndSSHFormFollowLocale(t *testing.T) {
 				t.Fatal(err)
 			}
 			messages := locales.In(tc.tag)
-			for _, label := range []string{tc.local, tc.docker, tc.remote, messages.WorkspaceBrowser()} {
+			for _, label := range []string{tc.local, tc.docker, tc.remote, messages.WorkspaceBrowser(), messages.WorkspaceDesktop()} {
 				if _, found := surface.Find(label); !found {
 					t.Errorf("missing workspace menu item %q", label)
 				}
@@ -109,6 +109,20 @@ func TestWorkspaceMenuAndSSHFormFollowLocale(t *testing.T) {
 			for _, label := range []string{messages.WorkspaceBrowserEndpoint(), messages.WorkspaceBrowserToken(), tc.connect} {
 				if _, found := surface.Find(label); !found {
 					t.Errorf("missing browser form item %q", label)
+				}
+			}
+			if err := surface.Click(messages.Cancel()); err != nil {
+				t.Fatal(err)
+			}
+			if err := surface.Click(messages.Workspace()); err != nil {
+				t.Fatal(err)
+			}
+			if err := surface.Click(messages.WorkspaceDesktop()); err != nil {
+				t.Fatal(err)
+			}
+			for _, label := range []string{messages.WorkspaceDesktopEndpoint(), messages.WorkspaceDesktopToken(), tc.connect} {
+				if _, found := surface.Find(label); !found {
+					t.Errorf("missing desktop form item %q", label)
 				}
 			}
 		})

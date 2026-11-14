@@ -69,6 +69,8 @@ func (t Target) Label() string {
 		return locales.WorkspaceRemote() + " · " + t.Host
 	case "browser":
 		return locales.WorkspaceBrowser()
+	case "desktop":
+		return locales.WorkspaceDesktop()
 	default:
 		if t.Kind == "" {
 			return locales.WorkspaceLocal()
@@ -84,7 +86,8 @@ func (t Target) Label() string {
 // kinds are reserved. Additional connectors validate their own target fields.
 func NewConnector(additional map[string]ConnectFunc) (ConnectFunc, error) {
 	connectors := map[string]ConnectFunc{
-		"docker": connectContainer, "container": connectContainer, "remote": connectSSH, "browser": connectBrowser,
+		"docker": connectContainer, "container": connectContainer, "remote": connectSSH,
+		"browser": connectBrowser, "desktop": connectDesktop,
 	}
 	for kind, connect := range additional {
 		if kind == "" || kind == "local" || kind == "invalid" || strings.TrimSpace(kind) != kind || connectors[kind] != nil || connect == nil {

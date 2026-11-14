@@ -1788,6 +1788,36 @@ func (msgs Messages) WorkspaceBrowserToken() string {
 	return Catalog.Format(msgs.locale, "workspaceBrowserToken", nil)
 }
 
+// WorkspaceDesktop says "Remote Desktop"
+// in the language the app shows.
+func WorkspaceDesktop() string { return In(i18n.Locale()).WorkspaceDesktop() }
+
+// WorkspaceDesktop says "Remote Desktop"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDesktop() string {
+	return Catalog.Format(msgs.locale, "workspaceDesktop", nil)
+}
+
+// WorkspaceDesktopEndpoint says "Desktop executor URL"
+// in the language the app shows.
+func WorkspaceDesktopEndpoint() string { return In(i18n.Locale()).WorkspaceDesktopEndpoint() }
+
+// WorkspaceDesktopEndpoint says "Desktop executor URL"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDesktopEndpoint() string {
+	return Catalog.Format(msgs.locale, "workspaceDesktopEndpoint", nil)
+}
+
+// WorkspaceDesktopToken says "Desktop executor token"
+// in the language the app shows.
+func WorkspaceDesktopToken() string { return In(i18n.Locale()).WorkspaceDesktopToken() }
+
+// WorkspaceDesktopToken says "Desktop executor token"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDesktopToken() string {
+	return Catalog.Format(msgs.locale, "workspaceDesktopToken", nil)
+}
+
 // WorkspaceConnection says "Connection"
 // in the language the app shows.
 func WorkspaceConnection() string { return In(i18n.Locale()).WorkspaceConnection() }

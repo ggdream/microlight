@@ -96,6 +96,8 @@ func (app *chatApp) workspaceDialog(c *ui.Context) {
 	switch f.kind {
 	case "remote":
 		title, glyph = locales.WorkspaceSSHTitle(), "desktop_signal"
+	case "desktop":
+		glyph = "desktop_signal"
 	case "docker", "container":
 		title, glyph = locales.WorkspaceDockerTitle(), "cube"
 	}
@@ -114,6 +116,13 @@ func (app *chatApp) workspaceDialog(c *ui.Context) {
 		scroll, offset := elastic.Scroll(body)
 		scroll.FillWidth().MaxHeight(max(100, min(470, windowHeight-145))).Children(func() {
 			offset.Apply(ui.Column(body)).FillWidth().Gap(12).Children(func() {
+				tokenLabel := locales.WorkspaceCredential()
+				switch f.kind {
+				case "browser":
+					tokenLabel = locales.WorkspaceBrowserToken()
+				case "desktop":
+					tokenLabel = locales.WorkspaceDesktopToken()
+				}
 				if f.chat != nil {
 					settings.Card(body.Key("summary"), locales.WorkspaceConnection(), func() {
 						ui.Text(body, f.target.Label()).FontSize(13).FontWeight(620)
@@ -121,22 +130,22 @@ func (app *chatApp) workspaceDialog(c *ui.Context) {
 							ui.Text(body, f.target.Directory).FontSize(12).TextColor(muted).Selectable()
 						}
 					})
-					if f.kind == "remote" || f.kind == "browser" {
+					if f.kind == "remote" || f.kind == "browser" || f.kind == "desktop" {
 						settings.Card(body.Key("auth"), locales.WorkspaceAuthentication(), func() {
-							label := locales.WorkspaceCredential()
-							if f.kind == "browser" {
-								label = locales.WorkspaceBrowserToken()
-							}
-							settings.Field(body.Key("credential"), label, "", &f.secret).Password().Disabled(f.busy)
+							settings.Field(body.Key("credential"), tokenLabel, "", &f.secret).Password().Disabled(f.busy)
 							theme.Checkbox(body.Key("remember"), &f.remember, locales.WorkspaceRemember(), f.busy)
 						})
 					}
 				} else if f.kind == "container" {
 					app.containerWorkspaceFields(body, f)
-				} else if f.kind == "browser" {
-					settings.Card(body.Key("browser"), locales.WorkspaceConnection(), func() {
-						settings.Field(body.Key("endpoint"), locales.WorkspaceBrowserEndpoint(), "wss://…/devtools/browser/…", &f.target.Resource).Disabled(f.busy)
-						settings.Field(body.Key("token"), locales.WorkspaceBrowserToken(), "", &f.secret).Password().Disabled(f.busy)
+				} else if f.kind == "browser" || f.kind == "desktop" {
+					label, placeholder := locales.WorkspaceBrowserEndpoint(), "wss://…/devtools/browser/…"
+					if f.kind == "desktop" {
+						label, placeholder = locales.WorkspaceDesktopEndpoint(), "http://127.0.0.1:9420"
+					}
+					settings.Card(body.Key("endpoint"), locales.WorkspaceConnection(), func() {
+						settings.Field(body.Key("endpoint"), label, placeholder, &f.target.Resource).Disabled(f.busy)
+						settings.Field(body.Key("token"), tokenLabel, "", &f.secret).Password().Disabled(f.busy)
 						theme.Checkbox(body.Key("remember"), &f.remember, locales.WorkspaceRemember(), f.busy)
 					})
 				} else {
@@ -421,7 +430,7 @@ func (app *chatApp) connectWorkspace(f *workspaceForm) {
 		target.Host, target.User, target.Port = strings.TrimSpace(target.Host), strings.TrimSpace(target.User), strings.TrimSpace(target.Port)
 		target.Directory = strings.TrimSpace(target.Directory)
 		target.Resource = strings.TrimSpace(target.Resource)
-		if (target.Kind == "remote" || target.Kind == "browser") && target.Credential == "" {
+		if (target.Kind == "remote" || target.Kind == "browser" || target.Kind == "desktop") && target.Credential == "" {
 			target.Credential = newID()
 		}
 	}
