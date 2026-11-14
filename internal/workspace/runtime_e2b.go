@@ -3,6 +3,7 @@ package workspace
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -23,9 +24,11 @@ var e2bSandboxID = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9-]{0,56}$`)
 var e2bSandboxDomain = regexp.MustCompile(`^([a-z0-9-]+\.)*e2b\.(app|dev)$`)
 
 type e2bRuntime struct {
+	posixFiles
 	client          *http.Client
 	target          Target
 	endpoint, token string
+	files, jobs     bool
 }
 
 func connectE2B(ctx context.Context, target Target, key string) (Runtime, error) {
@@ -86,16 +89,42 @@ func openE2B(ctx context.Context, target Target, key string, client *http.Client
 		return nil, errors.New("unexpected E2B sandbox domain")
 	}
 	rt := &e2bRuntime{client: client, target: target, endpoint: "https://49983-" + target.Resource + "." + domain, token: info.EnvdAccessToken}
-	if !supportsRemoteCommands(ctx, rt.control) {
-		return nil, errors.New("could not verify recoverable command support in the E2B sandbox")
+	rt.posixFiles = posixFiles{directory: target.Directory, command: rt.fileCommand}
+	_, fileErr := rt.control(ctx, posixFileProbe+"; command -v base64 >/dev/null")
+	rt.files = fileErr == nil
+	rt.jobs = supportsRemoteCommands(ctx, rt.control)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if !rt.files && !rt.jobs {
+		return nil, fmt.Errorf("could not verify file or recoverable command support in the E2B sandbox: %w", fileErr)
 	}
 	return rt, nil
 }
 
 func (*e2bRuntime) Environment() Environment { return Environment{OS: "linux", Shell: "/bin/sh"} }
 func (r *e2bRuntime) Close() error           { r.client.CloseIdleConnections(); return nil }
+func (r *e2bRuntime) GetCapabilities(ctx context.Context) (Capabilities, error) {
+	return Capabilities{Files: r.files, Shell: r.jobs, RecoverableShell: r.jobs}, ctx.Err()
+}
+
 func (r *e2bRuntime) Commands() backgroundshell.RecoverableShell {
+	if !r.jobs {
+		return nil
+	}
 	return remoteCommands{run: r.control, directory: r.target.Directory, scope: r.target.Identity()}
+}
+
+func (r *e2bRuntime) fileCommand(ctx context.Context, script, input string) (string, error) {
+	if input != "" {
+		encoded := base64.StdEncoding.EncodeToString([]byte(input))
+		// Decode the input before invoking the file operation so a decode
+		// failure cannot turn a write into an empty replacement.
+		script = "input=$(mktemp) || exit; trap 'rm -f -- \"$input\"' EXIT; " +
+			"printf '%s' " + quotePOSIX(encoded) + " | base64 -d > \"$input\" || exit; " +
+			"( " + script + " ) < \"$input\""
+	}
+	return r.control(ctx, script)
 }
 
 func (r *e2bRuntime) control(ctx context.Context, script string) (string, error) {

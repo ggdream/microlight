@@ -3,6 +3,7 @@ package workspace
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"testing"
 
 	backgroundshell "github.com/cloudwego/eino/adk/backgroundtask/shell"
+	"github.com/cloudwego/eino/adk/filesystem"
 )
 
 type e2bTestTransport func(*http.Request) (*http.Response, error)
@@ -27,6 +29,7 @@ func connectFrame(flag byte, payload string) []byte {
 
 func TestE2BCommandTransport(t *testing.T) {
 	var calls int
+	const content = "test ' \n世界\x00"
 	client := &http.Client{Transport: e2bTestTransport(func(req *http.Request) (*http.Response, error) {
 		calls++
 		var data []byte
@@ -59,15 +62,34 @@ func TestE2BCommandTransport(t *testing.T) {
 			}
 			switch calls {
 			case 2:
+				if !strings.Contains(start.Process.Args[1], "command -v base64") {
+					t.Error("missing filesystem capability probe")
+				}
+			case 3:
 				if !strings.Contains(start.Process.Args[1], "flock") {
 					t.Error("missing recovery capability probe")
 				}
-			case 3:
+			case 4:
 				if !strings.Contains(start.Process.Args[1], "printf test") {
 					t.Error("original command absent from launch")
 				}
-			case 4, 5:
-				data = connectFrame(0, `{"event":{"data":{"stdout":"ZXhpdCAwCnRlc3Q="}}}`)
+			case 5, 6:
+				data = processOutput("exit 0\ntest")
+			case 7:
+				if !strings.Contains(start.Process.Args[1], "head -c") || !strings.Contains(start.Process.Args[1], "'/home/user/notes'") {
+					t.Fatal("read did not target the selected sandbox path")
+				}
+				data = processOutput("remote file")
+			case 9:
+				data = processOutput("/home/user/notes\n")
+			case 11:
+				data = processOutput("version-1\n")
+			case 12:
+				script := start.Process.Args[1]
+				if !strings.Contains(script, base64.StdEncoding.EncodeToString([]byte(content))) ||
+					!strings.Contains(script, "'version-1'") || !strings.Contains(script, "mv -fT") {
+					t.Fatalf("write script = %q", script)
+				}
 			}
 			data = append(data, connectFrame(0, `{"event":{"end":{"exited":true}}}`)...)
 			data = append(data, connectFrame(2, `{}`)...)
@@ -83,7 +105,7 @@ func TestE2BCommandTransport(t *testing.T) {
 	}
 	defer rt.Close()
 	ops, err := DiscoverOperations(t.Context(), rt)
-	if err != nil || ops.Commands == nil || !ops.Capabilities.RecoverableShell || ops.Capabilities.Files {
+	if err != nil || ops.Commands == nil || !ops.Capabilities.RecoverableShell || !ops.Capabilities.Files || ops.Files == nil {
 		t.Fatalf("capabilities = %+v, %v", ops.Capabilities, err)
 	}
 	run, err := ops.Commands.StartCommand(context.Background(), &backgroundshell.StartCommandRequest{TaskID: "task-1", Command: "printf test"})
@@ -91,9 +113,21 @@ func TestE2BCommandTransport(t *testing.T) {
 		t.Fatal(err)
 	}
 	result, err := run.Wait(t.Context())
-	if err != nil || !strings.Contains(string(result.Data), `"Output":"test"`) || calls != 5 {
+	if err != nil || !strings.Contains(string(result.Data), `"Output":"test"`) || calls != 6 {
 		t.Fatalf("command result = %+v, %v, calls %d", result, err, calls)
 	}
+	file, err := ops.Files.Read(t.Context(), &filesystem.ReadRequest{FilePath: "/home/user/notes"})
+	if err != nil || file.Content != "remote file" {
+		t.Fatalf("file = %+v, %v", file, err)
+	}
+	ctx := WithWriteVersion(t.Context(), "/home/user/notes", "version-1")
+	if err := ops.Files.Write(ctx, &filesystem.WriteRequest{FilePath: "/home/user/notes", Content: content}); err != nil || calls != 12 {
+		t.Fatalf("write error = %v, calls %d", err, calls)
+	}
+}
+
+func processOutput(content string) []byte {
+	return connectFrame(0, fmt.Sprintf(`{"event":{"data":{"stdout":"%s"}}}`, base64.StdEncoding.EncodeToString([]byte(content))))
 }
 
 func TestE2BProcessRequiresTerminalEnvelope(t *testing.T) {
