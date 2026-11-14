@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path"
+	"strings"
 	"testing"
 	"time"
 	"uuid"
@@ -159,6 +160,26 @@ func TestSSHCommandLifecycle(t *testing.T) {
 		}
 		t.Cleanup(func() { rt.Close() })
 		return rt
+	}
+	if os.Getenv("MICROLIGHT_TEST_SSH_NO_SFTP") == "1" {
+		ops, err := DiscoverOperations(ctx, connect())
+		if err != nil || ops.Files != nil || ops.Commands == nil {
+			t.Fatalf("command-only SSH capabilities: %+v, %v", ops.Capabilities, err)
+		}
+		req := &backgroundshell.StartCommandRequest{TaskID: uuid.NewV7().String(), Command: "pwd -P"}
+		run, err := ops.Commands.StartCommand(ctx, req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		outcome, err := run.Wait(ctx)
+		if err != nil || outcome.Status != backgroundtask.StatusCompleted {
+			t.Fatalf("command-only SSH outcome: %+v, %v", outcome, err)
+		}
+		var result filesystem.ExecuteResponse
+		if err := json.Unmarshal(outcome.Data, &result); err != nil || strings.TrimSpace(result.Output) != target.Directory {
+			t.Fatalf("command-only SSH working directory: %+v, %v", result, err)
+		}
+		return
 	}
 	testCommandLifecycle(t, ctx, connect)
 	t.Run("MicroVMTaskIsolation", func(t *testing.T) {

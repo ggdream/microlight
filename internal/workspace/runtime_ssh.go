@@ -36,6 +36,7 @@ type sshRuntime struct {
 	env          Environment
 	journalID    string
 	directoryErr error
+	fileErr      error
 }
 
 func openSSH(ctx context.Context, target Target, secret string) (*sshRuntime, error) {
@@ -105,49 +106,20 @@ func openSSH(ctx context.Context, target Target, secret string) (*sshRuntime, er
 		return nil, err
 	}
 	r := &sshRuntime{client: ssh.NewClient(c, ch, requests), target: target}
-	files, closeFiles, err := r.startFiles(ctx)
-	if err == nil {
-		out, _, probeErr := r.run(ctx, "uname -sm")
-		fields := strings.Fields(out)
-		if probeErr == nil && len(fields) >= 2 {
-			r.env = Environment{OS: strings.ToLower(fields[0]), Arch: fields[1], Shell: "/bin/sh"}
-		} else {
-			out, _, err = r.run(ctx, powerShell("[Console]::WriteLine([System.Environment]::GetEnvironmentVariable('PROCESSOR_ARCHITECTURE'))"))
-			if err == nil && strings.TrimSpace(out) != "" {
-				r.env = Environment{OS: "windows", Arch: strings.TrimSpace(out), Shell: "PowerShell"}
-			} else if err == nil {
-				err = errors.New("无法探测 SSH Shell")
-			}
+	out, _, probeErr := r.run(ctx, "uname -sm")
+	fields := strings.Fields(out)
+	if probeErr == nil && len(fields) >= 2 {
+		r.env = Environment{OS: strings.ToLower(fields[0]), Arch: fields[1], Shell: "/bin/sh"}
+	} else {
+		out, _, err = r.run(ctx, powerShell("[Console]::WriteLine([System.Environment]::GetEnvironmentVariable('PROCESSOR_ARCHITECTURE'))"))
+		if err == nil && strings.TrimSpace(out) != "" {
+			r.env = Environment{OS: "windows", Arch: strings.TrimSpace(out), Shell: "PowerShell"}
+		} else if err == nil {
+			err = errors.New("无法探测 SSH Shell")
 		}
 	}
 	if err == nil {
-		name := r.normalize(target.Directory)
-		if !path.IsAbs(name) && !(r.env.OS == "windows" && len(name) > 2 && name[1:3] == ":/") {
-			err = errors.New("请输入远端绝对路径")
-		} else {
-			directory, resolveErr := files.RealPath(name)
-			err = resolveErr
-			if err == nil {
-				r.target.Directory = directory
-				var info os.FileInfo
-				info, err = files.Stat(directory)
-				if err == nil && !info.IsDir() {
-					err = errors.New("SSH 工作目录不可用")
-				}
-			}
-			if r.env.OS == "linux" && errors.Is(err, os.ErrNotExist) {
-				// Preserve the existing canonical command scope if SFTP can
-				// resolve the path despite the missing directory.
-				if directory == "" {
-					r.target.Directory = path.Clean(name)
-				}
-				r.directoryErr = err
-				err = nil
-			}
-		}
-	}
-	if closeFiles != nil {
-		closeFiles()
+		err = r.probeDirectory(ctx)
 	}
 	if err != nil {
 		r.Close()
@@ -168,6 +140,48 @@ func openSSH(ctx context.Context, target Target, secret string) (*sshRuntime, er
 	return r, nil
 }
 
+func (r *sshRuntime) probeDirectory(ctx context.Context) error {
+	name := r.normalize(r.target.Directory)
+	if !path.IsAbs(name) && !(r.env.OS == "windows" && len(name) > 2 && name[1:3] == ":/") {
+		return errors.New("请输入远端绝对路径")
+	}
+	files, closeFiles, err := r.startFiles(ctx)
+	if err != nil {
+		if r.env.OS != "linux" || !errors.Is(err, errSFTPUnavailable) {
+			return err
+		}
+		r.fileErr = err
+		// Resolve through the shell to preserve the same task scope as SFTP.
+		out, probeErr := r.runCommandControl(ctx, "cd "+quotePOSIX(name)+" && pwd -P")
+		if probeErr != nil {
+			return fmt.Errorf("SSH 工作目录不可用: %w", probeErr)
+		}
+		r.target.Directory = strings.TrimSuffix(out, "\n")
+		if !path.IsAbs(r.target.Directory) {
+			return errors.New("SSH 工作目录不可用")
+		}
+		return nil
+	}
+	defer closeFiles()
+	directory, err := files.RealPath(name)
+	if err == nil {
+		r.target.Directory = directory
+		var info os.FileInfo
+		info, err = files.Stat(directory)
+		if err == nil && !info.IsDir() {
+			return errors.New("SSH 工作目录不可用")
+		}
+	}
+	if r.env.OS == "linux" && errors.Is(err, os.ErrNotExist) {
+		if directory == "" {
+			r.target.Directory = path.Clean(name)
+		}
+		r.directoryErr = err
+		return nil
+	}
+	return err
+}
+
 func (r *sshRuntime) Commands() backgroundshell.RecoverableShell {
 	if r.journalID == "" {
 		return nil
@@ -176,7 +190,7 @@ func (r *sshRuntime) Commands() backgroundshell.RecoverableShell {
 }
 
 func (r *sshRuntime) GetCapabilities(ctx context.Context) (Capabilities, error) {
-	return Capabilities{Files: r.directoryErr == nil, Shell: true, RecoverableShell: r.journalID != ""}, ctx.Err()
+	return Capabilities{Files: r.directoryErr == nil && r.fileErr == nil, Shell: true, RecoverableShell: r.journalID != ""}, ctx.Err()
 }
 
 func (r *sshRuntime) CommandSessionID() string {
@@ -279,6 +293,9 @@ func (r *sshRuntime) openFiles(ctx context.Context) (*sftp.Client, func(), error
 	if err := ctx.Err(); err != nil {
 		return nil, nil, err
 	}
+	if r.fileErr != nil {
+		return nil, nil, r.fileErr
+	}
 	type result struct {
 		files *sftp.Client
 		close func()
@@ -328,6 +345,8 @@ func (r *sshRuntime) startFiles(ctx context.Context) (*sftp.Client, func(), erro
 	}, nil
 }
 
+var errSFTPUnavailable = errors.New("SFTP unavailable")
+
 func openSFTP(session *ssh.Session) (*sftp.Client, error) {
 	in, err := session.StdinPipe()
 	if err != nil {
@@ -343,7 +362,7 @@ func openSFTP(session *ssh.Session) (*sftp.Client, error) {
 	}
 	go func() { _, _ = io.Copy(io.Discard, stderr) }()
 	if err := session.RequestSubsystem("sftp"); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", errSFTPUnavailable, err)
 	}
 	return sftp.NewClientPipe(out, in)
 }
