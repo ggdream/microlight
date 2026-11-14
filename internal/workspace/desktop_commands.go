@@ -25,6 +25,7 @@ import (
 
 type desktopCommandRequest struct {
 	Directory, ID, Command string
+	TimeoutSeconds         int `json:",omitempty"`
 }
 
 const desktopCommandMissing = "command-task-not-found"
@@ -91,7 +92,12 @@ func (s *desktopCommandStore) serve(ctx context.Context, w http.ResponseWriter, 
 	}
 	id := fmt.Sprintf("%x", sha256.Sum256([]byte(name+"\x00"+req.ID)))
 	signature := fmt.Sprintf("%x", sha256.Sum256([]byte(req.Command)))
-	outcome, err := s.command(ctx, method, id, signature, req.Command, func() (string, error) {
+	seconds := req.TimeoutSeconds
+	if seconds <= 0 {
+		seconds = maxCommandSeconds
+	}
+	timeout := time.Duration(min(seconds, maxCommandSeconds)) * time.Second
+	outcome, err := s.command(ctx, method, id, signature, req.Command, timeout, func() (string, error) {
 		return files.commandDirectory(ctx, req.Directory)
 	})
 	switch {
@@ -105,7 +111,7 @@ func (s *desktopCommandStore) serve(ctx context.Context, w http.ResponseWriter, 
 	}
 }
 
-func (s *desktopCommandStore) command(ctx context.Context, method, id, signature, command string, directory func() (string, error)) (*backgroundtool.Outcome, error) {
+func (s *desktopCommandStore) command(ctx context.Context, method, id, signature, command string, timeout time.Duration, directory func() (string, error)) (*backgroundtool.Outcome, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -157,7 +163,7 @@ func (s *desktopCommandStore) command(ctx context.Context, method, id, signature
 		if _, err := s.db.ExecContext(ctx, "INSERT INTO commands VALUES (?, ?, NULL)", id, signature); err != nil {
 			return nil, err
 		}
-		runCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		runCtx, cancel := context.WithTimeout(context.Background(), timeout)
 		s.active[id] = cancel
 		go s.run(runCtx, cancel, id, dir, command)
 		return nil, nil
@@ -280,7 +286,11 @@ type desktopCommandRun struct {
 
 func (r *desktopCommandRun) call(ctx context.Context, method string) (*backgroundtool.Outcome, error) {
 	var outcome *backgroundtool.Outcome
-	err := r.desktop.call(ctx, "commands/"+method, r.req, &outcome)
+	req := r.req
+	if method == "start" && commandSeconds(ctx) != maxCommandSeconds {
+		req.TimeoutSeconds = commandSeconds(ctx)
+	}
+	err := r.desktop.call(ctx, "commands/"+method, req, &outcome)
 	var status *desktopHTTPError
 	switch {
 	case err == nil:

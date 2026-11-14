@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -114,4 +115,53 @@ func TestDeepExecuteRespectsConversationApproval(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestExecuteToolAppliesRequestedTimeout(t *testing.T) {
+	command := "sleep 8"
+	if runtime.GOOS == "windows" {
+		command = "Start-Sleep 8"
+	}
+	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request struct{ Messages []chatRequestMessage }
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil || len(request.Messages) == 0 {
+			t.Errorf("invalid model request: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		last := request.Messages[len(request.Messages)-1]
+		if last.Role == "tool" {
+			if !strings.Contains(last.Content, "Command timed out and was stopped") {
+				t.Errorf("missing timeout in tool output %q", last.Content)
+			}
+			writeTestStream(w, "Finished")
+			return
+		}
+		args, _ := json.Marshal(map[string]any{"command": command, "timeout": 1})
+		w.Header().Set("Content-Type", "text/event-stream")
+		fmt.Fprintf(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"tool_calls\":[{\"index\":0,\"id\":\"timeout-test\",\"type\":\"function\",\"function\":{\"name\":\"execute\",\"arguments\":%q}}]}}]}\n\ndata: [DONE]\n\n", args)
+	}))
+	defer model.Close()
+	store, err := openLocalStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	access := localtools.NewAccess(t.TempDir(), localtools.Full)
+	agent := PersonalAgent{backend: newChat(modelSettings{Protocol: openAIChat, BaseURL: model.URL, Model: "test"}), access: access}
+	ctx := localtools.WithAccess(t.Context(), access)
+	var reply turn
+	pending, err := agent.run(ctx, store, newID(), []*turn{userTurn("Run with a timeout")}, nil, "", func(delta replyDelta) error {
+		reply.appendDelta(delta)
+		return nil
+	})
+	if err != nil || pending != nil {
+		t.Fatalf("command did not finish: %+v, %v", pending, err)
+	}
+	for _, activity := range reply.Activity {
+		if activity.CommandResult != nil && activity.CommandResult.TimedOut {
+			return
+		}
+	}
+	t.Fatal("command timeline did not record the timeout")
 }

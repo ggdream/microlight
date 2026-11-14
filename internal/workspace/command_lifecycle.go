@@ -38,6 +38,25 @@ type CommandStopper interface {
 	StopCommand(context.Context, *backgroundshell.RecoverCommandRequest) (backgroundtool.Run, error)
 }
 
+const maxCommandSeconds = 120
+
+type commandTimeoutKey struct{}
+
+// WithCommandTimeout adds a launch limit to Eino's recoverable shell request.
+// Recovery and cancellation continue to use the original task ID.
+func WithCommandTimeout(ctx context.Context, timeout time.Duration) context.Context {
+	return context.WithValue(ctx, commandTimeoutKey{}, timeout)
+}
+
+func commandSeconds(ctx context.Context) int {
+	timeout, _ := ctx.Value(commandTimeoutKey{}).(time.Duration)
+	if timeout <= 0 {
+		return maxCommandSeconds
+	}
+	timeout = min(timeout, maxCommandSeconds*time.Second)
+	return int((timeout + time.Second - 1) / time.Second)
+}
+
 type remoteCommands struct {
 	run       func(context.Context, string) (string, error)
 	directory string
@@ -147,6 +166,7 @@ task=$1
 signature=$2
 directory=$3
 command=$4
+timeout=$5
 cd "$task"
 exec 8>launch
 flock 8
@@ -174,7 +194,7 @@ start=$(date +%s)
 status=exit
 while kill -0 "$pid" 2>/dev/null; do
     if [ -d stop ]; then status=canceled; break; fi
-    if [ "$(( $(date +%s) - start ))" -ge 120 ]; then status=timeout; break; fi
+    if [ "$(( $(date +%s) - start ))" -ge "$timeout" ]; then status=timeout; break; fi
     sleep 0.2
 done
 if [ "$status" != exit ]; then
@@ -202,7 +222,7 @@ func (r *remoteCommand) launch(ctx context.Context, command string) error {
 	body := `for utility in nohup setsid flock mkfifo head date; do command -v "$utility" >/dev/null; done
 mkdir -p "$task"
 if [ ! -f "$task/signature" ] && [ ! -f "$task/canceled-before-launch" ]; then
-    nohup setsid /bin/sh -c ` + quotePOSIX(commandWorker) + ` sh "$task" "$signature" ` + quotePOSIX(r.directory) + " " + quotePOSIX(command) + ` </dev/null >/dev/null 2>&1 &
+    nohup setsid /bin/sh -c ` + quotePOSIX(commandWorker) + ` sh "$task" "$signature" ` + quotePOSIX(r.directory) + " " + quotePOSIX(command) + " " + strconv.Itoa(commandSeconds(ctx)) + ` </dev/null >/dev/null 2>&1 &
 fi
 tries=0
 while [ ! -f "$task/signature" ] && [ ! -f "$task/canceled-before-launch" ] && [ "$tries" -lt 50 ]; do

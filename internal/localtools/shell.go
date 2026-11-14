@@ -5,19 +5,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ggdream/microlight/internal/harness"
 	"github.com/ggdream/microlight/internal/shell"
 	"github.com/ggdream/microlight/internal/workspace"
 
-	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/adk/backgroundtask"
 	backgroundshell "github.com/cloudwego/eino/adk/backgroundtask/shell"
 	backgroundtool "github.com/cloudwego/eino/adk/backgroundtask/tool"
 	"github.com/cloudwego/eino/adk/filesystem"
 	filesystemmw "github.com/cloudwego/eino/adk/middlewares/filesystem"
-	"github.com/cloudwego/eino/schema"
+	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/components/tool/utils"
 )
 
 const Execute = filesystemmw.ToolNameExecute
@@ -82,11 +83,41 @@ func WithWorkspaceReconnect(ctx context.Context, reconnect func(context.Context)
 	return context.WithValue(ctx, reconnectWorkspaceKey{}, reconnect)
 }
 
-func ShellMiddleware(ctx context.Context) (adk.TypedChatModelAgentMiddleware[*schema.AgenticMessage], error) {
+func ShellTool() (tool.BaseTool, error) {
 	description := "Run a non-interactive shell command in the conversation's selected execution environment. Use that environment's shell syntax. The working directory starts at the conversation workspace, or the local user's home for a local chat without a workspace. Shell state does not persist between calls. Command output is limited to 64 KiB."
-	return filesystemmw.NewTyped[*schema.AgenticMessage](ctx, &filesystemmw.MiddlewareConfig{
-		Shell:             localCommandShell{},
-		ExecuteToolConfig: &filesystemmw.ExecuteToolConfig{Desc: &description},
+	return utils.InferTool(Execute, description, func(ctx context.Context, args struct {
+		Command string `json:"command" jsonschema:"required"`
+		Timeout int    `json:"timeout,omitempty" jsonschema_description:"Optional execution limit in seconds. Defaults to 120 and is capped at 120."`
+	}) (string, error) {
+		req := &filesystem.ExecuteRequest{Command: args.Command}
+		if args.Timeout > 0 {
+			timeout := time.Duration(min(args.Timeout, 120)) * time.Second
+			req.Timeout = &timeout
+		}
+		response, err := (localCommandShell{}).Execute(ctx, req)
+		if err != nil {
+			return "", err
+		}
+		if response == nil {
+			return "", nil
+		}
+		var parts []string
+		if response.Output != "" {
+			parts = append(parts, response.Output)
+		}
+		switch {
+		case response.TimedOut:
+			parts = append(parts, "[Command timed out and was stopped]")
+		case response.ExitCode != nil && *response.ExitCode != 0:
+			parts = append(parts, fmt.Sprintf("[Command failed with exit code %d]", *response.ExitCode))
+		}
+		if response.Truncated {
+			parts = append(parts, "[Output was truncated due to size limits]")
+		}
+		if len(parts) == 0 {
+			return "[Command executed successfully with no output]", nil
+		}
+		return strings.Join(parts, "\n"), nil
 	})
 }
 
@@ -109,6 +140,9 @@ func (localCommandShell) Execute(ctx context.Context, input *filesystem.ExecuteR
 	case commands == nil && (reattach || checkpoint.ID != ""):
 		return nil, errors.New("recoverable shell capability is unavailable")
 	case commands != nil && harness.OperationScope(ctx) != "" && op.callID != "":
+		if input.Timeout != nil {
+			ctx = workspace.WithCommandTimeout(ctx, *input.Timeout)
+		}
 		response, err = executeRecoverable(ctx, commands, op)
 	case op.runtime != nil:
 		if op.operations.Shell == nil {

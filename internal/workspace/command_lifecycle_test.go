@@ -303,4 +303,23 @@ func testCommandLifecycle(t *testing.T, ctx context.Context, connect func() Runt
 	if _, err := stopper.StopCommand(ctx, &backgroundshell.RecoverCommandRequest{TaskID: id, Command: "true"}); err == nil {
 		t.Fatal("cancellation accepted a different command for an existing ID")
 	}
+	const slowCommand = "sleep 30"
+	id = uuid.NewV7().String()
+	run, err = commands.StartCommand(WithCommandTimeout(ctx, time.Second), &backgroundshell.StartCommandRequest{
+		TaskID: id, Command: slowCommand,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	commands = connect().(CommandProvider).Commands()
+	run, err = commands.RecoverCommand(ctx, &backgroundshell.RecoverCommandRequest{TaskID: id, Command: slowCommand})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wait, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+	outcome, err = run.Wait(wait)
+	if err != nil || outcome.Status != backgroundtask.StatusCompleted || json.Unmarshal(outcome.Data, &result) != nil || !result.TimedOut {
+		t.Fatalf("recovered timeout = %+v, %v", outcome, err)
+	}
 }

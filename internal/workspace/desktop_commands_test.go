@@ -156,6 +156,23 @@ func TestDesktopCommandReconnect(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, "canceled.txt")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("canceled command performed side effect: %v", err)
 	}
+	run, err = reconnected.StartCommand(WithCommandTimeout(ctx, time.Second), &backgroundshell.StartCommandRequest{
+		TaskID: "timeout", Command: delayed,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run.Wait(ctx); err != nil {
+		t.Fatal(err)
+	}
+	run, err = connect(server.URL).RecoverCommand(ctx, &backgroundshell.RecoverCommandRequest{TaskID: "timeout", Command: delayed})
+	if err != nil {
+		t.Fatal(err)
+	}
+	timedOut, err := run.Wait(ctx)
+	if err != nil || json.Unmarshal(timedOut.Data, &result) != nil || !result.TimedOut {
+		t.Fatalf("timeout recovery: %+v, %v", timedOut, err)
+	}
 	if _, err := reconnected.StartCommand(ctx, &backgroundshell.StartCommandRequest{TaskID: "launch", Command: delayed}); err == nil {
 		t.Fatal("task ID was rebound to another command")
 	}
