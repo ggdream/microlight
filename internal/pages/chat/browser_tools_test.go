@@ -122,6 +122,17 @@ type desktopOnlyRuntime struct{ restrictedRuntime }
 
 func (desktopOnlyRuntime) Computer() workspace.ComputerDriver { return &approvalComputer{} }
 
+type declaredInteractiveRuntime struct {
+	browserOnlyRuntime
+	capabilities workspace.ComputerCapabilities
+}
+
+func (declaredInteractiveRuntime) Computer() workspace.ComputerDriver { return &approvalComputer{} }
+
+func (r declaredInteractiveRuntime) GetCapabilities(context.Context) (workspace.Capabilities, error) {
+	return workspace.Capabilities{Computer: r.capabilities}, nil
+}
+
 func TestSelectedEnvironmentDeterminesOfferedTools(t *testing.T) {
 	var selectedBrowser, selectedDesktop bool
 	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -176,6 +187,14 @@ func TestSelectedEnvironmentDeterminesOfferedTools(t *testing.T) {
 		{runtime: restrictedRuntime{}},
 		{runtime: browserOnlyRuntime{driver: &approvalBrowser{}}, browser: true},
 		{runtime: desktopOnlyRuntime{}, desktop: true},
+		{runtime: declaredInteractiveRuntime{
+			browserOnlyRuntime: browserOnlyRuntime{driver: &approvalBrowser{}},
+			capabilities:       workspace.ComputerCapabilities{ListWindows: true},
+		}},
+		{runtime: declaredInteractiveRuntime{
+			browserOnlyRuntime: browserOnlyRuntime{driver: &approvalBrowser{}},
+			capabilities:       workspace.ComputerCapabilities{Screenshot: true},
+		}, desktop: true},
 	} {
 		selectedBrowser, selectedDesktop = tc.browser, tc.desktop
 		agent.connect = func(context.Context, workspace.Target, string) (workspace.Runtime, error) {

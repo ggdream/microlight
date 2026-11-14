@@ -111,11 +111,14 @@ func declaredCapabilities(ctx context.Context, runtime Runtime) (Capabilities, e
 	if provider, ok := runtime.(CapabilityProvider); ok {
 		return provider.GetCapabilities(ctx)
 	}
-	return Capabilities{Files: true, Shell: true}, ctx.Err()
+	return Capabilities{
+		Files: true, Shell: true, Browser: true, RecoverableShell: true,
+		Computer: ComputerCapabilities{Screenshot: true, ListWindows: true, Click: true, TypeText: true, PressKey: true},
+	}, ctx.Err()
 }
 
 func discoverCommands(runtime Runtime, declared Capabilities) backgroundshell.RecoverableShell {
-	if provider, ok := runtime.(CommandProvider); ok && declared.Shell {
+	if provider, ok := runtime.(CommandProvider); ok && declared.Shell && declared.RecoverableShell {
 		return provider.Commands()
 	}
 	return nil
@@ -143,17 +146,26 @@ func DiscoverOperations(ctx context.Context, runtime Runtime) (Operations, error
 	capabilities.Files = ops.Files != nil
 	capabilities.Shell = ops.Shell != nil || ops.Commands != nil
 	capabilities.RecoverableShell = ops.Commands != nil
-	if provider, ok := runtime.(BrowserProvider); ok {
+	if provider, ok := runtime.(BrowserProvider); ok && declared.Browser {
 		ops.Browser = provider.Browser()
 		capabilities.Browser = ops.Browser != nil
 	}
-	if provider, ok := runtime.(ComputerProvider); ok {
+	if provider, ok := runtime.(ComputerProvider); ok && declared.Computer != (ComputerCapabilities{}) {
 		ops.Computer = provider.Computer()
 		if ops.Computer != nil {
-			var err error
-			capabilities.Computer, err = ops.Computer.GetCapabilities(ctx)
+			actual, err := ops.Computer.GetCapabilities(ctx)
 			if err != nil {
 				return Operations{}, err
+			}
+			capabilities.Computer = ComputerCapabilities{
+				Screenshot:  actual.Screenshot && declared.Computer.Screenshot,
+				ListWindows: actual.ListWindows && declared.Computer.ListWindows,
+				Click:       actual.Click && declared.Computer.Click,
+				TypeText:    actual.TypeText && declared.Computer.TypeText,
+				PressKey:    actual.PressKey && declared.Computer.PressKey,
+			}
+			if capabilities.Computer == (ComputerCapabilities{}) {
+				ops.Computer = nil
 			}
 		}
 	}
