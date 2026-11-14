@@ -17,6 +17,7 @@ import (
 
 	"github.com/cloudwego/eino/adk/filesystem"
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/harness"
 	project "github.com/ggdream/microlight/internal/workspace"
 	"github.com/ggdream/microlight/pkg/diff"
 
@@ -159,6 +160,10 @@ func (h Middleware) ChatModelAgentMiddlewareName() string {
 func (h Middleware) BeforeAgent(ctx context.Context, run *adk.ChatModelAgentContext[*schema.AgenticMessage]) (context.Context, *adk.ChatModelAgentContext[*schema.AgenticMessage], error) {
 	if remote, ok := ctx.Value(runtimeAccessKey{}).(runtimeAccess); ok && !remote.usesHostFiles() {
 		updated := *run
+		if remote.runtime == nil {
+			updated.Instruction += "\nThe selected execution environment is unavailable. A previously saved command result can be replayed."
+			return ctx, &updated, nil
+		}
 		env := remote.runtime.Environment()
 		updated.Instruction += fmt.Sprintf("\nAvailable file, shell, browser and desktop tools operate in the selected execution environment (directory %q, OS %q, architecture %q, shell %q). Web fetch and configured MCP are managed by Microlight.", remote.target.Directory, env.OS, env.Arch, env.Shell)
 		return ctx, &updated, nil
@@ -202,7 +207,8 @@ func (EnvironmentTools) BeforeAgent(ctx context.Context, run *adk.ChatModelAgent
 				continue
 			}
 		case Execute:
-			if !selected.operations.Capabilities.Shell {
+			record, _ := ctx.Value(commandReattachmentKey{}).(commandReattachment)
+			if !selected.operations.Capabilities.Shell && record.outcome == nil {
 				continue
 			}
 		}
@@ -239,7 +245,7 @@ func (h Middleware) WrapInvokableToolCall(_ context.Context, next adk.InvokableT
 			var err error
 			selected, connected := ctx.Value(runtimeAccessKey{}).(runtimeAccess)
 			if connected && !selected.usesHostFiles() && call.Name != Fetch {
-				op, err = resolveRuntime(ctx, selected, call.Name, args)
+				op, err = resolveRuntimeCall(ctx, selected, call.Name, call.CallID, args)
 			} else {
 				op, err = policy.resolve(call.Name, args)
 			}
@@ -581,10 +587,12 @@ func (op localOperation) executeLocalFile(ctx context.Context) (string, *diff.Li
 	return text, nil, err
 }
 
-func resolveRuntime(ctx context.Context, access runtimeAccess, name, raw string) (localOperation, error) {
+func resolveRuntimeCall(ctx context.Context, access runtimeAccess, name, callID, raw string) (localOperation, error) {
 	op := localOperation{name: name, runtime: access.runtime, operations: access.operations}
 	files := access.operations.Files
-	if name == Execute && access.operations.Shell == nil && access.operations.Commands == nil {
+	record, _ := ctx.Value(commandReattachmentKey{}).(commandReattachment)
+	replaying := name == Execute && record.CallID == callID && HasSavedCommandResult(ctx, harness.OperationScope(ctx))
+	if name == Execute && !replaying && access.operations.Shell == nil && access.operations.Commands == nil {
 		return op, errors.New("所选工作区不支持命令执行")
 	}
 	if name != Execute && files == nil {
@@ -605,7 +613,15 @@ func resolveRuntime(ctx context.Context, access runtimeAccess, name, raw string)
 		if strings.TrimSpace(args.Command) == "" || len(args.Command) > maxLocalWrite || strings.ContainsRune(args.Command, 0) {
 			return op, errors.New("需要有效的命令，且不能超过 16 KiB")
 		}
-		if journal != "" {
+		if replaying {
+			if record.Command != args.Command {
+				return op, errors.New("restored command differs from the approved command")
+			}
+			identity = access.target.Identity()
+			if record.ExecutorID != "" {
+				identity += "/" + record.ExecutorID
+			}
+		} else if journal != "" {
 			identity = access.target.Identity() + "/" + journal
 		}
 		op.target, op.content, op.fileVersion = access.target.Directory, args.Command, identity

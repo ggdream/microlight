@@ -22,12 +22,6 @@ import (
 	"github.com/ggdream/microlight/internal/workspace"
 )
 
-type runtimeWithoutCommandRecovery struct {
-	workspace.Runtime
-	workspace.ResolvedFileSystem
-	workspace.CommandSession
-}
-
 type runtimeFileApprovalFixture struct {
 	workspace.Runtime
 	workspace.ResolvedFileSystem
@@ -35,10 +29,6 @@ type runtimeFileApprovalFixture struct {
 }
 
 func (r runtimeFileApprovalFixture) CommandSessionID() string { return r.journal }
-
-func (runtimeWithoutCommandRecovery) Execute(context.Context, *filesystem.ExecuteRequest) (*filesystem.ExecuteResponse, error) {
-	return nil, errors.New("saved command result must not execute again")
-}
 
 func TestWorkspaceTargetPersistsWithConversation(t *testing.T) {
 	store, err := openLocalStore(t.TempDir())
@@ -489,12 +479,8 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 					}
 					question := &entry.Clarifications[0]
 					if test.resultSaved {
-						sessionAgent.connect = func(ctx context.Context, target workspace.Target, secret string) (workspace.Runtime, error) {
-							rt, err := workspace.Open(ctx, target, secret)
-							if err != nil {
-								return nil, err
-							}
-							return runtimeWithoutCommandRecovery{rt, rt.(workspace.ResolvedFileSystem), rt.(workspace.CommandSession)}, nil
+						sessionAgent.connect = func(context.Context, workspace.Target, string) (workspace.Runtime, error) {
+							return nil, errors.New("test executor is offline")
 						}
 					}
 					q, err = sessionAgent.run(resumeCtx, after, restored.sessionID, nil, question, question.Answer, emit)

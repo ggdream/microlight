@@ -52,6 +52,13 @@ func WithCommandReattachment(ctx context.Context, record RemoteCommand, outcome 
 	return context.WithValue(ctx, commandReattachmentKey{}, commandReattachment{record, outcome})
 }
 
+// HasSavedCommandResult reports whether this checkpoint can replay a result
+// without opening an executor.
+func HasSavedCommandResult(ctx context.Context, checkpointID string) bool {
+	record, ok := ctx.Value(commandReattachmentKey{}).(commandReattachment)
+	return ok && record.outcome != nil && checkpointID != "" && record.CallID != "" && record.ID == checkpointID+"/"+record.CallID
+}
+
 type RemoteCommand struct {
 	ID, CallID, Command string
 	ExecutorID          string

@@ -48,7 +48,11 @@ func (agent PersonalAgent) run(ctx context.Context, store harness.Store, session
 	}
 	executor, ops, err := harness.OpenExecution(ctx, connect)
 	if err != nil {
-		return nil, &workspaceConnectionError{agent.target, err}
+		if ctx.Err() != nil || resume == nil || !localtools.HasSavedCommandResult(ctx, resume.CheckpointID) {
+			return nil, &workspaceConnectionError{agent.target, err}
+		}
+		ctx = localtools.WithRuntime(ctx, agent.access, nil, agent.target, workspace.Operations{})
+		return agent.backend.runSession(ctx, store, sessionID, input, resume, answer, emit)
 	}
 	defer executor.Close()
 	ctx = localtools.WithRuntime(ctx, agent.access, executor, agent.target, ops)
