@@ -9,6 +9,7 @@ import (
 
 	"github.com/ggdream/microlight/assets/locales"
 	timeline "github.com/ggdream/microlight/internal/activity"
+	"github.com/ggdream/microlight/internal/harness"
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/workspace"
 )
@@ -171,7 +172,11 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 			return nil
 		}
 		agent := PersonalAgent{backend: backend, target: target, access: access, secret: secret, browser: browser, computer: computer, connect: connect}
-		question, err := agent.run(ctx, store, sessionID, input, resume, answer, emit)
+		var sessionStore harness.Store
+		if store != nil {
+			sessionStore = &store.Store
+		}
+		question, err := agent.run(ctx, sessionStore, sessionID, input, resume, answer, emit)
 		var saved []savedRemoteCommand
 		if store != nil && target.Kind != "" {
 			saved, _ = store.loadRemoteCommands(chatID, branch, index)

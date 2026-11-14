@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ggdream/microlight/internal/harness"
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/workspace"
 )
@@ -29,7 +30,7 @@ func (e *workspaceConnectionError) Error() string {
 }
 func (e *workspaceConnectionError) Unwrap() error { return e.cause }
 
-func (agent PersonalAgent) run(ctx context.Context, store *localStore, sessionID string, input []*turn, resume *clarification, answer string, emit func(replyDelta) error) (*clarification, error) {
+func (agent PersonalAgent) run(ctx context.Context, store harness.Store, sessionID string, input []*turn, resume *clarification, answer string, emit func(replyDelta) error) (*clarification, error) {
 	browser := agent.browser
 	computer := agent.computer
 	var executor workspace.Runtime

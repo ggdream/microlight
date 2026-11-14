@@ -22,7 +22,7 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
-func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID string, input []*turn, resume *clarification, answer string, emit func(replyDelta) error) (*clarification, error) {
+func (chat *Chat) runSession(ctx context.Context, store harness.Store, sessionID string, input []*turn, resume *clarification, answer string, emit func(replyDelta) error) (*clarification, error) {
 	if store == nil {
 		return nil, errors.New(locales.DatabaseRequired())
 	}

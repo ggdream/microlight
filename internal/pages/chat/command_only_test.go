@@ -13,6 +13,8 @@ import (
 	"github.com/cloudwego/eino/adk/backgroundtask"
 	backgroundshell "github.com/cloudwego/eino/adk/backgroundtask/shell"
 	backgroundtool "github.com/cloudwego/eino/adk/backgroundtask/tool"
+	einosession "github.com/cloudwego/eino/adk/session"
+	"github.com/cloudwego/eino/schema"
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/workspace"
 )
@@ -90,11 +92,7 @@ func TestCommandOnlyExecutorRunsThroughApproval(t *testing.T) {
 			localtools.Execute, `{"command":"printf selected-executor"}`)
 	}))
 	defer model.Close()
-	store, err := openLocalStore(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer store.Close()
+	store := einosession.NewInMemoryStore[*schema.AgenticMessage](nil)
 	driver := &commandOnlyShell{}
 	target := workspace.Target{Kind: "test-vm", Resource: "workspace-42"}
 	connections := 0
