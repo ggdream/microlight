@@ -133,8 +133,12 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 	secret := app.workspaceSecrets[target.Credential]
 	ctx = localtools.WithAccess(ctx, access)
 	ctx = context.WithValue(ctx, interfaceContextKey{}, chat.interfaceRequest())
-	if reply.resumeCommand != nil {
-		ctx = localtools.WithCommandReattachment(ctx, reply.resumeCommand.RemoteCommand)
+	if record := reply.resumeCommand; record != nil {
+		if record.beforeJournal {
+			ctx = localtools.WithCommandCheckpoint(ctx, record.checkpoint)
+		} else {
+			ctx = localtools.WithCommandReattachment(ctx, record.RemoteCommand)
+		}
 	}
 	if store != nil && target.Kind != "" {
 		ctx = localtools.WithCommandJournal(ctx, store.commandJournal(chatID, branch, target.Identity(), index))

@@ -22,9 +22,10 @@ import (
 
 type savedRemoteCommand struct {
 	localtools.RemoteCommand
-	targetID   string
-	outcome    *backgroundtool.Outcome
-	checkpoint localtools.CommandCheckpoint
+	targetID      string
+	outcome       *backgroundtool.Outcome
+	checkpoint    localtools.CommandCheckpoint
+	beforeJournal bool
 }
 
 // A fork inherits commands for turns before its fork point. The root branch
@@ -45,7 +46,7 @@ func (store *localStore) recoverableReplyCommand(chat *conversation, entry *turn
 	if store == nil || chat.sessionID == "" || (entry.State != "pending" && entry.State != "stopped" && entry.State != "error") {
 		return nil
 	}
-	if len(entry.remoteCommands) == 0 {
+	if chat.target.Kind == "" {
 		return nil
 	}
 	// The newest automatic interrupt may have replaced an earlier approval
@@ -70,19 +71,13 @@ func (store *localStore) recoverableReplyCommand(chat *conversation, entry *turn
 			!store.hasReplyCheckpoint(chat.sessionID, checkpoint.ID) {
 			continue
 		}
-		provider, _, _ := strings.Cut(chat.sessionModel, "\n")
-		model := chat.sessionModel[strings.LastIndex(chat.sessionModel, "\n")+1:]
-		question := clarification{
-			CheckpointID: checkpoint.ID, InterruptID: checkpoint.InterruptID, Answer: localtools.ContinueCommand,
-			Model:    modelChoice{ProviderID: provider, Model: model},
-			Approval: &localtools.Approval{Automatic: true, Preview: record.Command},
-		}
-		if entry.canResume() && entry.Clarifications[len(entry.Clarifications)-1].Approval != nil &&
-			entry.Clarifications[len(entry.Clarifications)-1].Approval.Automatic {
-			entry.Clarifications[len(entry.Clarifications)-1] = question
-		} else {
-			entry.Clarifications = append(entry.Clarifications, question)
-		}
+		entry.restoreAutomaticCheckpoint(chat, record)
+		return record
+	}
+	// The runner durably stores the interrupt before the command can enter
+	// its journal. Recover that boundary directly from the session timeline.
+	if record := store.commandBeforeJournal(chat, entry, activeInterrupts); record != nil {
+		entry.restoreAutomaticCheckpoint(chat, record)
 		return record
 	}
 	if !entry.canResume() {
@@ -111,6 +106,54 @@ func (store *localStore) recoverableReplyCommand(chat *conversation, entry *turn
 		return nil
 	}
 	return match
+}
+
+func (store *localStore) commandBeforeJournal(chat *conversation, entry *turn, interrupts []*adk.InterruptContext) *savedRemoteCommand {
+	var id string
+	if err := store.QueryRow(`SELECT min(id) FROM adk_checkpoints WHERE session_id = ? HAVING count(*) = 1`, chat.sessionID).Scan(&id); err != nil {
+		return nil
+	}
+	for _, point := range interrupts {
+		if point == nil || point.InterruptID == "" || point.ToolUseID == "" {
+			continue
+		}
+		raw, ok := point.Info.(string)
+		if !ok {
+			continue
+		}
+		var question clarification
+		if json.Unmarshal([]byte(raw), &question) != nil || question.Approval == nil ||
+			!question.Approval.Automatic || question.Approval.CallID != point.ToolUseID {
+			continue
+		}
+		taskID := id + "/" + point.ToolUseID
+		if slices.ContainsFunc(entry.remoteCommands, func(record savedRemoteCommand) bool { return record.ID == taskID }) {
+			continue
+		}
+		return &savedRemoteCommand{
+			RemoteCommand: localtools.RemoteCommand{ID: taskID, CallID: point.ToolUseID, Command: question.Approval.Preview},
+			targetID:      chat.target.Identity(),
+			checkpoint:    localtools.CommandCheckpoint{ID: id, InterruptID: point.InterruptID, CallID: point.ToolUseID},
+			beforeJournal: true,
+		}
+	}
+	return nil
+}
+
+func (entry *turn) restoreAutomaticCheckpoint(chat *conversation, record *savedRemoteCommand) {
+	provider, _, _ := strings.Cut(chat.sessionModel, "\n")
+	model := chat.sessionModel[strings.LastIndex(chat.sessionModel, "\n")+1:]
+	question := clarification{
+		CheckpointID: record.checkpoint.ID, InterruptID: record.checkpoint.InterruptID, Answer: localtools.ContinueCommand,
+		Model:    modelChoice{ProviderID: provider, Model: model},
+		Approval: &localtools.Approval{Automatic: true, Preview: record.Command, CallID: record.CallID},
+	}
+	if entry.canResume() && entry.Clarifications[len(entry.Clarifications)-1].Approval != nil &&
+		entry.Clarifications[len(entry.Clarifications)-1].Approval.Automatic {
+		entry.Clarifications[len(entry.Clarifications)-1] = question
+	} else {
+		entry.Clarifications = append(entry.Clarifications, question)
+	}
 }
 
 func (store *localStore) hasReplyCheckpoint(sessionID, id string) bool {

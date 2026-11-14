@@ -93,7 +93,8 @@ func (localCommandShell) Execute(ctx context.Context, input *filesystem.ExecuteR
 		commands = provider.Commands()
 	}
 	record, restoring := ctx.Value(commandReattachmentKey{}).(RemoteCommand)
-	if restoring && record.ID == harness.OperationScope(ctx)+"/"+op.callID && commands == nil {
+	checkpoint := CheckpointForCommand(ctx, op.callID)
+	if commands == nil && ((restoring && record.ID == harness.OperationScope(ctx)+"/"+op.callID) || checkpoint.ID != "") {
 		return nil, errors.New("recoverable shell capability is unavailable")
 	}
 	switch {
