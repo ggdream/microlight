@@ -66,12 +66,18 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 	}
 	if key := os.Getenv("MICROLIGHT_TEST_SSH_KEY"); key != "" {
 		targets = append(targets, workspace.Target{Kind: "remote", Host: "127.0.0.1", Port: "42173", User: "root", Auth: "key", KeyFile: key, Directory: os.Getenv("MICROLIGHT_TEST_SSH_DIR")})
-		guest := targets[len(targets)-1]
-		guest.Kind = "microvm"
-		targets = append(targets, guest)
+	}
+	if key := os.Getenv("MICROLIGHT_TEST_MICROVM_KEY"); key != "" {
+		host, dir := os.Getenv("MICROLIGHT_TEST_MICROVM_HOST"), os.Getenv("MICROLIGHT_TEST_MICROVM_DIR")
+		if host == "" || dir == "" {
+			t.Fatal("set MICROLIGHT_TEST_MICROVM_HOST and MICROLIGHT_TEST_MICROVM_DIR for the disposable guest")
+		}
+		targets = append(targets, workspace.Target{
+			Kind: "microvm", Host: host, Directory: dir, User: "root", Auth: "key", KeyFile: key,
+		})
 	}
 	if len(targets) == 0 {
-		t.Skip("set MICROLIGHT_TEST_DOCKER or MICROLIGHT_TEST_SSH_KEY to run against disposable workspaces")
+		t.Skip("set MICROLIGHT_TEST_DOCKER, MICROLIGHT_TEST_SSH_KEY or MICROLIGHT_TEST_MICROVM_KEY to run against disposable workspaces")
 	}
 	for _, target := range targets {
 		t.Run(target.Kind, func(t *testing.T) {
