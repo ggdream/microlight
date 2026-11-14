@@ -51,7 +51,7 @@ func (agent PersonalAgent) run(ctx context.Context, store *localStore, sessionID
 		if err != nil {
 			return nil, &workspaceConnectionError{agent.target, err}
 		}
-		ctx = localtools.WithRuntime(ctx, agent.access, runtime, agent.target, ops.Capabilities)
+		ctx = localtools.WithRuntime(ctx, agent.access, runtime, agent.target, ops)
 		ctx = localtools.WithWorkspaceReconnect(ctx, func(ctx context.Context) (workspace.Runtime, error) {
 			return open(ctx, agent.target, agent.secret)
 		})

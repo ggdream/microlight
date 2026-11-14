@@ -3,6 +3,7 @@ package workspace
 import (
 	"context"
 
+	backgroundshell "github.com/cloudwego/eino/adk/backgroundtask/shell"
 	"github.com/cloudwego/eino/adk/filesystem"
 )
 
@@ -86,6 +87,8 @@ type CapabilityProvider interface {
 type Operations struct {
 	Capabilities Capabilities
 	Files        ResolvedFileSystem
+	Shell        filesystem.Shell
+	Commands     backgroundshell.RecoverableShell
 	Browser      BrowserDriver
 	Computer     ComputerDriver
 }
@@ -95,26 +98,29 @@ type Operations struct {
 func DiscoverOperations(ctx context.Context, runtime Runtime) (Operations, error) {
 	var ops Operations
 	ops.Files, _ = runtime.(ResolvedFileSystem)
-	_, shell := runtime.(filesystem.Shell)
+	ops.Shell, _ = runtime.(filesystem.Shell)
+	if provider, ok := runtime.(CommandProvider); ok {
+		ops.Commands = provider.Commands()
+	}
 	capabilities := &ops.Capabilities
-	capabilities.Files, capabilities.Shell = ops.Files != nil, shell
 	if provider, ok := runtime.(CapabilityProvider); ok {
 		discovered, err := provider.GetCapabilities(ctx)
 		if err != nil {
 			return Operations{}, err
 		}
-		capabilities.Files = capabilities.Files && discovered.Files
-		capabilities.Shell = capabilities.Shell && discovered.Shell
-		if !capabilities.Files {
+		if !discovered.Files {
 			ops.Files = nil
 		}
+		if !discovered.Shell {
+			ops.Shell, ops.Commands = nil, nil
+		}
 	}
+	capabilities.Files = ops.Files != nil
+	capabilities.Shell = ops.Shell != nil || ops.Commands != nil
+	capabilities.RecoverableShell = ops.Commands != nil
 	if provider, ok := runtime.(BrowserProvider); ok {
 		ops.Browser = provider.Browser()
 		capabilities.Browser = ops.Browser != nil
-	}
-	if provider, ok := runtime.(CommandProvider); ok && capabilities.Shell {
-		capabilities.RecoverableShell = provider.Commands() != nil
 	}
 	if provider, ok := runtime.(ComputerProvider); ok {
 		ops.Computer = provider.Computer()

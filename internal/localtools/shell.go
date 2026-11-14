@@ -97,10 +97,7 @@ func (localCommandShell) Execute(ctx context.Context, input *filesystem.ExecuteR
 	}
 	var response *filesystem.ExecuteResponse
 	var err error
-	var commands backgroundshell.RecoverableShell
-	if provider, ok := op.runtime.(workspace.CommandProvider); ok {
-		commands = provider.Commands()
-	}
+	commands := op.operations.Commands
 	record, restoring := ctx.Value(commandReattachmentKey{}).(commandReattachment)
 	reattach := restoring && record.ID == harness.OperationScope(ctx)+"/"+op.callID && record.CallID == op.callID
 	checkpoint := CheckpointForCommand(ctx, op.callID)
@@ -114,7 +111,10 @@ func (localCommandShell) Execute(ctx context.Context, input *filesystem.ExecuteR
 	case commands != nil && harness.OperationScope(ctx) != "" && op.callID != "":
 		response, err = executeRecoverable(ctx, commands, op)
 	case op.runtime != nil:
-		response, err = op.runtime.(filesystem.Shell).Execute(ctx, input)
+		if op.operations.Shell == nil {
+			return nil, errors.New("command requires a recoverable session and tool call ID")
+		}
+		response, err = op.operations.Shell.Execute(ctx, input)
 	default:
 		response, err = shell.Execute(ctx, op.content, op.target, input.Timeout)
 	}
@@ -188,13 +188,16 @@ func executeRecoverable(ctx context.Context, commands backgroundshell.Recoverabl
 	if reconnect != nil && ctx.Err() == nil && errors.As(err, &transport) {
 		openCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 		runtime, openErr := reconnect(openCtx)
-		cancel()
 		if openErr == nil {
 			defer runtime.Close()
-			if provider, ok := runtime.(workspace.CommandProvider); ok && provider.Commands() != nil {
+			operations, discoverErr := workspace.DiscoverOperations(openCtx, runtime)
+			cancel()
+			if discoverErr == nil && operations.Commands != nil {
 				request.Attempt++
-				response, err = wait(provider.Commands())
+				response, err = wait(operations.Commands)
 			}
+		} else {
+			cancel()
 		}
 	}
 	if errors.Is(context.Cause(ctx), ErrStopReply) && err != nil && reconnect != nil {
@@ -233,17 +236,21 @@ func commandResponse(outcome *backgroundtool.Outcome, reattach bool) (*filesyste
 
 func RecoverRemoteCommand(ctx context.Context, connect func(context.Context) (workspace.Runtime, error), record RemoteCommand, stop bool) (*backgroundtool.Outcome, error) {
 	connectCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
 	runtime, err := connect(connectCtx)
-	cancel()
 	if err != nil {
 		return nil, err
 	}
 	defer runtime.Close()
-	provider, ok := runtime.(workspace.CommandProvider)
-	if !ok || provider.Commands() == nil {
+	operations, err := workspace.DiscoverOperations(connectCtx, runtime)
+	cancel()
+	if err != nil {
+		return nil, err
+	}
+	commands := operations.Commands
+	if commands == nil {
 		return nil, errors.New("recoverable shell capability is unavailable")
 	}
-	commands := provider.Commands()
 	req := &backgroundshell.RecoverCommandRequest{
 		TaskID: record.ID, Command: record.Command, Attempt: 1,
 	}

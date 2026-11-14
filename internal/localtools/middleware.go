@@ -69,15 +69,15 @@ type Access struct {
 	mode      atomic.Value
 }
 
-func WithRuntime(ctx context.Context, access *Access, runtime project.Runtime, target project.Target, capabilities project.Capabilities) context.Context {
-	return context.WithValue(WithAccess(ctx, access), runtimeAccessKey{}, runtimeAccess{runtime, target, capabilities})
+func WithRuntime(ctx context.Context, access *Access, runtime project.Runtime, target project.Target, operations project.Operations) context.Context {
+	return context.WithValue(WithAccess(ctx, access), runtimeAccessKey{}, runtimeAccess{runtime, target, operations})
 }
 
 type runtimeAccessKey struct{}
 type runtimeAccess struct {
-	runtime      project.Runtime
-	target       project.Target
-	capabilities project.Capabilities
+	runtime    project.Runtime
+	target     project.Target
+	operations project.Operations
 }
 
 func (a *Access) SetMode(mode Mode) {
@@ -113,6 +113,7 @@ type Approval struct {
 
 type localOperation struct {
 	runtime               project.Runtime
+	operations            project.Operations
 	webClient             *http.Client
 	name, target, content string
 	root, relative        string
@@ -177,7 +178,7 @@ func (EnvironmentTools) ChatModelAgentMiddlewareName() string {
 
 func (EnvironmentTools) BeforeAgent(ctx context.Context, run *adk.ChatModelAgentContext[*schema.AgenticMessage]) (context.Context, *adk.ChatModelAgentContext[*schema.AgenticMessage], error) {
 	selected, ok := ctx.Value(runtimeAccessKey{}).(runtimeAccess)
-	if !ok || (selected.capabilities.Files && selected.capabilities.Shell) {
+	if !ok || (selected.operations.Capabilities.Files && selected.operations.Capabilities.Shell) {
 		return ctx, run, nil
 	}
 	updated := *run
@@ -189,11 +190,11 @@ func (EnvironmentTools) BeforeAgent(ctx context.Context, run *adk.ChatModelAgent
 		}
 		switch info.Name {
 		case Read, Write, List:
-			if !selected.capabilities.Files {
+			if !selected.operations.Capabilities.Files {
 				continue
 			}
 		case Execute:
-			if !selected.capabilities.Shell {
+			if !selected.operations.Capabilities.Shell {
 				continue
 			}
 		}
@@ -248,8 +249,7 @@ func (h Middleware) WrapInvokableToolCall(_ context.Context, next adk.InvokableT
 		}
 		needsApproval := policy.needsApproval(op)
 		journal, _ := ctx.Value(commandJournalKey{}).(CommandJournal)
-		runtime, _ := ctx.Value(runtimeAccessKey{}).(runtimeAccess)
-		recoverableCommand := op.name == Execute && runtime.capabilities.RecoverableShell && journal.Record != nil
+		recoverableCommand := op.name == Execute && op.operations.Commands != nil && journal.Record != nil
 		automatic := !wasInterrupted && !needsApproval && recoverableCommand
 		if wasInterrupted || needsApproval || automatic {
 			if !targeted || !hasAnswer {
@@ -574,13 +574,12 @@ func (op localOperation) executeLocalFile(ctx context.Context) (string, *diff.Li
 }
 
 func resolveRuntime(ctx context.Context, access runtimeAccess, name, raw string) (localOperation, error) {
-	op := localOperation{name: name, runtime: access.runtime}
-	_, hasShell := access.runtime.(filesystem.Shell)
-	files, hasFiles := access.runtime.(project.ResolvedFileSystem)
-	if name == Execute && (!access.capabilities.Shell || !hasShell) {
+	op := localOperation{name: name, runtime: access.runtime, operations: access.operations}
+	files := access.operations.Files
+	if name == Execute && access.operations.Shell == nil && access.operations.Commands == nil {
 		return op, errors.New("所选工作区不支持命令执行")
 	}
-	if name != Execute && (!access.capabilities.Files || !hasFiles) {
+	if name != Execute && files == nil {
 		return op, errors.New("所选工作区不支持文件操作")
 	}
 	var args localArguments
@@ -633,7 +632,7 @@ func resolveRuntime(ctx context.Context, access runtimeAccess, name, raw string)
 }
 
 func (op localOperation) executeRuntime(ctx context.Context) (string, *diff.Lines, error) {
-	files := op.runtime.(project.ResolvedFileSystem)
+	files := op.operations.Files
 	target, version, err := files.Resolve(ctx, op.target, op.name == Write)
 	approved, _, _ := strings.Cut(op.fileVersion, "\x00")
 	if err != nil {

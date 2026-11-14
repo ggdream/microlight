@@ -12,7 +12,7 @@ func TestRemoteWorkspaceDoesNotUseHostProjectPath(t *testing.T) {
 	host := t.TempDir()
 	ctx := WithRuntime(t.Context(), NewAccess(host, Ask), nil, workspace.Target{
 		Kind: "remote", Directory: "/work",
-	}, workspace.Capabilities{})
+	}, workspace.Operations{})
 	if path := Workspace(ctx, host); path != "" {
 		t.Fatalf("remote session exposed a host project path: %q", path)
 	}
