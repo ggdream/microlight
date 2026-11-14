@@ -29,6 +29,17 @@ type workspaceForm struct {
 	containerAdvanced                                                containerAdvancedForm
 }
 
+// Capture settings on the UI thread for the connection and any retries.
+func (app *chatApp) workspaceConnector() workspace.ConnectFunc {
+	open, config := app.openWorkspace, app.settings.Proxy
+	if open == nil {
+		open = workspace.Open
+	}
+	return func(ctx context.Context, target workspace.Target, secret string) (workspace.Runtime, error) {
+		return open(workspace.WithProxy(ctx, config), target, secret)
+	}
+}
+
 func (app *chatApp) openWorkspaceForm(chat *conversation) {
 	f := &workspaceForm{chat: chat, target: chat.target, kind: chat.target.Kind}
 	f.secret = app.workspaceSecrets[f.target.Credential]
@@ -479,6 +490,7 @@ func (app *chatApp) connectWorkspace(f *workspaceForm) {
 		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
 	}
 	f.cancel = cancel
+	open := app.workspaceConnector()
 	go func() {
 		defer cancel()
 		var err error
@@ -489,7 +501,7 @@ func (app *chatApp) connectWorkspace(f *workspaceForm) {
 		}
 		if err == nil {
 			var runtime workspace.Runtime
-			runtime, err = app.openWorkspace(ctx, target, secret)
+			runtime, err = open(ctx, target, secret)
 			if err == nil {
 				_ = runtime.Close()
 			}

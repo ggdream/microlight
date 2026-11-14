@@ -392,7 +392,7 @@ func (app *chatApp) recoverRemoteCommands(chat *conversation, entry *turn, ordin
 	entry.recoveringRemote = true
 	entry.Error = ""
 	target, store := chat.target, app.store
-	open := app.openWorkspace
+	open := app.workspaceConnector()
 	chatID, branch := chat.ID, chat.branchID
 	turnCount := len(chat.Turns)
 	secret := app.workspaceSecrets[target.Credential]

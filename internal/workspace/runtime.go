@@ -10,6 +10,7 @@ import (
 
 	"github.com/cloudwego/eino/adk/filesystem"
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/pkg/proxy"
 )
 
 type Target struct {
@@ -55,6 +56,13 @@ type Runtime interface {
 // ConnectFunc opens a tool execution environment for a harness session.
 // Implementations do not own the model or the conversation.
 type ConnectFunc func(context.Context, Target, string) (Runtime, error)
+
+type proxyConfigKey struct{}
+
+// WithProxy supplies the host's networking preferences to HTTP connectors.
+func WithProxy(ctx context.Context, config proxy.Config) context.Context {
+	return context.WithValue(ctx, proxyConfigKey{}, config)
+}
 
 func (t Target) Identity() string {
 	data, _ := json.Marshal(t)

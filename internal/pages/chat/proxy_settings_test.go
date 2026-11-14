@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,11 +15,44 @@ import (
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/mcptools"
 	"github.com/ggdream/microlight/internal/skills"
+	"github.com/ggdream/microlight/internal/workspace"
 	"github.com/ggdream/microlight/pkg/proxy"
 
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+func TestCloudWorkspaceUsesConfiguredProxy(t *testing.T) {
+	var connects atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodConnect || r.Host != "api.e2b.app:443" {
+			t.Errorf("unexpected proxy request %s %s", r.Method, r.Host)
+		}
+		if r.Header.Get("X-API-Key") != "" {
+			t.Error("sandbox key leaked to the CONNECT proxy")
+		}
+		connects.Add(1)
+		w.WriteHeader(http.StatusProxyAuthRequired)
+	}))
+	defer server.Close()
+	app := &chatApp{settings: modelSettings{Proxy: proxy.Config{Mode: proxy.Custom, URL: server.URL}}}
+	open := app.workspaceConnector()
+	// An in-flight operation and its reconnect use their original settings.
+	app.settings.Proxy = proxy.Config{Mode: proxy.Direct}
+	target := workspace.Target{Kind: "e2b", Resource: "proxy-probe", Directory: "/home/user"}
+	for range 2 {
+		rt, err := open(t.Context(), target, "test-key")
+		if rt != nil {
+			rt.Close()
+		}
+		if !errors.Is(err, proxy.ErrProxy) {
+			t.Fatalf("expected a proxy error, got %v", err)
+		}
+	}
+	if got := connects.Load(); got != 2 {
+		t.Fatalf("proxy received %d CONNECT requests, want 2", got)
+	}
+}
 
 func TestSharedProxyForModelMCPAndWebFetch(t *testing.T) {
 	mcpFixture := mcp.NewServer(&mcp.Implementation{Name: "proxy-test", Version: "1"}, nil)

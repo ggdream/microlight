@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"path"
 	"regexp"
@@ -17,6 +16,7 @@ import (
 	"time"
 
 	backgroundshell "github.com/cloudwego/eino/adk/backgroundtask/shell"
+	"github.com/ggdream/microlight/pkg/proxy"
 	"github.com/zalando/go-keyring"
 )
 
@@ -32,10 +32,12 @@ type e2bRuntime struct {
 }
 
 func connectE2B(ctx context.Context, target Target, key string) (Runtime, error) {
-	client := &http.Client{Transport: &http.Transport{
-		Proxy: http.ProxyFromEnvironment, DialContext: (&net.Dialer{Timeout: 10 * time.Second}).DialContext,
-		TLSHandshakeTimeout: 10 * time.Second, IdleConnTimeout: 30 * time.Second, ForceAttemptHTTP2: true,
-	}, Timeout: 30 * time.Second,
+	config, _ := ctx.Value(proxyConfigKey{}).(proxy.Config)
+	transport, err := proxy.NewTransport(config)
+	if err != nil {
+		return nil, err
+	}
+	client := &http.Client{Transport: transport, Timeout: 30 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	rt, err := openE2B(ctx, target, key, client)
 	if err != nil {

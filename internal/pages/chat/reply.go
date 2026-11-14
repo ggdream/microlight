@@ -131,7 +131,7 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 		}
 	}
 	secret := app.workspaceSecrets[target.Credential]
-	connect := app.openWorkspace
+	connect := app.workspaceConnector()
 	ctx = localtools.WithAccess(ctx, access)
 	ctx = context.WithValue(ctx, interfaceContextKey{}, chat.interfaceRequest())
 	if record := reply.resumeCommand; record != nil {
