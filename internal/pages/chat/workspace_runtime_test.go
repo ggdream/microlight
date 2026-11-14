@@ -240,6 +240,71 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 			if recoverErr != nil {
 				t.Fatalf("approved tool command cannot be recovered: %v", recoverErr)
 			}
+			t.Run("resume-original-turn", func(t *testing.T) {
+				dbDir := t.TempDir()
+				before, err := openLocalStore(dbDir)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer before.Close()
+				arguments = map[string]string{"command": "printf x >> " + filename + "; cat " + filename}
+				chat := &conversation{ID: newID(), sessionID: newID(), target: target}
+				user := userTurn("Run the remote command")
+				accessCtx := localtools.WithAccess(ctx, agent.access)
+				approval, err := agent.run(accessCtx, before, chat.sessionID, []*turn{user}, nil, "", emit)
+				if err != nil || approval == nil {
+					t.Fatalf("approval = %+v, %v", approval, err)
+				}
+				approval.Answer = localtools.AllowOnce
+				chat.Turns = []*turn{user, {message: message{Role: "assistant"}, State: "pending", Clarifications: []clarification{*approval}}}
+				if err := before.saveHistory(history{Chats: []*conversation{chat}, Selected: chat.ID}, chat); err != nil {
+					t.Fatal(err)
+				}
+				record := localtools.RemoteCommand{ID: approval.CheckpointID + "/workspace-tool", CallID: "workspace-tool", Command: arguments["command"]}
+				if err := before.commandJournal(chat.ID, "", target.Identity(), 1).Record(ctx, record); err != nil {
+					t.Fatal(err)
+				}
+				rt, err := workspace.Open(ctx, target, "")
+				if err != nil {
+					t.Fatal(err)
+				}
+				run, err := rt.(workspace.CommandProvider).Commands().StartCommand(ctx, &backgroundshell.StartCommandRequest{TaskID: record.ID, Command: record.Command, Attempt: 1})
+				if err != nil {
+					rt.Close()
+					t.Fatal(err)
+				}
+				_, err = run.Wait(ctx)
+				rt.Close()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := before.Close(); err != nil {
+					t.Fatal(err)
+				}
+				after, err := openLocalStore(dbDir)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer after.Close()
+				app := &chatApp{store: after}
+				app.loadHistory()
+				restored := app.history.Chats[0]
+				entry := restored.Turns[1]
+				if entry.resumeCommand == nil || restored.sessionID != chat.sessionID {
+					t.Fatal("original approval, command, or session was not restored")
+				}
+				entry.State = "pending"
+				if err := after.saveHistory(app.history, restored); err != nil {
+					t.Fatal(err)
+				}
+				resumeCtx := localtools.WithCommandJournal(accessCtx, after.commandJournal(chat.ID, "", target.Identity(), 1))
+				resumeCtx = localtools.WithCommandReattachment(resumeCtx, entry.resumeCommand.RemoteCommand)
+				approval, err = agent.run(resumeCtx, after, restored.sessionID, nil, &entry.Clarifications[0], localtools.AllowOnce, emit)
+				if err != nil || approval != nil || !strings.Contains(toolResponse, "commandx") {
+					t.Fatalf("original reply did not continue: %+v, %v, %q", approval, err, toolResponse)
+				}
+				read("commandx")
+			})
 			for _, tool := range []string{localtools.Read, localtools.List} {
 				toolName = tool
 				if tool == localtools.Read {
@@ -251,7 +316,7 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 				if q != nil {
 					t.Fatal("in-workspace read unexpectedly requested approval")
 				}
-				want := "command"
+				want := "commandx"
 				if tool == localtools.List {
 					want = filename
 				}

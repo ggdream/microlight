@@ -40,6 +40,29 @@ func (entry *turn) canResume() bool {
 	return len(entry.Clarifications) > 0 && entry.Clarifications[len(entry.Clarifications)-1].CheckpointID != ""
 }
 
+func (app *chatApp) resumeRemoteReply(chat *conversation, reply *turn) {
+	if app.active != nil || reply.recoveringRemote || reply.resumeCommand == nil || !reply.canResume() ||
+		len(chat.Turns) == 0 || chat.Turns[len(chat.Turns)-1] != reply {
+		return
+	}
+	question := reply.Clarifications[len(reply.Clarifications)-1]
+	choice := question.Model
+	backend, err := app.backendFor(choice)
+	if err != nil {
+		reply.Error = err.Error()
+		return
+	}
+	if choice.ProviderID == "" {
+		choice = app.currentModelChoice()
+	}
+	if chat.sessionModel != backend.sessionModelKey(choice) {
+		reply.Error = locales.ChangedModelForResume()
+		return
+	}
+	reply.Error, reply.State = "", "pending"
+	app.runReply(chat, reply, len(chat.Turns)-1, question.Answer, backend, choice)
+}
+
 func (app *chatApp) answerClarification(chat *conversation, reply *turn, answer string) {
 	answer = strings.TrimSpace(answer)
 	if answer == "" || app.active != nil || chat.waitingReply() != reply {
@@ -110,9 +133,13 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 	secret := app.workspaceSecrets[target.Credential]
 	ctx = localtools.WithAccess(ctx, access)
 	ctx = context.WithValue(ctx, interfaceContextKey{}, chat.interfaceRequest())
+	if reply.resumeCommand != nil {
+		ctx = localtools.WithCommandReattachment(ctx, reply.resumeCommand.RemoteCommand)
+	}
 	if store != nil && target.Kind != "" {
 		ctx = localtools.WithCommandJournal(ctx, store.commandJournal(chatID, branch, target.Identity(), index))
 	}
+	recoveringReply := reply.resumeCommand != nil
 	app.active, app.running, app.cancel, app.runningAccess = chat, reply, func() { cancel(localtools.ErrStopReply) }, access
 	app.save(chat)
 
@@ -162,13 +189,18 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 			reply.FinishedAt = finishedAt
 			reply.compressing = false
 			reply.keepProcessPreview()
+			if err == nil || !recoveringReply {
+				reply.resumeCommand = nil
+			}
 			if err == nil && resume != nil {
 				answered := &reply.Clarifications[len(reply.Clarifications)-1]
 				answered.CheckpointID, answered.InterruptID = "", ""
 			}
 			switch {
 			case err != nil:
-				chat.sessionID = ""
+				if reply.resumeCommand == nil {
+					chat.sessionID = ""
+				}
 				log.Printf("对话执行失败（%T）", err)
 				reply.State, reply.Error = "error", replyRequestFailed
 				var workspaceErr *workspaceConnectionError

@@ -38,6 +38,7 @@ type turn struct {
 	clarificationSurface *a2ui.Surface
 	copiedUntil          time.Time
 	remoteCommands       []savedRemoteCommand
+	resumeCommand        *savedRemoteCommand
 	recoveringRemote     bool
 	stopRemoteRecovery   context.CancelCauseFunc
 }

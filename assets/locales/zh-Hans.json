@@ -60,6 +60,7 @@
   "editMessage": "编辑消息",
   "retry": "重新生成",
   "remoteCommandReconnect": "重连远程命令",
+  "remoteCommandContinueReply": "继续回复",
   "remoteCommandStop": "取消远程命令",
   "remoteCommandConnecting": "正在查询远程命令…",
   "remoteCommandCanceled": "远程命令已取消。",

@@ -60,6 +60,7 @@
   "editMessage": "Edit Message",
   "retry": "Regenerate",
   "remoteCommandReconnect": "Reconnect to command",
+  "remoteCommandContinueReply": "Continue reply",
   "remoteCommandStop": "Cancel remote command",
   "remoteCommandConnecting": "Checking remote command…",
   "remoteCommandCanceled": "Remote command canceled.",

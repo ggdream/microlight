@@ -37,9 +37,14 @@ func (app *chatApp) loadHistory() {
 					entry.applyRemoteCommands(records)
 				}
 			}
+			if index == len(chat.Turns)-1 {
+				entry.resumeCommand = app.store.recoverableReplyCommand(chat, entry)
+			}
 			if entry.State == "pending" || (entry.State == "waiting" && !entry.canResume()) {
 				entry.State = "stopped"
-				chat.sessionID = ""
+				if entry.resumeCommand == nil {
+					chat.sessionID = ""
+				}
 			}
 		}
 	}

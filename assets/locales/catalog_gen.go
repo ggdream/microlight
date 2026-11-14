@@ -566,6 +566,16 @@ func (msgs Messages) RemoteCommandReconnect() string {
 	return Catalog.Format(msgs.locale, "remoteCommandReconnect", nil)
 }
 
+// RemoteCommandContinueReply says "Continue reply"
+// in the language the app shows.
+func RemoteCommandContinueReply() string { return In(i18n.Locale()).RemoteCommandContinueReply() }
+
+// RemoteCommandContinueReply says "Continue reply"
+// in the language of msgs.
+func (msgs Messages) RemoteCommandContinueReply() string {
+	return Catalog.Format(msgs.locale, "remoteCommandContinueReply", nil)
+}
+
 // RemoteCommandStop says "Cancel remote command"
 // in the language the app shows.
 func RemoteCommandStop() string { return In(i18n.Locale()).RemoteCommandStop() }

@@ -38,15 +38,57 @@ func (entry *turn) hasUnresolvedRemoteCommands() bool {
 	return slices.ContainsFunc(entry.remoteCommands, func(record savedRemoteCommand) bool { return record.outcome == nil })
 }
 
+func (store *localStore) recoverableReplyCommand(chat *conversation, entry *turn) *savedRemoteCommand {
+	if chat.sessionID == "" || (entry.State != "pending" && entry.State != "stopped" && entry.State != "error") || !entry.canResume() {
+		return nil
+	}
+	approval := entry.Clarifications[len(entry.Clarifications)-1]
+	if approval.Answer != localtools.AllowOnce || approval.Approval == nil {
+		return nil
+	}
+	var match *savedRemoteCommand
+	for i := range entry.remoteCommands {
+		record := &entry.remoteCommands[i]
+		if record.targetID != chat.target.Identity() ||
+			record.ID != approval.CheckpointID+"/"+record.CallID || record.Command != approval.Approval.Preview {
+			continue
+		}
+		if match != nil {
+			return nil
+		}
+		match = record
+	}
+	if match == nil {
+		return nil
+	}
+	var exists bool
+	err := store.QueryRow("SELECT EXISTS(SELECT 1 FROM adk_checkpoints WHERE id = ? AND session_id = ?)", approval.CheckpointID, chat.sessionID).Scan(&exists)
+	if err != nil || !exists {
+		return nil
+	}
+	return match
+}
+
 func (app *chatApp) remoteCommandControls(c *ui.Context, chat *conversation, entry *turn, ordinal int) {
-	if entry.State == "pending" || !entry.hasUnresolvedRemoteCommands() {
+	unresolved := entry.hasUnresolvedRemoteCommands()
+	if entry.State == "pending" || (!unresolved && entry.resumeCommand == nil) {
 		return
 	}
 	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+		if entry.resumeCommand != nil && ordinal == len(chat.Turns)-1 {
+			label := locales.RemoteCommandContinueReply()
+			disabled := app.active != nil || entry.recoveringRemote
+			pointerButton(c.Key("continue-reply"), disabled).Label(label).Background(tint).Radius(7).Padding(6, 10).
+				Children(func() { ui.Text(c, label).FontSize(12) }).
+				OnClick(func() { app.resumeRemoteReply(chat, entry) })
+		}
 		for _, action := range []struct {
 			label string
 			stop  bool
 		}{{locales.RemoteCommandReconnect(), false}, {locales.RemoteCommandStop(), true}} {
+			if !unresolved {
+				break
+			}
 			disabled := app.active != nil || (entry.recoveringRemote && (!action.stop || entry.stopRemoteRecovery == nil))
 			pointerButton(c.Key(action.label), disabled).Label(action.label).Background(side).Radius(7).Padding(6, 10).
 				Children(func() { ui.Text(c, action.label).FontSize(12) }).
