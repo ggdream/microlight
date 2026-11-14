@@ -2,11 +2,38 @@ package workspace
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	backgroundshell "github.com/cloudwego/eino/adk/backgroundtask/shell"
 	"github.com/cloudwego/eino/adk/filesystem"
 )
+
+type desktopProbeFailure struct {
+	ComputerDriver
+	err error
+}
+
+func (d desktopProbeFailure) GetCapabilities(context.Context) (ComputerCapabilities, error) {
+	return ComputerCapabilities{}, d.err
+}
+
+type failingDesktopRuntime struct {
+	Runtime
+	filesystem.Shell
+	desktopProbeFailure
+}
+
+func (r failingDesktopRuntime) Computer() ComputerDriver { return r.desktopProbeFailure }
+
+func TestDesktopProbeFailurePreservesShell(t *testing.T) {
+	errUnavailable := errors.New("desktop permission probe failed")
+	runtime := failingDesktopRuntime{desktopProbeFailure: desktopProbeFailure{err: errUnavailable}}
+	ops, err := DiscoverOperations(t.Context(), runtime)
+	if err != nil || ops.Shell == nil || !ops.Capabilities.Shell || ops.Computer != nil || ops.Capabilities.Computer != (ComputerCapabilities{}) {
+		t.Fatalf("operations = %+v, error = %v", ops, err)
+	}
+}
 
 type declaredShellRuntime struct {
 	Runtime

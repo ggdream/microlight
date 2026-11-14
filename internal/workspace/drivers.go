@@ -161,7 +161,11 @@ func DiscoverOperations(ctx context.Context, runtime Runtime) (Operations, error
 		if ops.Computer != nil {
 			actual, err := ops.Computer.GetCapabilities(ctx)
 			if err != nil {
-				return Operations{}, err
+				if ctx.Err() != nil || !(capabilities.Files || capabilities.Shell || capabilities.Browser) {
+					return Operations{}, err
+				}
+				ops.Computer = nil
+				return ops, nil
 			}
 			capabilities.Computer = ComputerCapabilities{
 				Screenshot:  actual.Screenshot && declared.Computer.Screenshot,
