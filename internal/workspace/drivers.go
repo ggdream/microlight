@@ -62,6 +62,12 @@ type ComputerSession interface {
 	ComputerSessionID() string
 }
 
+// CommandSession identifies the command journal across connection and process
+// restarts. Replacing the journal must change this identity.
+type CommandSession interface {
+	CommandSessionID() string
+}
+
 type BrowserProvider interface {
 	Browser() BrowserDriver
 }

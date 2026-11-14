@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 
@@ -17,11 +18,14 @@ func TestReconnectAfterLostCommandLaunch(t *testing.T) {
 	for _, tc := range []struct {
 		name              string
 		accepted, missing bool
+		replaced          bool
 		wantStarts        int
+		wantObservations  int
 	}{
-		{name: "accepted", accepted: true, wantStarts: 1},
-		{name: "authoritatively missing", missing: true, wantStarts: 2},
-		{name: "proxy returned not found", wantStarts: 1},
+		{name: "accepted after executor restart", accepted: true, wantStarts: 1, wantObservations: 1},
+		{name: "authoritatively missing", missing: true, wantStarts: 2, wantObservations: 1},
+		{name: "proxy returned not found", wantStarts: 1, wantObservations: 1},
+		{name: "command journal replaced", missing: true, replaced: true, wantStarts: 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var mu sync.Mutex
@@ -32,7 +36,16 @@ func TestReconnectAfterLostCommandLaunch(t *testing.T) {
 				defer mu.Unlock()
 				switch req.URL.Path {
 				case "/v1/desktop/info":
-					_, _ = w.Write([]byte(`{"SessionID":"executor","Files":true,"Commands":true}`))
+					session, journal := "executor", "journal-one"
+					if starts > 0 {
+						session = "restarted"
+						if tc.replaced {
+							journal = "journal-two"
+						}
+					}
+					_ = json.NewEncoder(w).Encode(map[string]any{
+						"SessionID": session, "CommandStoreID": journal, "Files": true, "Commands": true,
+					})
 				case "/v1/desktop/files/resolve":
 					_, _ = w.Write([]byte(`{"Path":"/","IsDir":true}`))
 				case "/v1/desktop/commands/start", "/v1/desktop/commands/status":
@@ -92,8 +105,12 @@ func TestReconnectAfterLostCommandLaunch(t *testing.T) {
 			if err != nil || ops.Commands == nil {
 				t.Fatalf("command capability unavailable: %v", err)
 			}
-			response, err := executeRecoverable(ctx, ops.Commands, localOperation{callID: "test", content: "echo finished"})
-			if !tc.accepted && !tc.missing {
+			response, err := executeRecoverable(ctx, ops.Commands, localOperation{runtime: runtime, callID: "test", content: "echo finished"})
+			if tc.replaced {
+				if err == nil || !strings.Contains(err.Error(), "command journal changed") {
+					t.Fatalf("expected journal identity error, got %v", err)
+				}
+			} else if !tc.accepted && !tc.missing {
 				if err == nil {
 					t.Fatal("expected unresolved transport error")
 				}
@@ -102,7 +119,7 @@ func TestReconnectAfterLostCommandLaunch(t *testing.T) {
 			}
 			mu.Lock()
 			defer mu.Unlock()
-			if starts != tc.wantStarts || observations != 1 {
+			if starts != tc.wantStarts || observations != tc.wantObservations {
 				t.Fatalf("starts = %d, observations = %d", starts, observations)
 			}
 		})

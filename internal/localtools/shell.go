@@ -224,6 +224,22 @@ func executeRecoverable(ctx context.Context, commands backgroundshell.Recoverabl
 	}
 	response, err := wait(commands)
 	reconnect, _ := ctx.Value(reconnectWorkspaceKey{}).(func(context.Context) (workspace.Runtime, error))
+	if reconnect != nil {
+		if original, ok := op.runtime.(workspace.CommandSession); ok {
+			open := reconnect
+			reconnect = func(ctx context.Context) (workspace.Runtime, error) {
+				rt, err := open(ctx)
+				if err != nil {
+					return nil, err
+				}
+				if session, ok := rt.(workspace.CommandSession); !ok || session.CommandSessionID() != original.CommandSessionID() {
+					rt.Close()
+					return nil, errors.New("execution environment command journal changed")
+				}
+				return rt, nil
+			}
+		}
+	}
 	var transport *workspace.CommandTransportError
 	if reconnect != nil && ctx.Err() == nil && errors.As(err, &transport) {
 		if !recoverFirst {
@@ -243,6 +259,7 @@ func executeRecoverable(ctx context.Context, commands backgroundshell.Recoverabl
 			}
 		} else {
 			cancel()
+			err = errors.Join(err, openErr)
 		}
 	}
 	if errors.Is(context.Cause(ctx), ErrStopReply) && err != nil && reconnect != nil {

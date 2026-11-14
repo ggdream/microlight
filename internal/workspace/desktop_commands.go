@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"uuid"
 
 	"github.com/cloudwego/eino/adk/backgroundtask"
 	backgroundshell "github.com/cloudwego/eino/adk/backgroundtask/shell"
@@ -32,6 +33,7 @@ const desktopCommandMissing = "command-task-not-found"
 
 type desktopCommandStore struct {
 	db     *sql.DB
+	id     string
 	mu     sync.Mutex
 	active map[string]context.CancelFunc
 }
@@ -58,11 +60,22 @@ func newDesktopCommandStore(name string) (*desktopCommandStore, error) {
 	if _, err := db.Exec(`PRAGMA busy_timeout=3000;
 		CREATE TABLE IF NOT EXISTS commands (
 			id TEXT PRIMARY KEY, signature TEXT NOT NULL, outcome BLOB
+		);
+		CREATE TABLE IF NOT EXISTS command_store (
+			singleton INTEGER PRIMARY KEY CHECK (singleton = 1), id TEXT NOT NULL
 		)`); err != nil {
 		db.Close()
 		return nil, err
 	}
-	return &desktopCommandStore{db: db, active: make(map[string]context.CancelFunc)}, nil
+	var identity string
+	if _, err = db.Exec("INSERT OR IGNORE INTO command_store VALUES (1, ?)", uuid.NewV7().String()); err == nil {
+		err = db.QueryRow("SELECT id FROM command_store WHERE singleton = 1").Scan(&identity)
+	}
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+	return &desktopCommandStore{db: db, id: identity, active: make(map[string]context.CancelFunc)}, nil
 }
 
 func (s *desktopCommandStore) serve(ctx context.Context, w http.ResponseWriter, r *http.Request, files *desktopFiles, method string) {

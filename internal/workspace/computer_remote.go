@@ -28,11 +28,12 @@ type desktopRequest struct {
 }
 
 type desktopInfo struct {
-	SessionID    string
-	Capabilities ComputerCapabilities
-	Files        bool
-	Commands     bool
-	Environment  Environment
+	SessionID      string
+	CommandStoreID string
+	Capabilities   ComputerCapabilities
+	Files          bool
+	Commands       bool
+	Environment    Environment
 }
 
 // DesktopHandler serves a single interactive desktop for the lifetime of
@@ -140,10 +141,12 @@ func desktopHandler(driver ComputerDriver, sessionID, token string, files *deskt
 		switch method {
 		case "info":
 			env := desktopEnvironment()
+			var commandID string
 			if commands != nil {
 				env.Shell = desktopShellName
+				commandID = commands.id
 			}
-			result = desktopInfo{SessionID: sessionID, Capabilities: caps, Files: files != nil, Commands: commands != nil, Environment: env}
+			result = desktopInfo{SessionID: sessionID, CommandStoreID: commandID, Capabilities: caps, Files: files != nil, Commands: commands != nil, Environment: env}
 		case "screenshot":
 			result, err = driver.Screenshot(ctx)
 		case "windows":
@@ -314,6 +317,12 @@ func (d *remoteDesktop) Environment() Environment  { return d.info.Environment }
 func (d *remoteDesktop) Close() error              { d.client.CloseIdleConnections(); return nil }
 func (d *remoteDesktop) Computer() ComputerDriver  { return d }
 func (d *remoteDesktop) ComputerSessionID() string { return d.info.SessionID }
+func (d *remoteDesktop) CommandSessionID() string {
+	if d.info.CommandStoreID == "" {
+		return d.info.SessionID
+	}
+	return "journal/" + d.info.CommandStoreID
+}
 func (d *remoteDesktop) GetCapabilities(ctx context.Context) (ComputerCapabilities, error) {
 	return d.info.Capabilities, ctx.Err()
 }

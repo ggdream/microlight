@@ -108,6 +108,9 @@ func TestDesktopCommandReconnect(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reopened.db.Close()
+	if reopened.id == "" || reopened.id != store.id {
+		t.Fatal("reopening the command journal changed its identity")
+	}
 	restarted := httptest.NewServer(desktopHandler(&testDesktop{}, "new-session", token, files, reopened))
 	defer restarted.Close()
 	run, err = connect(restarted.URL).RecoverCommand(ctx, request)
