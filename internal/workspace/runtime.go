@@ -67,6 +67,8 @@ func (t Target) Label() string {
 		return locales.WorkspaceDocker() + " · " + t.Directory
 	case "remote":
 		return locales.WorkspaceRemote() + " · " + t.Host
+	case "microvm":
+		return locales.WorkspaceMicroVM() + " · " + t.Host
 	case "browser":
 		return locales.WorkspaceBrowser()
 	case "desktop":
@@ -88,6 +90,7 @@ func NewConnector(additional map[string]ConnectFunc) (ConnectFunc, error) {
 	connectors := map[string]ConnectFunc{
 		"docker": connectContainer, "container": connectContainer, "remote": connectSSH,
 		"browser": connectBrowser, "desktop": connectDesktop,
+		"microvm": connectMicroVM,
 	}
 	for kind, connect := range additional {
 		if kind == "" || kind == "local" || kind == "invalid" || strings.TrimSpace(kind) != kind || connectors[kind] != nil || connect == nil {
@@ -135,6 +138,20 @@ func connectSSH(ctx context.Context, target Target, secret string) (Runtime, err
 	rt, err := openSSH(ctx, target, secret)
 	if err != nil {
 		return nil, err
+	}
+	return rt, nil
+}
+
+// The VM manager owns the guest lifecycle. The guest's pinned SSH endpoint
+// supplies file and command operations with the original MicroVM target ID.
+func connectMicroVM(ctx context.Context, target Target, secret string) (Runtime, error) {
+	rt, err := connectSSH(ctx, target, secret)
+	if err != nil {
+		return nil, err
+	}
+	if rt.Environment().OS != "linux" {
+		_ = rt.Close()
+		return nil, errors.New(locales.WorkspaceMicroVMLinuxRequired())
 	}
 	return rt, nil
 }

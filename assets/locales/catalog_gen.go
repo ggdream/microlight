@@ -1818,6 +1818,46 @@ func (msgs Messages) WorkspaceDesktopToken() string {
 	return Catalog.Format(msgs.locale, "workspaceDesktopToken", nil)
 }
 
+// WorkspaceMicroVM says "MicroVM"
+// in the language the app shows.
+func WorkspaceMicroVM() string { return In(i18n.Locale()).WorkspaceMicroVM() }
+
+// WorkspaceMicroVM says "MicroVM"
+// in the language of msgs.
+func (msgs Messages) WorkspaceMicroVM() string {
+	return Catalog.Format(msgs.locale, "workspaceMicroVM", nil)
+}
+
+// WorkspaceMicroVMTitle says "Connect to a MicroVM"
+// in the language the app shows.
+func WorkspaceMicroVMTitle() string { return In(i18n.Locale()).WorkspaceMicroVMTitle() }
+
+// WorkspaceMicroVMTitle says "Connect to a MicroVM"
+// in the language of msgs.
+func (msgs Messages) WorkspaceMicroVMTitle() string {
+	return Catalog.Format(msgs.locale, "workspaceMicroVMTitle", nil)
+}
+
+// WorkspaceMicroVMHint says "Enter the SSH endpoint of a running Linux guest."
+// in the language the app shows.
+func WorkspaceMicroVMHint() string { return In(i18n.Locale()).WorkspaceMicroVMHint() }
+
+// WorkspaceMicroVMHint says "Enter the SSH endpoint of a running Linux guest."
+// in the language of msgs.
+func (msgs Messages) WorkspaceMicroVMHint() string {
+	return Catalog.Format(msgs.locale, "workspaceMicroVMHint", nil)
+}
+
+// WorkspaceMicroVMLinuxRequired says "The MicroVM guest must run Linux."
+// in the language the app shows.
+func WorkspaceMicroVMLinuxRequired() string { return In(i18n.Locale()).WorkspaceMicroVMLinuxRequired() }
+
+// WorkspaceMicroVMLinuxRequired says "The MicroVM guest must run Linux."
+// in the language of msgs.
+func (msgs Messages) WorkspaceMicroVMLinuxRequired() string {
+	return Catalog.Format(msgs.locale, "workspaceMicroVMLinuxRequired", nil)
+}
+
 // WorkspaceConnection says "Connection"
 // in the language the app shows.
 func WorkspaceConnection() string { return In(i18n.Locale()).WorkspaceConnection() }

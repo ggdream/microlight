@@ -41,6 +41,7 @@ func TestWorkspaceTargetPersistsWithConversation(t *testing.T) {
 		{Kind: "container", Directory: "/work", Engine: workspace.ContainerEngine{Name: "podman", Connection: "local"}, Container: "podman-id"},
 		{Kind: "container", Directory: "/work", Engine: workspace.ContainerEngine{Name: "nerdctl", Connection: "default"}, Container: "containerd-id"},
 		{Kind: "test-vm", Resource: "workspace-42"},
+		{Kind: "microvm", Directory: "/work", Host: "guest.example.invalid", User: "guest", Port: "22", HostKey: "SHA256:fixture"},
 	} {
 		chat := &conversation{ID: newID(), Title: "Workspace", target: target}
 		if err := store.saveHistory(history{Selected: chat.ID, Chats: []*conversation{chat}}, chat); err != nil {
@@ -64,6 +65,9 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 	}
 	if key := os.Getenv("MICROLIGHT_TEST_SSH_KEY"); key != "" {
 		targets = append(targets, workspace.Target{Kind: "remote", Host: "127.0.0.1", Port: "42173", User: "root", Auth: "key", KeyFile: key, Directory: os.Getenv("MICROLIGHT_TEST_SSH_DIR")})
+		guest := targets[len(targets)-1]
+		guest.Kind = "microvm"
+		targets = append(targets, guest)
 	}
 	if len(targets) == 0 {
 		t.Skip("set MICROLIGHT_TEST_DOCKER or MICROLIGHT_TEST_SSH_KEY to run against disposable workspaces")

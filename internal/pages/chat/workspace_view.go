@@ -43,7 +43,7 @@ func (app *chatApp) openNewWorkspaceForm(kind string) {
 	app.workspaceForm = f
 	if kind == "container" {
 		app.refreshContainer(f)
-	} else if kind == "remote" {
+	} else if kind == "remote" || kind == "microvm" {
 		f.target.Port, f.target.Auth = "22", "key"
 	}
 }
@@ -96,6 +96,8 @@ func (app *chatApp) workspaceDialog(c *ui.Context) {
 	switch f.kind {
 	case "remote":
 		title, glyph = locales.WorkspaceSSHTitle(), "desktop_signal"
+	case "microvm":
+		title, glyph = locales.WorkspaceMicroVMTitle(), "cube"
 	case "desktop":
 		glyph = "desktop_signal"
 	case "docker", "container":
@@ -130,7 +132,7 @@ func (app *chatApp) workspaceDialog(c *ui.Context) {
 							ui.Text(body, f.target.Directory).FontSize(12).TextColor(muted).Selectable()
 						}
 					})
-					if f.kind == "remote" || f.kind == "browser" || f.kind == "desktop" {
+					if f.kind == "remote" || f.kind == "microvm" || f.kind == "browser" || f.kind == "desktop" {
 						settings.Card(body.Key("auth"), locales.WorkspaceAuthentication(), func() {
 							settings.Field(body.Key("credential"), tokenLabel, "", &f.secret).Password().Disabled(f.busy)
 							theme.Checkbox(body.Key("remember"), &f.remember, locales.WorkspaceRemember(), f.busy)
@@ -149,6 +151,9 @@ func (app *chatApp) workspaceDialog(c *ui.Context) {
 						theme.Checkbox(body.Key("remember"), &f.remember, locales.WorkspaceRemember(), f.busy)
 					})
 				} else {
+					if f.kind == "microvm" {
+						ui.Text(body, locales.WorkspaceMicroVMHint()).FontSize(12).TextColor(muted)
+					}
 					app.sshWorkspaceFields(body, f)
 				}
 				if f.pendingHostKey != "" {
@@ -430,7 +435,7 @@ func (app *chatApp) connectWorkspace(f *workspaceForm) {
 		target.Host, target.User, target.Port = strings.TrimSpace(target.Host), strings.TrimSpace(target.User), strings.TrimSpace(target.Port)
 		target.Directory = strings.TrimSpace(target.Directory)
 		target.Resource = strings.TrimSpace(target.Resource)
-		if (target.Kind == "remote" || target.Kind == "browser" || target.Kind == "desktop") && target.Credential == "" {
+		if (target.Kind == "remote" || target.Kind == "microvm" || target.Kind == "browser" || target.Kind == "desktop") && target.Credential == "" {
 			target.Credential = newID()
 		}
 	}
