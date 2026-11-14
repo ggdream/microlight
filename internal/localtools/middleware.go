@@ -249,11 +249,12 @@ func (h Middleware) WrapInvokableToolCall(_ context.Context, next adk.InvokableT
 		needsApproval := policy.needsApproval(op)
 		journal, _ := ctx.Value(commandJournalKey{}).(CommandJournal)
 		runtime, _ := ctx.Value(runtimeAccessKey{}).(runtimeAccess)
-		automatic := !wasInterrupted && !needsApproval && op.name == Execute && runtime.capabilities.RecoverableShell && journal.Record != nil
+		recoverableCommand := op.name == Execute && runtime.capabilities.RecoverableShell && journal.Record != nil
+		automatic := !wasInterrupted && !needsApproval && recoverableCommand
 		if wasInterrupted || needsApproval || automatic {
 			if !targeted || !hasAnswer {
 				approval := Approval{Target: op.target, Preview: op.content, Automatic: automatic || (saved == automaticState && !needsApproval)}
-				if approval.Automatic {
+				if recoverableCommand {
 					approval.CallID = call.CallID
 				}
 				data, err := h.EncodeApproval(op.title(), approval)

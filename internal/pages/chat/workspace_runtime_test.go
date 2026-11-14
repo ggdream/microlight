@@ -307,10 +307,11 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 			})
 			for _, test := range []struct {
 				name, suffix, expected string
-				launched               bool
+				launched, manual       bool
 			}{
 				{name: "resume-full-access", suffix: "y", expected: "commandxy", launched: true},
 				{name: "resume-before-journal", suffix: "z", expected: "commandxyz"},
+				{name: "resume-approved-before-journal", suffix: "a", expected: "commandxyza", manual: true},
 			} {
 				t.Run(test.name, func(t *testing.T) {
 					dbDir := t.TempDir()
@@ -328,9 +329,12 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 					if err := before.saveHistory(h, chat); err != nil {
 						t.Fatal(err)
 					}
-					fullAgent := agent
-					fullAgent.access = localtools.NewAccess(host, localtools.Full)
-					accessCtx := localtools.WithAccess(ctx, fullAgent.access)
+					sessionAgent := agent
+					if test.manual {
+						chat.accessMode = localtools.Ask
+					}
+					sessionAgent.access = localtools.NewAccess(host, chat.accessMode)
+					accessCtx := localtools.WithAccess(ctx, sessionAgent.access)
 					journal := before.commandJournal(chat.ID, "", target.Identity(), 1)
 					recordCommand := journal.Record
 					simulatedExit := errors.New("simulated process exit")
@@ -349,9 +353,27 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 						_, err = rt.(workspace.CommandProvider).Commands().StartCommand(ctx, &backgroundshell.StartCommandRequest{TaskID: record.ID, Command: record.Command})
 						return errors.Join(simulatedExit, err)
 					}
-					q, err := fullAgent.run(localtools.WithCommandJournal(accessCtx, journal), before, chat.sessionID, []*turn{user}, nil, "", emit)
+					runCtx := localtools.WithCommandJournal(accessCtx, journal)
+					q, err := sessionAgent.run(runCtx, before, chat.sessionID, []*turn{user}, nil, "", emit)
+					if test.manual {
+						if err != nil || q == nil || q.Approval == nil {
+							t.Fatalf("expected explicit approval: %+v, %v", q, err)
+						}
+						entry := chat.Turns[1]
+						q.Answer = localtools.Deny
+						entry.Clarifications = []clarification{*q}
+						if before.recoverableReplyCommand(chat, entry) != nil {
+							t.Fatal("denied command was offered for recovery")
+						}
+						q.Answer = localtools.AllowOnce
+						entry.Clarifications[0] = *q
+						if err := before.saveHistory(h, chat); err != nil {
+							t.Fatal(err)
+						}
+						q, err = sessionAgent.run(runCtx, before, chat.sessionID, nil, q, localtools.AllowOnce, emit)
+					}
 					if q != nil || err == nil || !strings.Contains(err.Error(), simulatedExit.Error()) {
-						t.Fatalf("expected execution to stop after saving checkpoint and launching, got %+v, %v", q, err)
+						t.Fatalf("expected execution to stop at the launch boundary, got %+v, %v", q, err)
 					}
 					if err := before.Close(); err != nil {
 						t.Fatal(err)
@@ -365,8 +387,8 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 					app.loadHistory()
 					restored := app.history.Chats[0]
 					entry := restored.Turns[1]
-					if entry.resumeCommand == nil || !entry.canResume() || !entry.Clarifications[0].Approval.Automatic {
-						t.Fatalf("automatic resume was not restored, commands: %+v", entry.remoteCommands)
+					if entry.resumeCommand == nil || !entry.canResume() || entry.Clarifications[0].Approval.Automatic == test.manual {
+						t.Fatalf("resume was not restored, commands: %+v", entry.remoteCommands)
 					}
 					if entry.resumeCommand.beforeJournal == test.launched {
 						t.Fatal("restored the wrong command launch stage")
@@ -381,9 +403,10 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 					} else {
 						resumeCtx = localtools.WithCommandCheckpoint(resumeCtx, entry.resumeCommand.checkpoint)
 					}
-					q, err = fullAgent.run(resumeCtx, after, restored.sessionID, nil, &entry.Clarifications[0], localtools.ContinueCommand, emit)
+					question := &entry.Clarifications[0]
+					q, err = sessionAgent.run(resumeCtx, after, restored.sessionID, nil, question, question.Answer, emit)
 					if err != nil || q != nil || !strings.Contains(toolResponse, test.expected) {
-						t.Fatalf("automatic continuation failed: %+v, %v, %q", q, err, toolResponse)
+						t.Fatalf("continuation failed: %+v, %v, %q", q, err, toolResponse)
 					}
 					read(test.expected)
 				})
@@ -399,7 +422,7 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 				if q != nil {
 					t.Fatal("in-workspace read unexpectedly requested approval")
 				}
-				want := "commandxyz"
+				want := "commandxyza"
 				if tool == localtools.List {
 					want = filename
 				}

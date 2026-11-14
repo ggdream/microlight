@@ -33,6 +33,7 @@ const ContinueCommand = "continue-remote-command"
 
 type CommandCheckpoint struct {
 	ID, InterruptID, CallID string
+	Automatic               bool
 }
 
 func WithCommandCheckpoint(ctx context.Context, checkpoint CommandCheckpoint) context.Context {

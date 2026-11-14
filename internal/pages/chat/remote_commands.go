@@ -87,6 +87,9 @@ func (store *localStore) recoverableReplyCommand(chat *conversation, entry *turn
 	if approval.Answer != localtools.AllowOnce || approval.Approval == nil || !isActive(approval.InterruptID) {
 		return nil
 	}
+	if !store.hasReplyCheckpoint(chat.sessionID, approval.CheckpointID) {
+		return nil
+	}
 	var match *savedRemoteCommand
 	for i := range entry.remoteCommands {
 		record := &entry.remoteCommands[i]
@@ -99,13 +102,20 @@ func (store *localStore) recoverableReplyCommand(chat *conversation, entry *turn
 		}
 		match = record
 	}
-	if match == nil {
-		return nil
+	if match != nil {
+		return match
 	}
-	if !store.hasReplyCheckpoint(chat.sessionID, approval.CheckpointID) {
-		return nil
+	for _, point := range activeInterrupts {
+		if point == nil || point.InterruptID != approval.InterruptID {
+			continue
+		}
+		saved := interruptCommandApproval(point)
+		if saved == nil || saved.Automatic || saved.Preview != approval.Approval.Preview || saved.Target != approval.Approval.Target {
+			return nil
+		}
+		return commandWithoutJournal(chat, entry, approval.CheckpointID, point, saved)
 	}
-	return match
+	return nil
 }
 
 func (store *localStore) commandBeforeJournal(chat *conversation, entry *turn, interrupts []*adk.InterruptContext) *savedRemoteCommand {
@@ -117,29 +127,45 @@ func (store *localStore) commandBeforeJournal(chat *conversation, entry *turn, i
 		if point == nil || point.InterruptID == "" || point.ToolUseID == "" {
 			continue
 		}
-		raw, ok := point.Info.(string)
-		if !ok {
+		approval := interruptCommandApproval(point)
+		if approval == nil || !approval.Automatic {
 			continue
 		}
-		var question clarification
-		if json.Unmarshal([]byte(raw), &question) != nil || question.Approval == nil ||
-			!question.Approval.Automatic || question.Approval.CallID != point.ToolUseID {
-			continue
-		}
-		taskID := id + "/" + point.ToolUseID
-		if slices.ContainsFunc(entry.remoteCommands, func(record savedRemoteCommand) bool { return record.ID == taskID }) {
-			continue
-		}
-		return &savedRemoteCommand{
-			RemoteCommand: localtools.RemoteCommand{ID: taskID, CallID: point.ToolUseID, Command: question.Approval.Preview},
-			targetID:      chat.target.Identity(),
-			checkpoint:    localtools.CommandCheckpoint{ID: id, InterruptID: point.InterruptID, CallID: point.ToolUseID},
-			beforeJournal: true,
+		if record := commandWithoutJournal(chat, entry, id, point, approval); record != nil {
+			return record
 		}
 	}
 	return nil
 }
 
+func interruptCommandApproval(point *adk.InterruptContext) *localtools.Approval {
+	raw, ok := point.Info.(string)
+	if !ok || point.ToolUseID == "" {
+		return nil
+	}
+	var question clarification
+	if json.Unmarshal([]byte(raw), &question) != nil || question.Approval == nil {
+		return nil
+	}
+	approval := question.Approval
+	if approval.CallID == point.ToolUseID {
+		return approval
+	}
+	return nil
+}
+
+func commandWithoutJournal(chat *conversation, entry *turn, id string, point *adk.InterruptContext, approval *localtools.Approval) *savedRemoteCommand {
+	taskID := id + "/" + point.ToolUseID
+	if slices.ContainsFunc(entry.remoteCommands, func(record savedRemoteCommand) bool { return record.ID == taskID }) {
+		return nil
+	}
+	return &savedRemoteCommand{
+		RemoteCommand: localtools.RemoteCommand{ID: taskID, CallID: point.ToolUseID, Command: approval.Preview},
+		targetID:      chat.target.Identity(),
+		checkpoint:    localtools.CommandCheckpoint{ID: id, InterruptID: point.InterruptID, CallID: point.ToolUseID, Automatic: approval.Automatic},
+		beforeJournal: true,
+	}
+}
 func (entry *turn) restoreAutomaticCheckpoint(chat *conversation, record *savedRemoteCommand) {
 	provider, _, _ := strings.Cut(chat.sessionModel, "\n")
 	model := chat.sessionModel[strings.LastIndex(chat.sessionModel, "\n")+1:]
@@ -219,7 +245,7 @@ func (store *localStore) commandJournal(chatID, branch, targetID string, ordinal
 				return errors.Join(err, errors.New("the approved command no longer belongs to the active turn"))
 			}
 			checkpoint := localtools.CheckpointForCommand(ctx, record.CallID)
-			if checkpoint.ID != "" {
+			if checkpoint.ID != "" && checkpoint.Automatic {
 				_, err := tx.ExecContext(ctx, `INSERT INTO remote_command_checkpoints (task_id, checkpoint_id, interrupt_id)
 					VALUES (?, ?, ?) ON CONFLICT(task_id) DO NOTHING`, record.ID, checkpoint.ID, checkpoint.InterruptID)
 				if err != nil {

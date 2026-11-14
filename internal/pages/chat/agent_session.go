@@ -83,7 +83,7 @@ func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID s
 	for followupPasses := 0; ; {
 		question, followups, next, err := readAgentReply(ctx, iter, &toolResults, skills, request, emit)
 		if err == nil && question != nil && question.Approval != nil && question.Approval.Automatic {
-			checkpoint := localtools.CommandCheckpoint{ID: question.CheckpointID, InterruptID: question.InterruptID, CallID: question.Approval.CallID}
+			checkpoint := localtools.CommandCheckpoint{ID: question.CheckpointID, InterruptID: question.InterruptID, CallID: question.Approval.CallID, Automatic: true}
 			iter, err = runner.Resume(localtools.WithCommandCheckpoint(ctx, checkpoint), harness.Approval{
 				CheckpointID: checkpoint.ID, InterruptID: checkpoint.InterruptID, Answer: localtools.ContinueCommand,
 			})
