@@ -556,6 +556,76 @@ func (msgs Messages) Retry() string {
 	return Catalog.Format(msgs.locale, "retry", nil)
 }
 
+// RemoteCommandReconnect says "Reconnect to command"
+// in the language the app shows.
+func RemoteCommandReconnect() string { return In(i18n.Locale()).RemoteCommandReconnect() }
+
+// RemoteCommandReconnect says "Reconnect to command"
+// in the language of msgs.
+func (msgs Messages) RemoteCommandReconnect() string {
+	return Catalog.Format(msgs.locale, "remoteCommandReconnect", nil)
+}
+
+// RemoteCommandStop says "Cancel remote command"
+// in the language the app shows.
+func RemoteCommandStop() string { return In(i18n.Locale()).RemoteCommandStop() }
+
+// RemoteCommandStop says "Cancel remote command"
+// in the language of msgs.
+func (msgs Messages) RemoteCommandStop() string {
+	return Catalog.Format(msgs.locale, "remoteCommandStop", nil)
+}
+
+// RemoteCommandConnecting says "Checking remote command…"
+// in the language the app shows.
+func RemoteCommandConnecting() string { return In(i18n.Locale()).RemoteCommandConnecting() }
+
+// RemoteCommandConnecting says "Checking remote command…"
+// in the language of msgs.
+func (msgs Messages) RemoteCommandConnecting() string {
+	return Catalog.Format(msgs.locale, "remoteCommandConnecting", nil)
+}
+
+// RemoteCommandCanceled says "Remote command canceled."
+// in the language the app shows.
+func RemoteCommandCanceled() string { return In(i18n.Locale()).RemoteCommandCanceled() }
+
+// RemoteCommandCanceled says "Remote command canceled."
+// in the language of msgs.
+func (msgs Messages) RemoteCommandCanceled() string {
+	return Catalog.Format(msgs.locale, "remoteCommandCanceled", nil)
+}
+
+// RemoteCommandTargetChanged says "The command belongs to a different execution environment."
+// in the language the app shows.
+func RemoteCommandTargetChanged() string { return In(i18n.Locale()).RemoteCommandTargetChanged() }
+
+// RemoteCommandTargetChanged says "The command belongs to a different execution environment."
+// in the language of msgs.
+func (msgs Messages) RemoteCommandTargetChanged() string {
+	return Catalog.Format(msgs.locale, "remoteCommandTargetChanged", nil)
+}
+
+// RemoteCommandNotFound says "The executor has no record of this command."
+// in the language the app shows.
+func RemoteCommandNotFound() string { return In(i18n.Locale()).RemoteCommandNotFound() }
+
+// RemoteCommandNotFound says "The executor has no record of this command."
+// in the language of msgs.
+func (msgs Messages) RemoteCommandNotFound() string {
+	return Catalog.Format(msgs.locale, "remoteCommandNotFound", nil)
+}
+
+// RemoteCommandsPreviousBranch says "Remote commands from earlier branches"
+// in the language the app shows.
+func RemoteCommandsPreviousBranch() string { return In(i18n.Locale()).RemoteCommandsPreviousBranch() }
+
+// RemoteCommandsPreviousBranch says "Remote commands from earlier branches"
+// in the language of msgs.
+func (msgs Messages) RemoteCommandsPreviousBranch() string {
+	return Catalog.Format(msgs.locale, "remoteCommandsPreviousBranch", nil)
+}
+
 // MessagePlaceholder says "Type a message…"
 // in the language the app shows.
 func MessagePlaceholder() string { return In(i18n.Locale()).MessagePlaceholder() }
@@ -1586,6 +1656,728 @@ func (msgs Messages) Workspace() string {
 	return Catalog.Format(msgs.locale, "workspace", nil)
 }
 
+// WorkspaceLocal says "Local"
+// in the language the app shows.
+func WorkspaceLocal() string { return In(i18n.Locale()).WorkspaceLocal() }
+
+// WorkspaceLocal says "Local"
+// in the language of msgs.
+func (msgs Messages) WorkspaceLocal() string {
+	return Catalog.Format(msgs.locale, "workspaceLocal", nil)
+}
+
+// WorkspaceDocker says "Container"
+// in the language the app shows.
+func WorkspaceDocker() string { return In(i18n.Locale()).WorkspaceDocker() }
+
+// WorkspaceDocker says "Container"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDocker() string {
+	return Catalog.Format(msgs.locale, "workspaceDocker", nil)
+}
+
+// WorkspaceContainerEngine says "Container runtime"
+// in the language the app shows.
+func WorkspaceContainerEngine() string { return In(i18n.Locale()).WorkspaceContainerEngine() }
+
+// WorkspaceContainerEngine says "Container runtime"
+// in the language of msgs.
+func (msgs Messages) WorkspaceContainerEngine() string {
+	return Catalog.Format(msgs.locale, "workspaceContainerEngine", nil)
+}
+
+// WorkspaceContainerEngineMissing says "No usable container runtime was found."
+// in the language the app shows.
+func WorkspaceContainerEngineMissing() string {
+	return In(i18n.Locale()).WorkspaceContainerEngineMissing()
+}
+
+// WorkspaceContainerEngineMissing says "No usable container runtime was found."
+// in the language of msgs.
+func (msgs Messages) WorkspaceContainerEngineMissing() string {
+	return Catalog.Format(msgs.locale, "workspaceContainerEngineMissing", nil)
+}
+
+// WorkspaceContainerLocalOnly says "Choose a container runtime on this computer."
+// in the language the app shows.
+func WorkspaceContainerLocalOnly() string { return In(i18n.Locale()).WorkspaceContainerLocalOnly() }
+
+// WorkspaceContainerLocalOnly says "Choose a container runtime on this computer."
+// in the language of msgs.
+func (msgs Messages) WorkspaceContainerLocalOnly() string {
+	return Catalog.Format(msgs.locale, "workspaceContainerLocalOnly", nil)
+}
+
+// WorkspaceContainerOutputLarge says "The container runtime response is too large."
+// in the language the app shows.
+func WorkspaceContainerOutputLarge() string { return In(i18n.Locale()).WorkspaceContainerOutputLarge() }
+
+// WorkspaceContainerOutputLarge says "The container runtime response is too large."
+// in the language of msgs.
+func (msgs Messages) WorkspaceContainerOutputLarge() string {
+	return Catalog.Format(msgs.locale, "workspaceContainerOutputLarge", nil)
+}
+
+// WorkspaceRemote says "Remote"
+// in the language the app shows.
+func WorkspaceRemote() string { return In(i18n.Locale()).WorkspaceRemote() }
+
+// WorkspaceRemote says "Remote"
+// in the language of msgs.
+func (msgs Messages) WorkspaceRemote() string {
+	return Catalog.Format(msgs.locale, "workspaceRemote", nil)
+}
+
+// WorkspaceDockerTitle says "Container Workspace"
+// in the language the app shows.
+func WorkspaceDockerTitle() string { return In(i18n.Locale()).WorkspaceDockerTitle() }
+
+// WorkspaceDockerTitle says "Container Workspace"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerTitle() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerTitle", nil)
+}
+
+// WorkspaceSSHTitle says "SSH Workspace"
+// in the language the app shows.
+func WorkspaceSSHTitle() string { return In(i18n.Locale()).WorkspaceSSHTitle() }
+
+// WorkspaceSSHTitle says "SSH Workspace"
+// in the language of msgs.
+func (msgs Messages) WorkspaceSSHTitle() string {
+	return Catalog.Format(msgs.locale, "workspaceSSHTitle", nil)
+}
+
+// WorkspaceConnection says "Connection"
+// in the language the app shows.
+func WorkspaceConnection() string { return In(i18n.Locale()).WorkspaceConnection() }
+
+// WorkspaceConnection says "Connection"
+// in the language of msgs.
+func (msgs Messages) WorkspaceConnection() string {
+	return Catalog.Format(msgs.locale, "workspaceConnection", nil)
+}
+
+// WorkspaceAuthentication says "Authentication"
+// in the language the app shows.
+func WorkspaceAuthentication() string { return In(i18n.Locale()).WorkspaceAuthentication() }
+
+// WorkspaceAuthentication says "Authentication"
+// in the language of msgs.
+func (msgs Messages) WorkspaceAuthentication() string {
+	return Catalog.Format(msgs.locale, "workspaceAuthentication", nil)
+}
+
+// WorkspaceStorage says "Files and storage"
+// in the language the app shows.
+func WorkspaceStorage() string { return In(i18n.Locale()).WorkspaceStorage() }
+
+// WorkspaceStorage says "Files and storage"
+// in the language of msgs.
+func (msgs Messages) WorkspaceStorage() string {
+	return Catalog.Format(msgs.locale, "workspaceStorage", nil)
+}
+
+// WorkspaceCredential says "Password or private key passphrase"
+// in the language the app shows.
+func WorkspaceCredential() string { return In(i18n.Locale()).WorkspaceCredential() }
+
+// WorkspaceCredential says "Password or private key passphrase"
+// in the language of msgs.
+func (msgs Messages) WorkspaceCredential() string {
+	return Catalog.Format(msgs.locale, "workspaceCredential", nil)
+}
+
+// WorkspaceRemember says "Remember credentials"
+// in the language the app shows.
+func WorkspaceRemember() string { return In(i18n.Locale()).WorkspaceRemember() }
+
+// WorkspaceRemember says "Remember credentials"
+// in the language of msgs.
+func (msgs Messages) WorkspaceRemember() string {
+	return Catalog.Format(msgs.locale, "workspaceRemember", nil)
+}
+
+// WorkspaceContainerSource says "Container source"
+// in the language the app shows.
+func WorkspaceContainerSource() string { return In(i18n.Locale()).WorkspaceContainerSource() }
+
+// WorkspaceContainerSource says "Container source"
+// in the language of msgs.
+func (msgs Messages) WorkspaceContainerSource() string {
+	return Catalog.Format(msgs.locale, "workspaceContainerSource", nil)
+}
+
+// WorkspaceExisting says "Existing container"
+// in the language the app shows.
+func WorkspaceExisting() string { return In(i18n.Locale()).WorkspaceExisting() }
+
+// WorkspaceExisting says "Existing container"
+// in the language of msgs.
+func (msgs Messages) WorkspaceExisting() string {
+	return Catalog.Format(msgs.locale, "workspaceExisting", nil)
+}
+
+// WorkspaceFromImage says "Create from image"
+// in the language the app shows.
+func WorkspaceFromImage() string { return In(i18n.Locale()).WorkspaceFromImage() }
+
+// WorkspaceFromImage says "Create from image"
+// in the language of msgs.
+func (msgs Messages) WorkspaceFromImage() string {
+	return Catalog.Format(msgs.locale, "workspaceFromImage", nil)
+}
+
+// WorkspaceChooseContainer says "Select a container"
+// in the language the app shows.
+func WorkspaceChooseContainer() string { return In(i18n.Locale()).WorkspaceChooseContainer() }
+
+// WorkspaceChooseContainer says "Select a container"
+// in the language of msgs.
+func (msgs Messages) WorkspaceChooseContainer() string {
+	return Catalog.Format(msgs.locale, "workspaceChooseContainer", nil)
+}
+
+// WorkspaceNoContainers says "No running containers"
+// in the language the app shows.
+func WorkspaceNoContainers() string { return In(i18n.Locale()).WorkspaceNoContainers() }
+
+// WorkspaceNoContainers says "No running containers"
+// in the language of msgs.
+func (msgs Messages) WorkspaceNoContainers() string {
+	return Catalog.Format(msgs.locale, "workspaceNoContainers", nil)
+}
+
+// WorkspaceRunningContainers says "Running containers"
+// in the language the app shows.
+func WorkspaceRunningContainers() string { return In(i18n.Locale()).WorkspaceRunningContainers() }
+
+// WorkspaceRunningContainers says "Running containers"
+// in the language of msgs.
+func (msgs Messages) WorkspaceRunningContainers() string {
+	return Catalog.Format(msgs.locale, "workspaceRunningContainers", nil)
+}
+
+// WorkspaceRefresh says "Refresh"
+// in the language the app shows.
+func WorkspaceRefresh() string { return In(i18n.Locale()).WorkspaceRefresh() }
+
+// WorkspaceRefresh says "Refresh"
+// in the language of msgs.
+func (msgs Messages) WorkspaceRefresh() string {
+	return Catalog.Format(msgs.locale, "workspaceRefresh", nil)
+}
+
+// WorkspaceImage says "Image"
+// in the language the app shows.
+func WorkspaceImage() string { return In(i18n.Locale()).WorkspaceImage() }
+
+// WorkspaceImage says "Image"
+// in the language of msgs.
+func (msgs Messages) WorkspaceImage() string {
+	return Catalog.Format(msgs.locale, "workspaceImage", nil)
+}
+
+// WorkspaceStorageMode says "Storage type"
+// in the language the app shows.
+func WorkspaceStorageMode() string { return In(i18n.Locale()).WorkspaceStorageMode() }
+
+// WorkspaceStorageMode says "Storage type"
+// in the language of msgs.
+func (msgs Messages) WorkspaceStorageMode() string {
+	return Catalog.Format(msgs.locale, "workspaceStorageMode", nil)
+}
+
+// WorkspaceBind says "Mount a local folder"
+// in the language the app shows.
+func WorkspaceBind() string { return In(i18n.Locale()).WorkspaceBind() }
+
+// WorkspaceBind says "Mount a local folder"
+// in the language of msgs.
+func (msgs Messages) WorkspaceBind() string {
+	return Catalog.Format(msgs.locale, "workspaceBind", nil)
+}
+
+// WorkspaceVolume says "Dedicated volume"
+// in the language the app shows.
+func WorkspaceVolume() string { return In(i18n.Locale()).WorkspaceVolume() }
+
+// WorkspaceVolume says "Dedicated volume"
+// in the language of msgs.
+func (msgs Messages) WorkspaceVolume() string {
+	return Catalog.Format(msgs.locale, "workspaceVolume", nil)
+}
+
+// WorkspaceDockerAdvanced says "Advanced settings"
+// in the language the app shows.
+func WorkspaceDockerAdvanced() string { return In(i18n.Locale()).WorkspaceDockerAdvanced() }
+
+// WorkspaceDockerAdvanced says "Advanced settings"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerAdvanced() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerAdvanced", nil)
+}
+
+// WorkspaceDockerName says "Container name"
+// in the language the app shows.
+func WorkspaceDockerName() string { return In(i18n.Locale()).WorkspaceDockerName() }
+
+// WorkspaceDockerName says "Container name"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerName() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerName", nil)
+}
+
+// WorkspaceDockerEnv says "Environment variables"
+// in the language the app shows.
+func WorkspaceDockerEnv() string { return In(i18n.Locale()).WorkspaceDockerEnv() }
+
+// WorkspaceDockerEnv says "Environment variables"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerEnv() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerEnv", nil)
+}
+
+// WorkspaceDockerEnvName says "Variable name"
+// in the language the app shows.
+func WorkspaceDockerEnvName() string { return In(i18n.Locale()).WorkspaceDockerEnvName() }
+
+// WorkspaceDockerEnvName says "Variable name"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerEnvName() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerEnvName", nil)
+}
+
+// WorkspaceDockerEnvValue says "Value"
+// in the language the app shows.
+func WorkspaceDockerEnvValue() string { return In(i18n.Locale()).WorkspaceDockerEnvValue() }
+
+// WorkspaceDockerEnvValue says "Value"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerEnvValue() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerEnvValue", nil)
+}
+
+// WorkspaceDockerAddEnv says "Add variable"
+// in the language the app shows.
+func WorkspaceDockerAddEnv() string { return In(i18n.Locale()).WorkspaceDockerAddEnv() }
+
+// WorkspaceDockerAddEnv says "Add variable"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerAddEnv() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerAddEnv", nil)
+}
+
+// WorkspaceDockerPorts says "Port mappings"
+// in the language the app shows.
+func WorkspaceDockerPorts() string { return In(i18n.Locale()).WorkspaceDockerPorts() }
+
+// WorkspaceDockerPorts says "Port mappings"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerPorts() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerPorts", nil)
+}
+
+// WorkspaceDockerPortHint says "Published ports listen on this computer only."
+// in the language the app shows.
+func WorkspaceDockerPortHint() string { return In(i18n.Locale()).WorkspaceDockerPortHint() }
+
+// WorkspaceDockerPortHint says "Published ports listen on this computer only."
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerPortHint() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerPortHint", nil)
+}
+
+// WorkspaceDockerHostPort says "Host port"
+// in the language the app shows.
+func WorkspaceDockerHostPort() string { return In(i18n.Locale()).WorkspaceDockerHostPort() }
+
+// WorkspaceDockerHostPort says "Host port"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerHostPort() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerHostPort", nil)
+}
+
+// WorkspaceDockerContainerPort says "Container port"
+// in the language the app shows.
+func WorkspaceDockerContainerPort() string { return In(i18n.Locale()).WorkspaceDockerContainerPort() }
+
+// WorkspaceDockerContainerPort says "Container port"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerContainerPort() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerContainerPort", nil)
+}
+
+// WorkspaceDockerProtocol says "Protocol"
+// in the language the app shows.
+func WorkspaceDockerProtocol() string { return In(i18n.Locale()).WorkspaceDockerProtocol() }
+
+// WorkspaceDockerProtocol says "Protocol"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerProtocol() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerProtocol", nil)
+}
+
+// WorkspaceDockerAddPort says "Add port"
+// in the language the app shows.
+func WorkspaceDockerAddPort() string { return In(i18n.Locale()).WorkspaceDockerAddPort() }
+
+// WorkspaceDockerAddPort says "Add port"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerAddPort() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerAddPort", nil)
+}
+
+// WorkspaceDockerMounts says "Additional mounts"
+// in the language the app shows.
+func WorkspaceDockerMounts() string { return In(i18n.Locale()).WorkspaceDockerMounts() }
+
+// WorkspaceDockerMounts says "Additional mounts"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerMounts() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerMounts", nil)
+}
+
+// WorkspaceDockerAddMount says "Add mount"
+// in the language the app shows.
+func WorkspaceDockerAddMount() string { return In(i18n.Locale()).WorkspaceDockerAddMount() }
+
+// WorkspaceDockerAddMount says "Add mount"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerAddMount() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerAddMount", nil)
+}
+
+// WorkspaceDockerMountSource says "Local path"
+// in the language the app shows.
+func WorkspaceDockerMountSource() string { return In(i18n.Locale()).WorkspaceDockerMountSource() }
+
+// WorkspaceDockerMountSource says "Local path"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerMountSource() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerMountSource", nil)
+}
+
+// WorkspaceDockerReadOnly says "Read-only"
+// in the language the app shows.
+func WorkspaceDockerReadOnly() string { return In(i18n.Locale()).WorkspaceDockerReadOnly() }
+
+// WorkspaceDockerReadOnly says "Read-only"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerReadOnly() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerReadOnly", nil)
+}
+
+// WorkspaceDockerRemoveRow says "Remove"
+// in the language the app shows.
+func WorkspaceDockerRemoveRow() string { return In(i18n.Locale()).WorkspaceDockerRemoveRow() }
+
+// WorkspaceDockerRemoveRow says "Remove"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerRemoveRow() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerRemoveRow", nil)
+}
+
+// WorkspaceDockerInvalidName says "Enter a valid container name."
+// in the language the app shows.
+func WorkspaceDockerInvalidName() string { return In(i18n.Locale()).WorkspaceDockerInvalidName() }
+
+// WorkspaceDockerInvalidName says "Enter a valid container name."
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerInvalidName() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerInvalidName", nil)
+}
+
+// WorkspaceDockerInvalidEnv says "Enter a unique name for each environment variable."
+// in the language the app shows.
+func WorkspaceDockerInvalidEnv() string { return In(i18n.Locale()).WorkspaceDockerInvalidEnv() }
+
+// WorkspaceDockerInvalidEnv says "Enter a unique name for each environment variable."
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerInvalidEnv() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerInvalidEnv", nil)
+}
+
+// WorkspaceDockerInvalidPort says "Enter valid ports (1–65535) with unique host ports per protocol."
+// in the language the app shows.
+func WorkspaceDockerInvalidPort() string { return In(i18n.Locale()).WorkspaceDockerInvalidPort() }
+
+// WorkspaceDockerInvalidPort says "Enter valid ports (1–65535) with unique host ports per protocol."
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerInvalidPort() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerInvalidPort", nil)
+}
+
+// WorkspaceDockerInvalidMount says "Use an existing absolute local path and a unique absolute container path for each mount."
+// in the language the app shows.
+func WorkspaceDockerInvalidMount() string { return In(i18n.Locale()).WorkspaceDockerInvalidMount() }
+
+// WorkspaceDockerInvalidMount says "Use an existing absolute local path and a unique absolute container path for each mount."
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerInvalidMount() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerInvalidMount", nil)
+}
+
+// WorkspaceLocalFolder says "Local project folder"
+// in the language the app shows.
+func WorkspaceLocalFolder() string { return In(i18n.Locale()).WorkspaceLocalFolder() }
+
+// WorkspaceLocalFolder says "Local project folder"
+// in the language of msgs.
+func (msgs Messages) WorkspaceLocalFolder() string {
+	return Catalog.Format(msgs.locale, "workspaceLocalFolder", nil)
+}
+
+// WorkspaceBrowse says "Browse…"
+// in the language the app shows.
+func WorkspaceBrowse() string { return In(i18n.Locale()).WorkspaceBrowse() }
+
+// WorkspaceBrowse says "Browse…"
+// in the language of msgs.
+func (msgs Messages) WorkspaceBrowse() string {
+	return Catalog.Format(msgs.locale, "workspaceBrowse", nil)
+}
+
+// WorkspaceContainerFolder says "Container folder"
+// in the language the app shows.
+func WorkspaceContainerFolder() string { return In(i18n.Locale()).WorkspaceContainerFolder() }
+
+// WorkspaceContainerFolder says "Container folder"
+// in the language of msgs.
+func (msgs Messages) WorkspaceContainerFolder() string {
+	return Catalog.Format(msgs.locale, "workspaceContainerFolder", nil)
+}
+
+// WorkspaceSSHHost says "Host"
+// in the language the app shows.
+func WorkspaceSSHHost() string { return In(i18n.Locale()).WorkspaceSSHHost() }
+
+// WorkspaceSSHHost says "Host"
+// in the language of msgs.
+func (msgs Messages) WorkspaceSSHHost() string {
+	return Catalog.Format(msgs.locale, "workspaceSSHHost", nil)
+}
+
+// WorkspaceSSHPort says "Port"
+// in the language the app shows.
+func WorkspaceSSHPort() string { return In(i18n.Locale()).WorkspaceSSHPort() }
+
+// WorkspaceSSHPort says "Port"
+// in the language of msgs.
+func (msgs Messages) WorkspaceSSHPort() string {
+	return Catalog.Format(msgs.locale, "workspaceSSHPort", nil)
+}
+
+// WorkspaceSSHUser says "Username"
+// in the language the app shows.
+func WorkspaceSSHUser() string { return In(i18n.Locale()).WorkspaceSSHUser() }
+
+// WorkspaceSSHUser says "Username"
+// in the language of msgs.
+func (msgs Messages) WorkspaceSSHUser() string {
+	return Catalog.Format(msgs.locale, "workspaceSSHUser", nil)
+}
+
+// WorkspaceRemoteFolder says "Remote folder"
+// in the language the app shows.
+func WorkspaceRemoteFolder() string { return In(i18n.Locale()).WorkspaceRemoteFolder() }
+
+// WorkspaceRemoteFolder says "Remote folder"
+// in the language of msgs.
+func (msgs Messages) WorkspaceRemoteFolder() string {
+	return Catalog.Format(msgs.locale, "workspaceRemoteFolder", nil)
+}
+
+// WorkspaceRemoteFolderHint says "/home/user/project or C:/project"
+// in the language the app shows.
+func WorkspaceRemoteFolderHint() string { return In(i18n.Locale()).WorkspaceRemoteFolderHint() }
+
+// WorkspaceRemoteFolderHint says "/home/user/project or C:/project"
+// in the language of msgs.
+func (msgs Messages) WorkspaceRemoteFolderHint() string {
+	return Catalog.Format(msgs.locale, "workspaceRemoteFolderHint", nil)
+}
+
+// WorkspaceAuthMethod says "Authentication method"
+// in the language the app shows.
+func WorkspaceAuthMethod() string { return In(i18n.Locale()).WorkspaceAuthMethod() }
+
+// WorkspaceAuthMethod says "Authentication method"
+// in the language of msgs.
+func (msgs Messages) WorkspaceAuthMethod() string {
+	return Catalog.Format(msgs.locale, "workspaceAuthMethod", nil)
+}
+
+// WorkspacePrivateKey says "Private key"
+// in the language the app shows.
+func WorkspacePrivateKey() string { return In(i18n.Locale()).WorkspacePrivateKey() }
+
+// WorkspacePrivateKey says "Private key"
+// in the language of msgs.
+func (msgs Messages) WorkspacePrivateKey() string {
+	return Catalog.Format(msgs.locale, "workspacePrivateKey", nil)
+}
+
+// WorkspacePassword says "Password"
+// in the language the app shows.
+func WorkspacePassword() string { return In(i18n.Locale()).WorkspacePassword() }
+
+// WorkspacePassword says "Password"
+// in the language of msgs.
+func (msgs Messages) WorkspacePassword() string {
+	return Catalog.Format(msgs.locale, "workspacePassword", nil)
+}
+
+// WorkspacePrivateKeyFile says "Private key file"
+// in the language the app shows.
+func WorkspacePrivateKeyFile() string { return In(i18n.Locale()).WorkspacePrivateKeyFile() }
+
+// WorkspacePrivateKeyFile says "Private key file"
+// in the language of msgs.
+func (msgs Messages) WorkspacePrivateKeyFile() string {
+	return Catalog.Format(msgs.locale, "workspacePrivateKeyFile", nil)
+}
+
+// WorkspacePassphrase says "Private key passphrase (optional)"
+// in the language the app shows.
+func WorkspacePassphrase() string { return In(i18n.Locale()).WorkspacePassphrase() }
+
+// WorkspacePassphrase says "Private key passphrase (optional)"
+// in the language of msgs.
+func (msgs Messages) WorkspacePassphrase() string {
+	return Catalog.Format(msgs.locale, "workspacePassphrase", nil)
+}
+
+// WorkspaceTrust says "Trust and connect"
+// in the language the app shows.
+func WorkspaceTrust() string { return In(i18n.Locale()).WorkspaceTrust() }
+
+// WorkspaceTrust says "Trust and connect"
+// in the language of msgs.
+func (msgs Messages) WorkspaceTrust() string {
+	return Catalog.Format(msgs.locale, "workspaceTrust", nil)
+}
+
+// WorkspaceFingerprint says "Verify the SSH host fingerprint"
+// in the language the app shows.
+func WorkspaceFingerprint() string { return In(i18n.Locale()).WorkspaceFingerprint() }
+
+// WorkspaceFingerprint says "Verify the SSH host fingerprint"
+// in the language of msgs.
+func (msgs Messages) WorkspaceFingerprint() string {
+	return Catalog.Format(msgs.locale, "workspaceFingerprint", nil)
+}
+
+// WorkspaceConnect says "Connect"
+// in the language the app shows.
+func WorkspaceConnect() string { return In(i18n.Locale()).WorkspaceConnect() }
+
+// WorkspaceConnect says "Connect"
+// in the language of msgs.
+func (msgs Messages) WorkspaceConnect() string {
+	return Catalog.Format(msgs.locale, "workspaceConnect", nil)
+}
+
+// WorkspaceReconnect says "Reconnect"
+// in the language the app shows.
+func WorkspaceReconnect() string { return In(i18n.Locale()).WorkspaceReconnect() }
+
+// WorkspaceReconnect says "Reconnect"
+// in the language of msgs.
+func (msgs Messages) WorkspaceReconnect() string {
+	return Catalog.Format(msgs.locale, "workspaceReconnect", nil)
+}
+
+// WorkspaceCreate says "Create container"
+// in the language the app shows.
+func WorkspaceCreate() string { return In(i18n.Locale()).WorkspaceCreate() }
+
+// WorkspaceCreate says "Create container"
+// in the language of msgs.
+func (msgs Messages) WorkspaceCreate() string {
+	return Catalog.Format(msgs.locale, "workspaceCreate", nil)
+}
+
+// WorkspaceConnecting says "Connecting…"
+// in the language the app shows.
+func WorkspaceConnecting() string { return In(i18n.Locale()).WorkspaceConnecting() }
+
+// WorkspaceConnecting says "Connecting…"
+// in the language of msgs.
+func (msgs Messages) WorkspaceConnecting() string {
+	return Catalog.Format(msgs.locale, "workspaceConnecting", nil)
+}
+
+// WorkspaceCreating says "Creating container…"
+// in the language the app shows.
+func WorkspaceCreating() string { return In(i18n.Locale()).WorkspaceCreating() }
+
+// WorkspaceCreating says "Creating container…"
+// in the language of msgs.
+func (msgs Messages) WorkspaceCreating() string {
+	return Catalog.Format(msgs.locale, "workspaceCreating", nil)
+}
+
+// WorkspaceLoadingContainers says "Looking for containers…"
+// in the language the app shows.
+func WorkspaceLoadingContainers() string { return In(i18n.Locale()).WorkspaceLoadingContainers() }
+
+// WorkspaceLoadingContainers says "Looking for containers…"
+// in the language of msgs.
+func (msgs Messages) WorkspaceLoadingContainers() string {
+	return Catalog.Format(msgs.locale, "workspaceLoadingContainers", nil)
+}
+
+// WorkspaceChooseMount says "Choose a local project folder to mount."
+// in the language the app shows.
+func WorkspaceChooseMount() string { return In(i18n.Locale()).WorkspaceChooseMount() }
+
+// WorkspaceChooseMount says "Choose a local project folder to mount."
+// in the language of msgs.
+func (msgs Messages) WorkspaceChooseMount() string {
+	return Catalog.Format(msgs.locale, "workspaceChooseMount", nil)
+}
+
+// WorkspaceKeyringError says "Could not save credentials. Continue with credentials for this session only."
+// in the language the app shows.
+func WorkspaceKeyringError() string { return In(i18n.Locale()).WorkspaceKeyringError() }
+
+// WorkspaceKeyringError says "Could not save credentials. Continue with credentials for this session only."
+// in the language of msgs.
+func (msgs Messages) WorkspaceKeyringError() string {
+	return Catalog.Format(msgs.locale, "workspaceKeyringError", nil)
+}
+
+// WorkspaceConnectionFailed says "Could not connect to the workspace."
+// in the language the app shows.
+func WorkspaceConnectionFailed() string { return In(i18n.Locale()).WorkspaceConnectionFailed() }
+
+// WorkspaceConnectionFailed says "Could not connect to the workspace."
+// in the language of msgs.
+func (msgs Messages) WorkspaceConnectionFailed() string {
+	return Catalog.Format(msgs.locale, "workspaceConnectionFailed", nil)
+}
+
+// WorkspaceDockerListFailed says "Could not load containers. Check that the container runtime is available."
+// in the language the app shows.
+func WorkspaceDockerListFailed() string { return In(i18n.Locale()).WorkspaceDockerListFailed() }
+
+// WorkspaceDockerListFailed says "Could not load containers. Check that the container runtime is available."
+// in the language of msgs.
+func (msgs Messages) WorkspaceDockerListFailed() string {
+	return Catalog.Format(msgs.locale, "workspaceDockerListFailed", nil)
+}
+
+// WorkspaceDetails says "View error details"
+// in the language the app shows.
+func WorkspaceDetails() string { return In(i18n.Locale()).WorkspaceDetails() }
+
+// WorkspaceDetails says "View error details"
+// in the language of msgs.
+func (msgs Messages) WorkspaceDetails() string {
+	return Catalog.Format(msgs.locale, "workspaceDetails", nil)
+}
+
 // NoWorkspace says "No workspace"
 // in the language the app shows.
 func NoWorkspace() string { return In(i18n.Locale()).NoWorkspace() }
@@ -2324,6 +3116,96 @@ func VisitURL() string { return In(i18n.Locale()).VisitURL() }
 // in the language of msgs.
 func (msgs Messages) VisitURL() string {
 	return Catalog.Format(msgs.locale, "visitURL", nil)
+}
+
+// BrowserListTabs says "List Browser Tabs"
+// in the language the app shows.
+func BrowserListTabs() string { return In(i18n.Locale()).BrowserListTabs() }
+
+// BrowserListTabs says "List Browser Tabs"
+// in the language of msgs.
+func (msgs Messages) BrowserListTabs() string {
+	return Catalog.Format(msgs.locale, "browserListTabs", nil)
+}
+
+// BrowserNavigate says "Navigate Browser"
+// in the language the app shows.
+func BrowserNavigate() string { return In(i18n.Locale()).BrowserNavigate() }
+
+// BrowserNavigate says "Navigate Browser"
+// in the language of msgs.
+func (msgs Messages) BrowserNavigate() string {
+	return Catalog.Format(msgs.locale, "browserNavigate", nil)
+}
+
+// BrowserSnapshot says "Read Browser Page"
+// in the language the app shows.
+func BrowserSnapshot() string { return In(i18n.Locale()).BrowserSnapshot() }
+
+// BrowserSnapshot says "Read Browser Page"
+// in the language of msgs.
+func (msgs Messages) BrowserSnapshot() string {
+	return Catalog.Format(msgs.locale, "browserSnapshot", nil)
+}
+
+// BrowserClick says "Click Page Element"
+// in the language the app shows.
+func BrowserClick() string { return In(i18n.Locale()).BrowserClick() }
+
+// BrowserClick says "Click Page Element"
+// in the language of msgs.
+func (msgs Messages) BrowserClick() string {
+	return Catalog.Format(msgs.locale, "browserClick", nil)
+}
+
+// ComputerScreenshot says "Capture Desktop"
+// in the language the app shows.
+func ComputerScreenshot() string { return In(i18n.Locale()).ComputerScreenshot() }
+
+// ComputerScreenshot says "Capture Desktop"
+// in the language of msgs.
+func (msgs Messages) ComputerScreenshot() string {
+	return Catalog.Format(msgs.locale, "computerScreenshot", nil)
+}
+
+// ComputerListWindows says "List Desktop Windows"
+// in the language the app shows.
+func ComputerListWindows() string { return In(i18n.Locale()).ComputerListWindows() }
+
+// ComputerListWindows says "List Desktop Windows"
+// in the language of msgs.
+func (msgs Messages) ComputerListWindows() string {
+	return Catalog.Format(msgs.locale, "computerListWindows", nil)
+}
+
+// ComputerClick says "Click Desktop"
+// in the language the app shows.
+func ComputerClick() string { return In(i18n.Locale()).ComputerClick() }
+
+// ComputerClick says "Click Desktop"
+// in the language of msgs.
+func (msgs Messages) ComputerClick() string {
+	return Catalog.Format(msgs.locale, "computerClick", nil)
+}
+
+// ComputerTypeText says "Type on Desktop"
+// in the language the app shows.
+func ComputerTypeText() string { return In(i18n.Locale()).ComputerTypeText() }
+
+// ComputerTypeText says "Type on Desktop"
+// in the language of msgs.
+func (msgs Messages) ComputerTypeText() string {
+	return Catalog.Format(msgs.locale, "computerTypeText", nil)
+}
+
+// ComputerPressKey says "Press Desktop Shortcut"
+// in the language the app shows.
+func ComputerPressKey() string { return In(i18n.Locale()).ComputerPressKey() }
+
+// ComputerPressKey says "Press Desktop Shortcut"
+// in the language of msgs.
+func (msgs Messages) ComputerPressKey() string {
+	return Catalog.Format(msgs.locale, "computerPressKey", nil)
 }
 
 // AttachmentLabel says "Attachment: {name}"

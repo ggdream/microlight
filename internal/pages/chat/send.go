@@ -5,8 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ggdream/microlight/internal/attachment"
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/attachment"
+	"github.com/ggdream/microlight/internal/workspace"
 )
 
 func (app *chatApp) clearDraft() {
@@ -54,6 +55,8 @@ func (app *chatApp) send(text string, steer bool) bool {
 			}
 		}
 		chat = app.newConversation(title, app.draftAccess, app.draftWorkspace)
+		chat.target = app.draftTarget
+		app.draftTarget = workspace.Target{}
 	}
 	chat.Turns = append(chat.Turns, &turn{
 		message:   message{Role: "user", Content: text, Attachments: app.draftAttachments},

@@ -73,6 +73,9 @@ func (app *chatApp) openToolPreview(entry *turn, index int) {
 	}
 	var workspace string
 	if selected := app.selected(); selected != nil {
+		if selected.target.Kind != "" {
+			return
+		}
 		workspace = selected.workspace
 	}
 	// Older records can open the current file on an explicit click. A stored

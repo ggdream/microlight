@@ -22,7 +22,7 @@ func (app *chatApp) regenerateDialog(c *ui.Context, chat *conversation) {
 		return
 	}
 	index := len(chat.Turns) - 1
-	if chat.Turns[index] == reply {
+	if chat.Turns[index] == reply && !reply.hasUnresolvedRemoteCommands() {
 		app.forkReply(chat, index, chat.Turns[:index], time.Now())
 	}
 }

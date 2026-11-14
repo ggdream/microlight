@@ -10,6 +10,7 @@ import (
 	"github.com/ggdream/microlight/assets/locales"
 	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/internal/localtools"
+	"github.com/ggdream/microlight/internal/workspace"
 )
 
 func (app *chatApp) generate(chat *conversation, index int) {
@@ -88,20 +89,37 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 	} else {
 		input = []*turn{chat.Turns[index-1]}
 	}
-	sessionID := chat.sessionID
+	sessionID, chatID, branch := chat.sessionID, chat.ID, chat.branchID
 	store := app.store
 	chat.list.ScrollToEnd()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancelCause(context.Background())
 	access := localtools.NewAccess(chat.workspace, chat.accessMode)
+	target := chat.target
+	var browser browserBinding
+	var computer computerBinding
+	if target.Kind == "" {
+		computer = computerBinding{driver: workspace.NewLocalComputer(), identity: app.desktopID, label: target.Label()}
+		if chat.browser == nil {
+			chat.browser = workspace.NewLocalBrowser()
+			chat.browserID = newID()
+		}
+		if chat.browser != nil {
+			browser = browserBinding{driver: chat.browser, identity: chat.browserID, label: target.Label()}
+		}
+	}
+	secret := app.workspaceSecrets[target.Credential]
 	ctx = localtools.WithAccess(ctx, access)
 	ctx = context.WithValue(ctx, interfaceContextKey{}, chat.interfaceRequest())
-	app.active, app.running, app.cancel, app.runningAccess = chat, reply, cancel, access
+	if store != nil && target.Kind != "" {
+		ctx = localtools.WithCommandJournal(ctx, store.commandJournal(chatID, branch, target.Identity(), index))
+	}
+	app.active, app.running, app.cancel, app.runningAccess = chat, reply, func() { cancel(localtools.ErrStopReply) }, access
 	app.save(chat)
 
 	app.providerError = ""
 	temporaryBackend := backend != app.backend
 	go func() {
-		defer cancel()
+		defer cancel(nil)
 		if temporaryBackend && backend.network != nil {
 			defer backend.network.CloseIdleConnections()
 		}
@@ -120,10 +138,25 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 			})
 			return nil
 		}
-		question, err := backend.runSession(ctx, store, sessionID, input, resume, answer, emit)
+		agent := PersonalAgent{backend: backend, target: target, access: access, secret: secret, browser: browser, computer: computer}
+		question, err := agent.run(ctx, store, sessionID, input, resume, answer, emit)
+		var saved []savedRemoteCommand
+		if store != nil && target.Kind != "" {
+			saved, _ = store.loadRemoteCommands(chatID, branch, index)
+		}
 		finishedAt := time.Now()
 		app.win.Update(func() {
+			current := chat.branchID == branch && index < len(chat.Turns) && chat.Turns[index] == reply
+			if current && len(saved) > 0 {
+				reply.applyRemoteCommands(saved)
+			}
 			if app.running != reply {
+				if current && len(saved) > 0 {
+					app.save(chat)
+				}
+				if !current && len(saved) > 0 {
+					app.refreshDetachedCommands(chat)
+				}
 				return
 			}
 			reply.FinishedAt = finishedAt
@@ -138,6 +171,10 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 				chat.sessionID = ""
 				log.Printf("对话执行失败（%T）", err)
 				reply.State, reply.Error = "error", replyRequestFailed
+				var workspaceErr *workspaceConnectionError
+				if errors.As(err, &workspaceErr) {
+					reply.Error = workspaceErr.Error()
+				}
 				var integration *extensionError
 				if errors.As(err, &integration) {
 					reply.Error = locales.SkillsReadFailed()

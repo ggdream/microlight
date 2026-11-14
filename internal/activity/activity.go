@@ -37,14 +37,17 @@ func DescribeToolCall(call *schema.FunctionToolCall) Entry {
 		Command     string
 		Description string
 		Skill       string
+		Selector    string
 	}
 	_ = json.Unmarshal([]byte(call.Arguments), &args)
 	name, target := call.Name, args.Command
 	switch name {
 	case localtools.Read, localtools.List, localtools.Write:
 		target = args.Path
-	case localtools.Fetch:
+	case localtools.Fetch, "browser_navigate":
 		target = args.URL
+	case "browser_click":
+		target = args.Selector
 	case SkillTool:
 		target = args.Skill
 	default:
@@ -68,6 +71,24 @@ func (activity Entry) Label(target string) string {
 		label = locales.WriteFile()
 	case localtools.Fetch:
 		label = locales.VisitURL()
+	case "browser_list_tabs":
+		label = locales.BrowserListTabs()
+	case "browser_navigate":
+		label = locales.BrowserNavigate()
+	case "browser_snapshot":
+		label = locales.BrowserSnapshot()
+	case "browser_click":
+		label = locales.BrowserClick()
+	case "computer_screenshot":
+		label = locales.ComputerScreenshot()
+	case "computer_list_windows":
+		label = locales.ComputerListWindows()
+	case "computer_click":
+		label = locales.ComputerClick()
+	case "computer_type_text":
+		label = locales.ComputerTypeText()
+	case "computer_press_key":
+		label = locales.ComputerPressKey()
 	case AskUserTool:
 		label = locales.AskUserTool()
 	case SkillTool:
@@ -89,8 +110,10 @@ func (activity Entry) Icon() string {
 		return "edit"
 	case localtools.List:
 		return "folder"
-	case localtools.Fetch:
+	case localtools.Fetch, "browser_list_tabs", "browser_navigate", "browser_snapshot", "browser_click":
 		return "globe"
+	case "computer_screenshot", "computer_list_windows", "computer_click", "computer_type_text", "computer_press_key":
+		return "desktop"
 	case AskUserTool:
 		return "question"
 	case SkillTool:
@@ -162,7 +185,7 @@ func (activity Entry) ShortTarget() string {
 	switch activity.Tool {
 	case localtools.Read, localtools.List, localtools.Write:
 		target = filepath.Base(target)
-	case localtools.Fetch:
+	case localtools.Fetch, "browser_navigate":
 		if parsed, err := url.Parse(target); err == nil && parsed.Host != "" {
 			target = parsed.Host
 		}

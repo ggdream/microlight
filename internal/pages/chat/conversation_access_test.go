@@ -7,6 +7,7 @@ import (
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/localtools"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -54,5 +55,50 @@ func TestFullAccessDialogCountdown(t *testing.T) {
 	click(locales.ConfirmFullAccess())
 	if app.draftAccess != localtools.Full || app.fullAccess != nil {
 		t.Fatal("confirmation after the countdown must grant full access and dismiss the dialog")
+	}
+}
+
+func TestWorkspaceMenuAndSSHFormFollowLocale(t *testing.T) {
+	originalLocale := i18n.Locale()
+	t.Cleanup(func() { i18n.SetLocaleFunc(func() string { return originalLocale }) })
+	for _, tc := range []struct {
+		tag, local, docker, remote, title, host, auth, connect string
+	}{
+		{"zh-Hans", "本机目录", "本机容器", "远程主机", "配置远程工作区", "主机", "身份验证", "连接"},
+		{"en", "Local", "Container", "Remote", "SSH Workspace", "Host", "Authentication", "Connect"},
+	} {
+		t.Run(tc.tag, func(t *testing.T) {
+			i18n.SetLocaleFunc(func() string { return tc.tag })
+			app := &chatApp{}
+			surface := ui.NewTester(func(c *ui.Context) {
+				ui.Column(c).Fill().Justify(ui.End).Children(func() {
+					app.workspaceControl(c.Key("workspace"), nil)
+				})
+				app.workspaceDialog(c.Key("dialog"))
+			}, 580, 420)
+			surface.SetLocale(tc.tag)
+			if err := surface.Click(locales.In(tc.tag).Workspace()); err != nil {
+				t.Fatal(err)
+			}
+			for _, label := range []string{tc.local, tc.docker, tc.remote} {
+				if _, found := surface.Find(label); !found {
+					t.Errorf("missing workspace menu item %q", label)
+				}
+			}
+			if err := surface.Click(tc.remote); err != nil {
+				t.Fatal(err)
+			}
+			for _, label := range []string{tc.title, tc.host, tc.auth, tc.connect} {
+				if _, found := surface.Find(label); !found {
+					t.Errorf("missing SSH form item %q", label)
+				}
+			}
+			if err := surface.Click(locales.In(tc.tag).Cancel()); err != nil {
+				t.Fatal(err)
+			}
+			if app.workspaceForm != nil {
+				t.Fatal("cancel did not dismiss the workspace dialog")
+			}
+		})
 	}
 }

@@ -59,6 +59,7 @@ func TestConfigMigrationKeepsModelSettingsAndStoresLanguage(t *testing.T) {
         ALTER TABLE turns DROP COLUMN a2ui;
 		ALTER TABLE conversations DROP COLUMN access_mode;
 		ALTER TABLE conversations DROP COLUMN workspace;
+		ALTER TABLE conversations DROP COLUMN execution_target;
 		ALTER TABLE conversations DROP COLUMN pinned;
 		ALTER TABLE conversations DROP COLUMN archived;
 		ALTER TABLE conversations DROP COLUMN branch_id;

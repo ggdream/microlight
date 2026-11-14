@@ -27,3 +27,15 @@ func PointerButton(c *ui.Context, disabled bool) ui.Element {
 	}
 	return button
 }
+
+var checkboxTheme = func() *ui.Theme {
+	t := ui.LightTheme().WithAccent(Accent)
+	t.Background, t.Border, t.Text, t.AccentText = White, Border, Ink, White
+	return t
+}()
+
+func Checkbox(c *ui.Context, checked *bool, label string, disabled bool) {
+	ui.Themed(c, checkboxTheme).Background(ui.Transparent).Children(func() {
+		ui.Checkbox(c.Key("checkbox"), checked, label).Disabled(disabled)
+	})
+}

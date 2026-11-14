@@ -22,7 +22,7 @@ func Run(assets fs.FS) {
 		log.Fatal(err)
 	}
 	home, _ := os.UserHomeDir()
-	app := &chatApp{md: markup.New(ink), skillsHome: home}
+	app := &chatApp{md: markup.New(ink), skillsHome: home, desktopID: newID()}
 	app.md.Preview = app.links.offer
 	dir, err := mygo.App.Path(mygo.PathUserData)
 	if err == nil {
@@ -56,9 +56,6 @@ func Run(assets fs.FS) {
 		app.win.OnClosed(func() {
 			app.persistDraft()
 			app.clearConnectionTest()
-			if app.running != nil {
-				app.stopReply(app.active, app.running)
-			}
 		})
 		app.win.OnShow(app.win.Invalidate)
 		mygo.App.OnDidBecomeActive(app.win.Invalidate)
@@ -69,7 +66,13 @@ func Run(assets fs.FS) {
 		})
 		desktop.SetupTray(app.win, assets)
 	})
-	if err := mygo.App.Run(); err != nil {
+	err = mygo.App.Run()
+	for _, chat := range app.history.Chats {
+		if chat.browser != nil {
+			chat.browser.Close()
+		}
+	}
+	if err != nil {
 		log.Fatal(err)
 	}
 }

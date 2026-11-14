@@ -67,7 +67,9 @@ func newConversationAgent(ctx context.Context, name string, client model.Agentic
 					case block.FunctionToolResult != nil:
 						result := block.FunctionToolResult
 						for _, part := range result.Content {
-							plain.ContentBlocks = append(plain.ContentBlocks, schema.NewContentBlock(&schema.UserInputText{Text: part.String()}))
+							if part.Text != nil {
+								plain.ContentBlocks = append(plain.ContentBlocks, schema.NewContentBlock(&schema.UserInputText{Text: part.Text.Text}))
+							}
 						}
 					}
 				}
@@ -97,8 +99,7 @@ func newConversationAgent(ctx context.Context, name string, client model.Agentic
 			return json.Marshal(clarification{Question: question, Approval: &approval})
 		},
 		Workspace: config.Workspace, Mode: config.AccessMode,
-		WebClient: &http.Client{Transport: network, Timeout: 15 * time.Second,
-			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
+		WebClient: &http.Client{Transport: network, Timeout: 15 * time.Second},
 	}
 	instruction := `You are Microlight, a local assistant. Reply in the user's language.
 When the answer describes a process with a decision, a failure and retry loop, or several dependent steps, include a concise Mermaid diagram in a fenced mermaid block by default, even for short questions and when the user has not requested a diagram. For example, a question about what to do after a verification code is rejected calls for a flowchart with a success branch and a retry loop. Use flowchart for steps and decisions, sequenceDiagram for interactions across components, and stateDiagram-v2 for state transitions. Use short labels in the user's language and add only prose that helps the user act. Follow any format the user explicitly requests. Answer straightforward facts and single-step questions directly.
@@ -112,11 +113,13 @@ For complex tasks, use write_todos if it helps. Use local file and web tools onl
 	handlers = append(handlers, shell)
 	if ext != nil {
 		permissions.MCPTargets = ext.targets
+		permissions.DriverTargets = ext.drivers
 		tools = append(tools, ext.tools...)
 		if ext.skills != nil {
 			handlers = append(handlers, ext.skills)
 		}
 	}
+	handlers = append(handlers, &localtools.EnvironmentTools{})
 	return deep.NewTyped(ctx, &deep.TypedConfig[*schema.AgenticMessage]{
 		Name: name, ChatModel: client, MaxIteration: 12,
 		Instruction:            instruction,
@@ -184,7 +187,12 @@ func sizeOfMessages(messages []*schema.AgenticMessage) messageSize {
 				size.tokens += 16 + textTokens(block.FunctionToolCall.Arguments)
 			case block.FunctionToolResult != nil:
 				for _, part := range block.FunctionToolResult.Content {
-					size.tokens += textTokens(part.String())
+					if part.Image != nil {
+						size.tokens += 2048
+						size.imageBytes += len(part.Image.Base64Data) * 3 / 4
+					} else {
+						size.tokens += textTokens(part.String())
+					}
 				}
 			case block.UserInputImage != nil:
 				size.tokens += 2048

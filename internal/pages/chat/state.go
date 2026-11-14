@@ -9,6 +9,7 @@ import (
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/pages/chat/composer"
 	"github.com/ggdream/microlight/internal/pages/settings"
+	"github.com/ggdream/microlight/internal/workspace"
 	"github.com/ggdream/microlight/pkg/a2ui"
 
 	"github.com/egoist/mygo"
@@ -36,9 +37,13 @@ type turn struct {
 	compressing          bool
 	clarificationSurface *a2ui.Surface
 	copiedUntil          time.Time
+	remoteCommands       []savedRemoteCommand
+	recoveringRemote     bool
+	stopRemoteRecovery   context.CancelCauseFunc
 }
 
 type conversation struct {
+	detachedCommands   *turn
 	ID                 string  `json:"id"`
 	Title              string  `json:"title"`
 	Turns              []*turn `json:"turns"`
@@ -49,6 +54,9 @@ type conversation struct {
 	branchID           string
 	accessMode         localtools.Mode
 	workspace          string
+	target             workspace.Target
+	browser            *workspace.LocalBrowser
+	browserID          string
 	sentDraft          *string
 	pinned             bool
 	archived           bool
@@ -62,6 +70,7 @@ type history struct {
 }
 
 type chatApp struct {
+	desktopID          string
 	skillsHome         string
 	backend            *Chat
 	settings           modelSettings
@@ -91,6 +100,9 @@ type chatApp struct {
 	draftVersion       uint64
 	draftAccess        localtools.Mode
 	draftWorkspace     string
+	draftTarget        workspace.Target
+	workspaceForm      *workspaceForm
+	workspaceSecrets   map[string]string
 	accessError        string
 	fullAccess         *fullAccessRequest
 	runningAccess      *localtools.Access

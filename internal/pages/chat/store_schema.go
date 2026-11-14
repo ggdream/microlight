@@ -20,7 +20,7 @@ func (store *localStore) migrate(dir string) error {
 		return err
 	}
 	switch version {
-	case 14:
+	case 16:
 		return nil
 	case 0:
 		if err := createBaseSchema(tx); err != nil {
@@ -166,6 +166,25 @@ func (store *localStore) migrate(dir string) error {
 		if _, err := tx.Exec(`
 			ALTER TABLE turns ADD COLUMN a2ui BLOB;
 			PRAGMA user_version = 14;
+		`); err != nil {
+			return err
+		}
+		fallthrough
+	case 14:
+		if _, err := tx.Exec(`ALTER TABLE conversations ADD COLUMN execution_target TEXT NOT NULL DEFAULT '';
+			PRAGMA user_version = 15;`); err != nil {
+			return err
+		}
+		fallthrough
+	case 15:
+		if _, err := tx.Exec(`
+			CREATE TABLE IF NOT EXISTS remote_commands (
+				id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id),
+				turn_ordinal INTEGER NOT NULL, branch_id TEXT NOT NULL, target_id TEXT NOT NULL,
+				call_id TEXT NOT NULL, command TEXT NOT NULL, result BLOB
+			);
+			CREATE INDEX IF NOT EXISTS remote_commands_by_turn ON remote_commands(conversation_id, branch_id, turn_ordinal);
+			PRAGMA user_version = 16;
 		`); err != nil {
 			return err
 		}

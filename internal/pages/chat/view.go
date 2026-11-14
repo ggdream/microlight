@@ -45,6 +45,7 @@ func (app *chatApp) view(c *ui.Context) {
 					app.welcome(c)
 				} else {
 					app.transcript(c, selected)
+					app.detachedCommandsView(c.Key("previous-command-branch"), selected)
 				}
 				app.composer(c, selected)
 			})
@@ -62,6 +63,7 @@ func (app *chatApp) view(c *ui.Context) {
 	app.linkPreview(c, root)
 	app.regenerateDialog(c.Key("regenerate-dialog"), selected)
 	app.fullAccessDialog(c.Key("full-access-dialog"))
+	app.workspaceDialog(c.Key("workspace-dialog"))
 	app.conversationActionDialog(c.Key("conversation-action"))
 	app.persistDraft()
 }

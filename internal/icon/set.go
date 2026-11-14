@@ -32,7 +32,7 @@ func Load(assets fs.FS) (Set, error) {
 	if err := set.loadSVG(assets, "github", "assets/octicons/mark-github-16.svg"); err != nil {
 		return Set{}, err
 	}
-	for _, name := range []string{"edit", "pin", "pin_off", "archive", "delete", "document_text", "skill", "update_tasks", "copy", "panel_left_expand"} {
+	for _, name := range []string{"edit", "pin", "pin_off", "archive", "delete", "document_text", "skill", "update_tasks", "copy", "panel_left_expand", "desktop", "cube", "desktop_signal"} {
 		menu, err := mygo.NewMenuIconSVG(set.svg[name], true)
 		if err != nil {
 			return Set{}, err

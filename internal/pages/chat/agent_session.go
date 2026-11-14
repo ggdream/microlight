@@ -10,8 +10,8 @@ import (
 
 	"github.com/ggdream/microlight/assets/locales"
 	timeline "github.com/ggdream/microlight/internal/activity"
+	"github.com/ggdream/microlight/internal/harness"
 	"github.com/ggdream/microlight/internal/localtools"
-	"github.com/ggdream/microlight/internal/session"
 	skillset "github.com/ggdream/microlight/internal/skills"
 	project "github.com/ggdream/microlight/internal/workspace"
 	"github.com/ggdream/microlight/pkg/a2ui"
@@ -40,11 +40,23 @@ func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID s
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if len(skills.Entries) != 0 || len(chat.config.MCPServers) != 0 {
+	browser, _ := ctx.Value(browserContextKey{}).(browserBinding)
+	computer, _ := ctx.Value(computerContextKey{}).(computerBinding)
+	if len(skills.Entries) != 0 || len(chat.config.MCPServers) != 0 || browser.driver != nil || computer.driver != nil {
 		var ext agentExtensions
 		defer ext.close()
 		if err := ext.load(ctx, chat.config, skills, chat.network); err != nil {
 			return nil, err
+		}
+		if browser.driver != nil {
+			if err := ext.addBrowserTools(ctx, browser); err != nil {
+				return nil, err
+			}
+		}
+		if computer.driver != nil {
+			if err := ext.addComputerTools(ctx, computer); err != nil {
+				return nil, err
+			}
 		}
 		var err error
 		agent, err = chat.buildExtendedAgent(ctx, &ext)
@@ -52,21 +64,11 @@ func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID s
 			return nil, err
 		}
 	}
-	runner := adk.NewTypedRunner(adk.TypedRunnerConfig[*schema.AgenticMessage]{
-		Agent: agent, EnableStreaming: true, SessionID: sessionID,
-		SessionStore: store, CheckPointStore: store,
-		SessionConfig: &adk.SessionConfig[*schema.AgenticMessage]{
-			EventIDGenerator: func(context.Context, *session.Event) (string, error) {
-				return newID(), nil
-			},
-		},
-	})
+	runner := harness.NewSession(agent, store, sessionID, newID)
 	var iter *adk.AsyncIterator[*adk.TypedAgentEvent[*schema.AgenticMessage]]
 	if resume != nil {
 		var err error
-		iter, err = runner.ResumeWithParams(ctx, resume.CheckpointID, &adk.ResumeParams{
-			Targets: map[string]any{resume.InterruptID: answer},
-		})
+		iter, err = runner.Resume(ctx, harness.Approval{CheckpointID: resume.CheckpointID, InterruptID: resume.InterruptID, Answer: answer})
 		if err != nil {
 			return nil, err
 		}
@@ -75,7 +77,7 @@ func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID s
 		if err != nil {
 			return nil, err
 		}
-		iter = runner.Run(ctx, msgs, adk.WithCheckPointID(newID()))
+		iter = runner.Run(ctx, msgs)
 	}
 	request, _ := ctx.Value(interfaceContextKey{}).(*interfaceRequest)
 	for pass := 0; ; pass++ {
@@ -96,7 +98,7 @@ func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID s
 		}
 		request = next
 		ctx = context.WithValue(ctx, interfaceContextKey{}, request)
-		iter = runner.Run(ctx, msgs, adk.WithCheckPointID(newID()))
+		iter = runner.Run(ctx, msgs)
 	}
 }
 

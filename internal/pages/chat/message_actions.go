@@ -109,6 +109,7 @@ func (app *chatApp) forkReply(chat *conversation, forkIndex int, prefix []*turn,
 		app.endReply(chat, app.running, "stopped")
 	}
 	chat.branchID, chat.sessionID, chat.Turns = edited.branchID, edited.sessionID, edited.Turns
+	app.refreshDetachedCommands(chat)
 	chat.projectedInterface = nil
 	for _, tab := range slices.Clone(app.toolPanel.tabs) {
 		if !slices.Contains(chat.Turns, tab.entry) {

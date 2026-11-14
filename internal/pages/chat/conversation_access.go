@@ -7,6 +7,7 @@ import (
 
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/localtools"
+	"github.com/ggdream/microlight/internal/theme"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -194,30 +195,47 @@ func (app *chatApp) workspaceControl(c *ui.Context, chat *conversation) {
 	if chat != nil {
 		path = chat.workspace
 	}
+	target := app.draftTarget
+	if chat != nil {
+		target = chat.target
+	}
 	label, tooltip := locales.NoWorkspace(), locales.Workspace()
 	if path != "" {
 		label, tooltip = filepath.Base(path), path
 	} else if chat != nil {
 		tooltip += "\n" + locales.WorkspaceLocked()
 	}
+	if target.Kind != "" {
+		label, tooltip = target.Label(), target.Label()+"\n"+target.Directory
+	}
 	if chat != nil {
-		ui.Row(c).Gap(5).PaddingX(7).Shrink(0).AlignItems(ui.Center).Tooltip(tooltip).Children(func() {
+		control := ui.Row(c).Gap(5).PaddingX(7).Shrink(0).AlignItems(ui.Center).Tooltip(tooltip)
+		if target.Kind != "" {
+			control.Cursor(ui.CursorPointer).OnClick(func() { app.openWorkspaceForm(chat) })
+		}
+		control.Children(func() {
 			icon(c, "folder", muted, 15)
 			ui.Text(c, label).MaxWidth(100).NoWrap().Ellipsis("…").FontSize(11).TextColor(muted)
 		})
 		return
 	}
 	ui.Row(c).AlignItems(ui.Center).Gap(2).Shrink(0).Children(func() {
-		button := pointerButton(c.Key("conversation-workspace"), app.pickingWorkspace).Label(locales.Workspace()).
-			Tooltip(tooltip).Gap(5).AlignItems(ui.Center).Height(30).PaddingX(7).Radius(6).Shrink(0)
-		if button.Hovered() {
-			button.Background(side)
-		}
-		button.Children(func() {
-			icon(c, "folder", muted, 15)
-			ui.Text(c, label).MaxWidth(100).NoWrap().Ellipsis("…").FontSize(11).TextColor(muted)
-		}).OnClick(app.pickWorkspace)
-		if path != "" {
+		theme.PopupMenu(c.Key("workspace-menu"), func(c *ui.Context) ui.Element {
+			button := pointerButton(c.Key("conversation-workspace"), app.pickingWorkspace).Label(locales.Workspace()).
+				Tooltip(tooltip).Gap(5).AlignItems(ui.Center).Height(30).PaddingX(7).Radius(6).Shrink(0)
+			if button.Hovered() {
+				button.Background(side)
+			}
+			return button.Children(func() {
+				icon(c, "folder", muted, 15)
+				ui.Text(c, label).MaxWidth(100).NoWrap().Ellipsis("…").FontSize(11).TextColor(muted)
+			})
+		},
+			theme.PopupItem{Label: locales.WorkspaceLocal(), Icon: icons.Menu("desktop"), OnSelect: app.pickWorkspace},
+			theme.PopupItem{Label: locales.WorkspaceDocker(), Icon: icons.Menu("cube"), OnSelect: func() { app.openNewWorkspaceForm("container") }},
+			theme.PopupItem{Label: locales.WorkspaceRemote(), Icon: icons.Menu("desktop_signal"), OnSelect: func() { app.openNewWorkspaceForm("remote") }},
+		)
+		if path != "" || target.Kind != "" {
 			clearLabel := locales.ClearWorkspace()
 			clear := pointerButton(c.Key("clear-workspace"), app.pickingWorkspace).Label(clearLabel).Tooltip(clearLabel).
 				Size(22, 22).Radius(6).AlignItems(ui.Center).Justify(ui.Center)
@@ -226,7 +244,7 @@ func (app *chatApp) workspaceControl(c *ui.Context, chat *conversation) {
 			}
 			clear.Children(func() {
 				icon(c, "close", muted, 12)
-			}).OnClick(func() { app.draftWorkspace, app.accessError = "", "" })
+			}).OnClick(func() { app.clearWorkspaceSelection() })
 		}
 	})
 }
@@ -265,6 +283,7 @@ func (app *chatApp) pickWorkspace() {
 				app.accessError = locales.MissingWorkspace()
 				return
 			}
+			app.clearWorkspaceSelection()
 			app.draftWorkspace, app.accessError = path, ""
 		})
 	}()

@@ -19,6 +19,7 @@ func (app *chatApp) loadHistory() {
 	}
 	app.history = saved
 	for _, chat := range app.history.Chats {
+		app.refreshDetachedCommands(chat)
 		// Older versions stored only the first 22 characters of generated titles.
 		if len(chat.Turns) > 0 && chat.Turns[0].Role == "user" {
 			title := strings.Join(strings.Fields(chat.Turns[0].Content), " ")
@@ -27,7 +28,15 @@ func (app *chatApp) loadHistory() {
 				chat.Title = title
 			}
 		}
-		for _, entry := range chat.Turns {
+		for index, entry := range chat.Turns {
+			if entry.Role == "assistant" && chat.target.Kind != "" {
+				records, err := app.store.loadRemoteCommands(chat.ID, chat.branchID, index)
+				if err != nil {
+					app.historyErr = locales.HistoryReadFailed()
+				} else {
+					entry.applyRemoteCommands(records)
+				}
+			}
 			if entry.State == "pending" || (entry.State == "waiting" && !entry.canResume()) {
 				entry.State = "stopped"
 				chat.sessionID = ""
@@ -81,6 +90,8 @@ func (app *chatApp) selectChat(id string) {
 		app.replySkills = nil
 	}
 	app.history.Selected = id
+	app.closeWorkspaceForm()
+	app.clearWorkspaceSelection()
 	app.draftAccess, app.draftWorkspace, app.accessError = localtools.Ask, "", ""
 	app.edit = nil
 	app.queueEdit = nil

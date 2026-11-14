@@ -100,6 +100,10 @@ func (app *chatApp) deleteChat(chat *conversation) bool {
 	if !app.historyChange(app.store.deleteChat(chat, selected)) {
 		return false
 	}
+	app.forgetWorkspaceCredential(chat.target.Credential)
+	if chat.browser != nil {
+		chat.browser.Close()
+	}
 	app.history.Chats = slices.DeleteFunc(app.history.Chats, func(entry *conversation) bool { return entry == chat })
 	if selected {
 		app.leaveRemovedChat()
@@ -112,6 +116,8 @@ func (app *chatApp) leaveRemovedChat() {
 	app.toolPanel = toolPreviewPanel{}
 	app.fullAccess, app.retryReply, app.edit = nil, nil, nil
 	app.queueEdit = nil
+	app.closeWorkspaceForm()
+	app.clearWorkspaceSelection()
 	app.draftAccess, app.draftWorkspace, app.accessError = localtools.Ask, "", ""
 	if !app.restoreDraft("") {
 		app.clearDraft()
@@ -146,6 +152,7 @@ func (store *localStore) deleteChat(chat *conversation, clearSelection bool) err
 		}
 	}
 	for _, query := range []string{
+		"DELETE FROM remote_commands WHERE conversation_id = ?",
 		"DELETE FROM adk_session_owners WHERE conversation_id = ?",
 		"DELETE FROM conversation_branches WHERE conversation_id = ?",
 		"DELETE FROM turn_images WHERE conversation_id = ?",

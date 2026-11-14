@@ -2,6 +2,8 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/mcptools"
 	"github.com/ggdream/microlight/internal/skills"
 	"github.com/ggdream/microlight/pkg/proxy"
@@ -17,14 +20,15 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func TestSharedProxyForModelAndMCP(t *testing.T) {
+func TestSharedProxyForModelMCPAndWebFetch(t *testing.T) {
 	mcpFixture := mcp.NewServer(&mcp.Implementation{Name: "proxy-test", Version: "1"}, nil)
 	mcp.AddTool(mcpFixture, &mcp.Tool{Name: "lookup", Description: "Test proxy routing"},
 		func(context.Context, *mcp.CallToolRequest, map[string]any) (*mcp.CallToolResult, any, error) {
 			return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "proxied"}}}, nil, nil
 		})
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return mcpFixture }, &mcp.StreamableHTTPOptions{DisableLocalhostProtection: true})
-	var modelCalls, mcpCalls atomic.Int32
+	var modelCalls, mcpCalls, webCalls atomic.Int32
+	var fetchRequested atomic.Bool
 	proxyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !r.URL.IsAbs() {
 			t.Error("expected a forward-proxy request")
@@ -32,6 +36,12 @@ func TestSharedProxyForModelAndMCP(t *testing.T) {
 		switch r.URL.Hostname() {
 		case "model.example.invalid":
 			modelCalls.Add(1)
+			if fetchRequested.CompareAndSwap(true, false) {
+				args, _ := json.Marshal(map[string]string{"url": "http://web.example.invalid/page"})
+				w.Header().Set("Content-Type", "text/event-stream")
+				fmt.Fprintf(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"tool_calls\":[{\"index\":0,\"id\":\"web-1\",\"type\":\"function\",\"function\":{\"name\":\"fetch_web_page\",\"arguments\":%q}}]}}]}\n\ndata: [DONE]\n\n", args)
+				return
+			}
 			writeTestStream(w, "OK")
 		case "mcp.example.invalid":
 			mcpCalls.Add(1)
@@ -39,6 +49,10 @@ func TestSharedProxyForModelAndMCP(t *testing.T) {
 				t.Error("MCP server auth header missing")
 			}
 			mcpHandler.ServeHTTP(w, r)
+		case "web.example.invalid":
+			webCalls.Add(1)
+			w.Header().Set("Content-Type", "text/plain")
+			_, _ = io.WriteString(w, "proxied page")
 		default:
 			http.Error(w, "unexpected destination", http.StatusBadRequest)
 		}
@@ -80,6 +94,17 @@ func TestSharedProxyForModelAndMCP(t *testing.T) {
 	}
 	if modelCalls.Load() != 2 {
 		t.Fatalf("expected connection test and chat via proxy, got %d requests", modelCalls.Load())
+	}
+	fetchRequested.Store(true)
+	ctx := localtools.WithAccess(t.Context(), localtools.NewAccess("", localtools.Full))
+	var reply turn
+	pending, err := app.backend.runSession(ctx, store, newID(), []*turn{userTurn("Read the page")}, nil, "", func(delta replyDelta) error {
+		reply.appendDelta(delta)
+		return nil
+	})
+	if err != nil || pending != nil || webCalls.Load() != 1 || len(reply.Activity) == 0 ||
+		reply.Activity[0].Output == nil || !strings.Contains(*reply.Activity[0].Output, "proxied page") {
+		t.Fatalf("web fetch via app proxy: requests=%d, pending=%v, err=%v, activity=%+v", webCalls.Load(), pending, err, reply.Activity)
 	}
 
 	var ext agentExtensions

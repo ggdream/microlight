@@ -27,6 +27,10 @@ type MCPTarget struct {
 	Label, Version string
 }
 
+type DriverTarget struct {
+	Label, Identity, Title string
+}
+
 func WithResultReporter(ctx context.Context, report func(Result)) context.Context {
 	return context.WithValue(ctx, reportToolResultKey{}, report)
 }

@@ -20,6 +20,7 @@ import (
 type agentExtensions struct {
 	tools    []tool.BaseTool
 	targets  map[string]localtools.MCPTarget
+	drivers  map[string]localtools.DriverTarget
 	skills   adk.TypedChatModelAgentMiddleware[*schema.AgenticMessage]
 	sessions []*mcp.ClientSession
 }

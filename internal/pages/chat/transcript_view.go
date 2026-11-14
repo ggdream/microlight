@@ -31,6 +31,7 @@ func (app *chatApp) transcript(c *ui.Context, chat *conversation) {
 					if len(entry.Clarifications) > 0 {
 						app.clarificationCards(c, chat, entry)
 					}
+					app.remoteCommandControls(c.Key("remote-commands"), chat, entry, i)
 					if entry.Error != "" {
 						message := entry.Error
 						if message == replyRequestFailed || message == locales.In("zh-Hans").ReplyFailed() {
@@ -57,7 +58,7 @@ func (app *chatApp) transcript(c *ui.Context, chat *conversation) {
 								copyMessageIcon(c, entry, locales.Copy(), locales.Copied())
 							}
 							if i == len(chat.Turns)-1 {
-								messageIcon(c, locales.Retry(), "retry", app.active != nil, func() { app.retryReply = entry })
+								messageIcon(c, locales.Retry(), "retry", app.active != nil || entry.hasUnresolvedRemoteCommands(), func() { app.retryReply = entry })
 							}
 							if showActions {
 								messageTimestamp(c, entry.FinishedAt)

@@ -4,7 +4,19 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/ggdream/microlight/internal/workspace"
 )
+
+func TestRemoteWorkspaceDoesNotUseHostProjectPath(t *testing.T) {
+	host := t.TempDir()
+	ctx := WithRuntime(t.Context(), NewAccess(host, Ask), nil, workspace.Target{
+		Kind: "remote", Directory: "/work",
+	}, workspace.Capabilities{})
+	if path := Workspace(ctx, host); path != "" {
+		t.Fatalf("remote session exposed a host project path: %q", path)
+	}
+}
 
 func TestPermissionModesKeepSymlinkEscapesAndOverwritesBehindApproval(t *testing.T) {
 	workspace, err := filepath.EvalSymlinks(t.TempDir())
