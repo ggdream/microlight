@@ -27,6 +27,8 @@ type desktopCommandRequest struct {
 	Directory, ID, Command string
 }
 
+const desktopCommandMissing = "command-task-not-found"
+
 type desktopCommandStore struct {
 	db     *sql.DB
 	mu     sync.Mutex
@@ -94,7 +96,7 @@ func (s *desktopCommandStore) serve(ctx context.Context, w http.ResponseWriter, 
 	})
 	switch {
 	case errors.Is(err, backgroundtask.ErrNotFound):
-		http.Error(w, err.Error(), http.StatusNotFound)
+		http.Error(w, desktopCommandMissing, http.StatusNotFound)
 	case err != nil:
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 	default:
@@ -283,7 +285,7 @@ func (r *desktopCommandRun) call(ctx context.Context, method string) (*backgroun
 	switch {
 	case err == nil:
 		return outcome, nil
-	case errors.As(err, &status) && status.code == http.StatusNotFound:
+	case errors.As(err, &status) && status.code == http.StatusNotFound && status.detail == desktopCommandMissing:
 		return nil, backgroundtask.ErrNotFound
 	case status != nil && status.code == http.StatusUnprocessableEntity:
 		return nil, err

@@ -144,14 +144,14 @@ func executeRecoverable(ctx context.Context, commands backgroundshell.Recoverabl
 		}
 	}
 	request := &backgroundshell.StartCommandRequest{TaskID: id, Command: op.content, Attempt: 1}
-	started := reattach
+	recoverFirst := reattach
 	// A journal entry is written before launch. Only a missing, unconfirmed
 	// task can be retried here, and only on an executor that deduplicates starts.
 	allowLaunchRetry := reattach && !record.LaunchConfirmed
 	wait := func(commands backgroundshell.RecoverableShell) (*filesystem.ExecuteResponse, error) {
 		var run backgroundtool.Run
 		var err error
-		if started {
+		if recoverFirst {
 			run, err = commands.RecoverCommand(ctx, &backgroundshell.RecoverCommandRequest{
 				TaskID: id, Command: op.content, Attempt: request.Attempt,
 			})
@@ -164,7 +164,7 @@ func executeRecoverable(ctx context.Context, commands backgroundshell.Recoverabl
 		if err != nil {
 			return nil, err
 		}
-		started = true
+		recoverFirst = true
 		allowLaunchRetry = false
 		if journal.ConfirmLaunch != nil {
 			if err := journal.ConfirmLaunch(ctx, id); err != nil {
@@ -186,6 +186,11 @@ func executeRecoverable(ctx context.Context, commands backgroundshell.Recoverabl
 	reconnect, _ := ctx.Value(reconnectWorkspaceKey{}).(func(context.Context) (workspace.Runtime, error))
 	var transport *workspace.CommandTransportError
 	if reconnect != nil && ctx.Err() == nil && errors.As(err, &transport) {
+		if !recoverFirst {
+			// The executor may have accepted the launch before the connection
+			// failed. Check its state before sending another start.
+			recoverFirst, allowLaunchRetry = true, true
+		}
 		openCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 		runtime, openErr := reconnect(openCtx)
 		if openErr == nil {
