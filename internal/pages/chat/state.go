@@ -71,6 +71,7 @@ type history struct {
 }
 
 type chatApp struct {
+	openWorkspace      workspace.ConnectFunc
 	desktopID          string
 	skillsHome         string
 	backend            *Chat

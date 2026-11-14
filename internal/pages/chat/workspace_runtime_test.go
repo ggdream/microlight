@@ -40,6 +40,7 @@ func TestWorkspaceTargetPersistsWithConversation(t *testing.T) {
 		{Kind: "docker", Directory: "/work", DockerContext: "legacy-context", Container: "legacy-id"},
 		{Kind: "container", Directory: "/work", Engine: workspace.ContainerEngine{Name: "podman", Connection: "local"}, Container: "podman-id"},
 		{Kind: "container", Directory: "/work", Engine: workspace.ContainerEngine{Name: "nerdctl", Connection: "default"}, Container: "containerd-id"},
+		{Kind: "test-vm", Resource: "workspace-42"},
 	} {
 		chat := &conversation{ID: newID(), Title: "Workspace", target: target}
 		if err := store.saveHistory(history{Selected: chat.ID, Chats: []*conversation{chat}}, chat); err != nil {

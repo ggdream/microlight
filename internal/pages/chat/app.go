@@ -9,20 +9,24 @@ import (
 	"github.com/ggdream/microlight/internal/desktop"
 	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/internal/storage"
+	"github.com/ggdream/microlight/internal/workspace"
 	"github.com/ggdream/microlight/pkg/markup"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
 
-func Run(assets fs.FS) {
+func Run(assets fs.FS, connect workspace.ConnectFunc) {
+	if connect == nil {
+		connect = workspace.Open
+	}
 	var err error
 	icons, err = asseticon.Load(assets)
 	if err != nil {
 		log.Fatal(err)
 	}
 	home, _ := os.UserHomeDir()
-	app := &chatApp{md: markup.New(ink), skillsHome: home, desktopID: newID()}
+	app := &chatApp{md: markup.New(ink), skillsHome: home, desktopID: newID(), openWorkspace: connect}
 	app.md.Preview = app.links.offer
 	dir, err := mygo.App.Path(mygo.PathUserData)
 	if err == nil {

@@ -26,6 +26,8 @@ type Target struct {
 	Auth          string
 	HostKey       string
 	Credential    string
+	// Resource identifies an environment managed by the connector for Kind.
+	Resource string `json:",omitempty"`
 }
 
 type Environment struct {
@@ -66,22 +68,70 @@ func (t Target) Label() string {
 	case "remote":
 		return locales.WorkspaceRemote() + " · " + t.Host
 	default:
-		return locales.WorkspaceLocal()
+		if t.Kind == "" {
+			return locales.WorkspaceLocal()
+		}
+		if t.Resource != "" {
+			return t.Kind + " · " + t.Resource
+		}
+		return t.Kind
 	}
 }
 
+// NewConnector builds the host's execution environment dispatcher. Built-in
+// kinds are reserved. Additional connectors validate their own target fields.
+func NewConnector(additional map[string]ConnectFunc) (ConnectFunc, error) {
+	connectors := map[string]ConnectFunc{
+		"docker": connectContainer, "container": connectContainer, "remote": connectSSH,
+	}
+	for kind, connect := range additional {
+		if kind == "" || kind == "local" || kind == "invalid" || strings.TrimSpace(kind) != kind || connectors[kind] != nil || connect == nil {
+			return nil, fmt.Errorf("invalid or reserved execution environment kind %q", kind)
+		}
+		connectors[kind] = connect
+	}
+	return func(ctx context.Context, target Target, secret string) (Runtime, error) {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		connect := connectors[target.Kind]
+		if connect == nil {
+			return nil, fmt.Errorf("不支持的工作区类型 %q", target.Kind)
+		}
+		runtime, err := connect(ctx, target, secret)
+		if err == nil && runtime == nil {
+			return nil, fmt.Errorf("execution environment connector %q returned no runtime", target.Kind)
+		}
+		return runtime, err
+	}, nil
+}
+
+var defaultConnector, _ = NewConnector(nil)
+
 func Open(ctx context.Context, target Target, secret string) (Runtime, error) {
+	return defaultConnector(ctx, target, secret)
+}
+
+func connectContainer(ctx context.Context, target Target, _ string) (Runtime, error) {
 	if strings.TrimSpace(target.Directory) == "" {
 		return nil, errors.New("请选择工作目录")
 	}
-	switch target.Kind {
-	case "docker", "container":
-		return openContainer(ctx, target)
-	case "remote":
-		return openSSH(ctx, target, secret)
-	default:
-		return nil, errors.New("不支持的工作区类型")
+	rt, err := openContainer(ctx, target)
+	if err != nil {
+		return nil, err
 	}
+	return rt, nil
+}
+
+func connectSSH(ctx context.Context, target Target, secret string) (Runtime, error) {
+	if strings.TrimSpace(target.Directory) == "" {
+		return nil, errors.New("请选择工作目录")
+	}
+	rt, err := openSSH(ctx, target, secret)
+	if err != nil {
+		return nil, err
+	}
+	return rt, nil
 }
 
 type expectedWrite struct{ Path, Version string }

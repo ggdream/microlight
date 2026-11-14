@@ -131,6 +131,7 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 		}
 	}
 	secret := app.workspaceSecrets[target.Credential]
+	connect := app.openWorkspace
 	ctx = localtools.WithAccess(ctx, access)
 	ctx = context.WithValue(ctx, interfaceContextKey{}, chat.interfaceRequest())
 	if record := reply.resumeCommand; record != nil {
@@ -169,7 +170,7 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 			})
 			return nil
 		}
-		agent := PersonalAgent{backend: backend, target: target, access: access, secret: secret, browser: browser, computer: computer}
+		agent := PersonalAgent{backend: backend, target: target, access: access, secret: secret, browser: browser, computer: computer, connect: connect}
 		question, err := agent.run(ctx, store, sessionID, input, resume, answer, emit)
 		var saved []savedRemoteCommand
 		if store != nil && target.Kind != "" {

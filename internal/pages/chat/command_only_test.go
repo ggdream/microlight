@@ -36,8 +36,11 @@ func (s *commandOnlyShell) StartCommand(_ context.Context, request *backgroundsh
 	return commandOnlyRun{}, nil
 }
 
-func (*commandOnlyShell) RecoverCommand(context.Context, *backgroundshell.RecoverCommandRequest) (backgroundtool.Run, error) {
-	return nil, errors.New("unexpected recover call")
+func (s *commandOnlyShell) RecoverCommand(_ context.Context, request *backgroundshell.RecoverCommandRequest) (backgroundtool.Run, error) {
+	if request.TaskID != s.started || request.Command != "printf selected-executor" {
+		return nil, errors.New("unexpected recover call")
+	}
+	return commandOnlyRun{}, nil
 }
 
 type commandOnlyRun struct{}
@@ -93,13 +96,26 @@ func TestCommandOnlyExecutorRunsThroughApproval(t *testing.T) {
 	}
 	defer store.Close()
 	driver := &commandOnlyShell{}
-	agent := PersonalAgent{
-		backend: newChat(modelSettings{Protocol: openAIChat, BaseURL: model.URL, Model: "test"}),
-		target:  workspace.Target{Kind: "remote", Directory: "/workspace"},
-		access:  localtools.NewAccess("", localtools.Ask),
-		connect: func(context.Context, workspace.Target, string) (workspace.Runtime, error) {
+	target := workspace.Target{Kind: "test-vm", Resource: "workspace-42"}
+	connections := 0
+	connect, err := workspace.NewConnector(map[string]workspace.ConnectFunc{
+		target.Kind: func(_ context.Context, selected workspace.Target, secret string) (workspace.Runtime, error) {
+			if selected != target || secret != "test-session-secret" {
+				return nil, errors.New("wrong connector target or credential")
+			}
+			connections++
 			return commandOnlyRuntime{commands: driver}, nil
 		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	agent := PersonalAgent{
+		backend: newChat(modelSettings{Protocol: openAIChat, BaseURL: model.URL, Model: "test"}),
+		target:  target,
+		access:  localtools.NewAccess("", localtools.Ask),
+		secret:  "test-session-secret",
+		connect: connect,
 	}
 	sessionID := newID()
 	emit := func(replyDelta) error { return nil }
@@ -111,5 +127,14 @@ func TestCommandOnlyExecutorRunsThroughApproval(t *testing.T) {
 	next, err := agent.run(t.Context(), store, sessionID, nil, approval, localtools.AllowOnce, emit)
 	if err != nil || next != nil || driver.started != wantID {
 		t.Fatalf("approval result: %+v, %v, task %q, want %q", next, err, driver.started, wantID)
+	}
+	if connections != 2 {
+		t.Fatalf("connector opened %d times across approval, want 2", connections)
+	}
+	outcome, err := localtools.RecoverRemoteCommand(t.Context(), func(ctx context.Context) (workspace.Runtime, error) {
+		return connect(ctx, target, agent.secret)
+	}, localtools.RemoteCommand{ID: wantID, Command: "printf selected-executor"}, false)
+	if err != nil || outcome.Status != backgroundtask.StatusCompleted || connections != 3 {
+		t.Fatalf("reconnected command: %+v, %v, connections %d", outcome, err, connections)
 	}
 }

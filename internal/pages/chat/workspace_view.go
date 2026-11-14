@@ -92,8 +92,11 @@ func (app *chatApp) workspaceDialog(c *ui.Context) {
 		app.closeWorkspaceForm()
 		return
 	}
-	title, glyph := locales.WorkspaceSSHTitle(), "desktop_signal"
-	if f.kind == "container" {
+	title, glyph := f.target.Label(), "folder"
+	switch f.kind {
+	case "remote":
+		title, glyph = locales.WorkspaceSSHTitle(), "desktop_signal"
+	case "docker", "container":
 		title, glyph = locales.WorkspaceDockerTitle(), "cube"
 	}
 	_, windowHeight := c.Size()
@@ -114,7 +117,9 @@ func (app *chatApp) workspaceDialog(c *ui.Context) {
 				if f.chat != nil {
 					settings.Card(body.Key("summary"), locales.WorkspaceConnection(), func() {
 						ui.Text(body, f.target.Label()).FontSize(13).FontWeight(620)
-						ui.Text(body, f.target.Directory).FontSize(12).TextColor(muted).Selectable()
+						if f.target.Directory != "" {
+							ui.Text(body, f.target.Directory).FontSize(12).TextColor(muted).Selectable()
+						}
 					})
 					if f.kind == "remote" {
 						settings.Card(body.Key("auth"), locales.WorkspaceAuthentication(), func() {
@@ -445,7 +450,7 @@ func (app *chatApp) connectWorkspace(f *workspaceForm) {
 		}
 		if err == nil {
 			var runtime workspace.Runtime
-			runtime, err = workspace.Open(ctx, target, secret)
+			runtime, err = app.openWorkspace(ctx, target, secret)
 			if err == nil {
 				_ = runtime.Close()
 			}

@@ -392,6 +392,7 @@ func (app *chatApp) recoverRemoteCommands(chat *conversation, entry *turn, ordin
 	entry.recoveringRemote = true
 	entry.Error = ""
 	target, store := chat.target, app.store
+	open := app.openWorkspace
 	chatID, branch := chat.ID, chat.branchID
 	turnCount := len(chat.Turns)
 	secret := app.workspaceSecrets[target.Credential]
@@ -404,7 +405,7 @@ func (app *chatApp) recoverRemoteCommands(chat *conversation, entry *turn, ordin
 		defer stopMonitor(nil)
 		ctx, cancel := context.WithTimeout(monitor, 3*time.Minute)
 		defer cancel()
-		connect := func(ctx context.Context) (workspace.Runtime, error) { return workspace.Open(ctx, target, secret) }
+		connect := func(ctx context.Context) (workspace.Runtime, error) { return open(ctx, target, secret) }
 		var failure error
 		for _, record := range records {
 			if record.outcome != nil {
