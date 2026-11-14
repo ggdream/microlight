@@ -33,27 +33,22 @@ func (e *workspaceConnectionError) Unwrap() error { return e.cause }
 func (agent PersonalAgent) run(ctx context.Context, store harness.Store, sessionID string, input []*turn, resume *clarification, answer string, emit func(replyDelta) error) (*clarification, error) {
 	browser := agent.browser
 	computer := agent.computer
-	var executor workspace.Runtime
+	open := agent.connect
+	if open == nil {
+		open = workspace.Open
+		if agent.target.Kind == "" {
+			native := localtools.LocalRuntime{
+				Directory:     localtools.Workspace(ctx, agent.backend.config.Workspace),
+				BrowserDriver: browser.driver, DesktopDriver: computer.driver,
+			}
+			open = func(context.Context, workspace.Target, string) (workspace.Runtime, error) { return native, nil }
+		}
+	}
 	probe, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	if agent.target.Kind == "" {
-		directory := localtools.Workspace(ctx, agent.backend.config.Workspace)
-		executor = localtools.LocalRuntime{Directory: directory, BrowserDriver: browser.driver, DesktopDriver: computer.driver}
-	} else {
-		browser = browserBinding{}
-		computer = computerBinding{}
-		open := agent.connect
-		if open == nil {
-			open = workspace.Open
-		}
-		runtime, err := open(probe, agent.target, agent.secret)
-		if err != nil {
-			return nil, &workspaceConnectionError{agent.target, err}
-		}
-		executor = runtime
-		ctx = localtools.WithWorkspaceReconnect(ctx, func(ctx context.Context) (workspace.Runtime, error) {
-			return open(ctx, agent.target, agent.secret)
-		})
+	executor, err := open(probe, agent.target, agent.secret)
+	if err != nil {
+		return nil, &workspaceConnectionError{agent.target, err}
 	}
 	defer executor.Close()
 	ops, err := workspace.DiscoverOperations(probe, executor)
@@ -62,7 +57,11 @@ func (agent PersonalAgent) run(ctx context.Context, store harness.Store, session
 		return nil, &workspaceConnectionError{agent.target, err}
 	}
 	ctx = localtools.WithRuntime(ctx, agent.access, executor, agent.target, ops)
-	if agent.target.Kind != "" {
+	if _, native := executor.(localtools.LocalRuntime); !native {
+		ctx = localtools.WithWorkspaceReconnect(ctx, func(ctx context.Context) (workspace.Runtime, error) {
+			return open(ctx, agent.target, agent.secret)
+		})
+		browser, computer = browserBinding{}, computerBinding{}
 		if ops.Files != nil {
 			ctx = workspace.WithRuntimeInstructions(ctx, ops.Files, agent.target.Directory)
 		}

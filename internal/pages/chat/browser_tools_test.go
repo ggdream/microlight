@@ -183,10 +183,12 @@ func TestSelectedEnvironmentDeterminesOfferedTools(t *testing.T) {
 	for _, tc := range []struct {
 		runtime          workspace.Runtime
 		browser, desktop bool
+		hostSelected     bool
 	}{
 		{runtime: restrictedRuntime{}},
 		{runtime: browserOnlyRuntime{driver: &approvalBrowser{}}, browser: true},
 		{runtime: desktopOnlyRuntime{}, desktop: true},
+		{runtime: browserOnlyRuntime{driver: &approvalBrowser{}}, browser: true, hostSelected: true},
 		{runtime: declaredInteractiveRuntime{
 			browserOnlyRuntime: browserOnlyRuntime{driver: &approvalBrowser{}},
 			capabilities:       workspace.ComputerCapabilities{ListWindows: true},
@@ -197,6 +199,10 @@ func TestSelectedEnvironmentDeterminesOfferedTools(t *testing.T) {
 		}, desktop: true},
 	} {
 		selectedBrowser, selectedDesktop = tc.browser, tc.desktop
+		agent.target = workspace.Target{Kind: "remote", Directory: "/workspace"}
+		if tc.hostSelected {
+			agent.target = workspace.Target{}
+		}
 		agent.connect = func(context.Context, workspace.Target, string) (workspace.Runtime, error) {
 			return tc.runtime, nil
 		}

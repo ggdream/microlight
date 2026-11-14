@@ -16,6 +16,10 @@ func TestRemoteWorkspaceDoesNotUseHostProjectPath(t *testing.T) {
 	if path := Workspace(ctx, host); path != "" {
 		t.Fatalf("remote session exposed a host project path: %q", path)
 	}
+	ctx = WithRuntime(t.Context(), NewAccess(host, Ask), nil, workspace.Target{}, workspace.Operations{})
+	if path := Workspace(ctx, host); path != "" {
+		t.Fatalf("custom executor exposed a host project path: %q", path)
+	}
 }
 
 func TestPermissionModesKeepSymlinkEscapesAndOverwritesBehindApproval(t *testing.T) {

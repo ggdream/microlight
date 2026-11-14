@@ -83,6 +83,11 @@ type runtimeAccess struct {
 	operations project.Operations
 }
 
+func (r runtimeAccess) usesHostFiles() bool {
+	_, native := r.runtime.(LocalRuntime)
+	return r.target.Kind == "" && native
+}
+
 func (a *Access) SetMode(mode Mode) {
 	a.mode.Store(mode.Normalized())
 }
@@ -98,7 +103,7 @@ func WithAccess(ctx context.Context, access *Access) context.Context {
 }
 
 func Workspace(ctx context.Context, fallback string) string {
-	if selected, ok := ctx.Value(runtimeAccessKey{}).(runtimeAccess); ok && selected.target.Kind != "" {
+	if selected, ok := ctx.Value(runtimeAccessKey{}).(runtimeAccess); ok && !selected.usesHostFiles() {
 		return ""
 	}
 	if access, ok := ctx.Value(sessionAccessKey{}).(*Access); ok {
@@ -152,10 +157,10 @@ func (h Middleware) ChatModelAgentMiddlewareName() string {
 }
 
 func (h Middleware) BeforeAgent(ctx context.Context, run *adk.ChatModelAgentContext[*schema.AgenticMessage]) (context.Context, *adk.ChatModelAgentContext[*schema.AgenticMessage], error) {
-	if remote, ok := ctx.Value(runtimeAccessKey{}).(runtimeAccess); ok && remote.target.Kind != "" {
+	if remote, ok := ctx.Value(runtimeAccessKey{}).(runtimeAccess); ok && !remote.usesHostFiles() {
 		updated := *run
 		env := remote.runtime.Environment()
-		updated.Instruction += fmt.Sprintf("\nAvailable file, shell, browser and desktop tools operate in the selected %s execution environment (directory %q, OS %q, architecture %q, shell %q). Web fetch and configured MCP are managed by Microlight.", remote.target.Kind, remote.target.Directory, env.OS, env.Arch, env.Shell)
+		updated.Instruction += fmt.Sprintf("\nAvailable file, shell, browser and desktop tools operate in the selected execution environment (directory %q, OS %q, architecture %q, shell %q). Web fetch and configured MCP are managed by Microlight.", remote.target.Directory, env.OS, env.Arch, env.Shell)
 		return ctx, &updated, nil
 	}
 	workspace := Workspace(ctx, h.Workspace)
@@ -233,7 +238,7 @@ func (h Middleware) WrapInvokableToolCall(_ context.Context, next adk.InvokableT
 		} else if !isMCP {
 			var err error
 			selected, connected := ctx.Value(runtimeAccessKey{}).(runtimeAccess)
-			if connected && selected.target.Kind != "" && call.Name != Fetch {
+			if connected && !selected.usesHostFiles() && call.Name != Fetch {
 				op, err = resolveRuntime(ctx, selected, call.Name, args)
 			} else {
 				op, err = policy.resolve(call.Name, args)
@@ -241,7 +246,7 @@ func (h Middleware) WrapInvokableToolCall(_ context.Context, next adk.InvokableT
 			if err != nil {
 				return "无法执行：" + err.Error(), nil
 			}
-			if connected && selected.target.Kind == "" && call.Name != Fetch {
+			if connected && selected.usesHostFiles() && call.Name != Fetch {
 				op.runtime, op.operations = selected.runtime, selected.operations
 			}
 		}

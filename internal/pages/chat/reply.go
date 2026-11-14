@@ -133,6 +133,10 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 	}
 	secret := app.workspaceSecrets[target.Credential]
 	connect := app.workspaceConnector()
+	if target.Kind == "" {
+		native := localtools.LocalRuntime{Directory: chat.workspace, BrowserDriver: browser.driver, DesktopDriver: computer.driver}
+		connect = func(context.Context, workspace.Target, string) (workspace.Runtime, error) { return native, nil }
+	}
 	ctx = localtools.WithAccess(ctx, access)
 	ctx = context.WithValue(ctx, interfaceContextKey{}, chat.interfaceRequest())
 	if record := reply.resumeCommand; record != nil {
