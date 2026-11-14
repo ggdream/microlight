@@ -590,14 +590,17 @@ func resolveRuntime(ctx context.Context, access runtimeAccess, name, raw string)
 		return op, err
 	}
 	identity := access.target.Identity()
+	journal := commandExecutorID(access.runtime)
 	if session, ok := access.runtime.(project.ComputerSession); ok {
 		identity += "/" + session.ComputerSessionID()
+	} else if journal != "" {
+		identity += "/" + journal
 	}
 	if name == Execute {
 		if strings.TrimSpace(args.Command) == "" || len(args.Command) > maxLocalWrite || strings.ContainsRune(args.Command, 0) {
 			return op, errors.New("需要有效的命令，且不能超过 16 KiB")
 		}
-		if journal := commandExecutorID(access.runtime); journal != "" {
+		if journal != "" {
 			identity = access.target.Identity() + "/" + journal
 		}
 		op.target, op.content, op.fileVersion = access.target.Directory, args.Command, identity

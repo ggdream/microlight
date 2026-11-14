@@ -28,6 +28,14 @@ type runtimeWithoutCommandRecovery struct {
 	workspace.CommandSession
 }
 
+type runtimeFileApprovalFixture struct {
+	workspace.Runtime
+	workspace.ResolvedFileSystem
+	journal string
+}
+
+func (r runtimeFileApprovalFixture) CommandSessionID() string { return r.journal }
+
 func (runtimeWithoutCommandRecovery) Execute(context.Context, *filesystem.ExecuteRequest) (*filesystem.ExecuteResponse, error) {
 	return nil, errors.New("saved command result must not execute again")
 }
@@ -254,6 +262,26 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 				t.Fatalf("stale approval was not rejected: %q", toolResponse)
 			}
 			read("external edit")
+			func() {
+				originalAgent := agent
+				defer func() { agent = originalAgent }()
+				journal := "original"
+				agent.connect = func(ctx context.Context, target workspace.Target, secret string) (workspace.Runtime, error) {
+					rt, err := workspace.Open(ctx, target, secret)
+					if err != nil {
+						return nil, err
+					}
+					return runtimeFileApprovalFixture{rt, rt.(workspace.ResolvedFileSystem), journal}, nil
+				}
+				arguments["content"] = "unapproved on replacement"
+				id, approval := start()
+				journal = "replacement"
+				resume(id, approval, localtools.AllowOnce)
+				if !strings.Contains(toolResponse, "操作目标已变化") {
+					t.Fatalf("replacement executor approval was not rejected: %q", toolResponse)
+				}
+				read("external edit")
+			}()
 			toolName, arguments = localtools.Execute, map[string]string{"command": command}
 			id, q = start()
 			read("external edit")
