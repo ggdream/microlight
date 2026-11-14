@@ -3,6 +3,7 @@ package workspace
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
@@ -21,7 +22,7 @@ const desktopPath = "/v1/desktop/"
 const desktopSessionHeader = "Microlight-Desktop-Session"
 
 type desktopRequest struct {
-	X, Y int
+	X, Y *int
 	Text string
 }
 
@@ -34,8 +35,11 @@ type desktopInfo struct {
 // sessionID. The process running it owns the native driver.
 func DesktopHandler(driver ComputerDriver, sessionID, token string) http.Handler {
 	gate := make(chan struct{}, 1)
+	auth := sha256.Sum256([]byte("Bearer " + token))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if len(token) < 32 || subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+token)) != 1 {
+		w.Header().Set("Cache-Control", "no-store")
+		provided := sha256.Sum256([]byte(r.Header.Get("Authorization")))
+		if len(token) < 32 || subtle.ConstantTimeCompare(provided[:], auth[:]) != 1 {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -44,7 +48,11 @@ func DesktopHandler(driver ComputerDriver, sessionID, token string) http.Handler
 			return
 		}
 		method, ok := strings.CutPrefix(r.URL.Path, desktopPath)
-		if !ok || (method != "info" && r.Header.Get(desktopSessionHeader) != sessionID) {
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		if method != "info" && r.Header.Get(desktopSessionHeader) != sessionID {
 			http.Error(w, "desktop session changed", http.StatusConflict)
 			return
 		}
@@ -58,23 +66,36 @@ func DesktopHandler(driver ComputerDriver, sessionID, token string) http.Handler
 			return
 		}
 		var args desktopRequest
-		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 128<<10)).Decode(&args); err != nil {
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 128<<10))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&args); err != nil || decoder.Decode(new(any)) != io.EOF ||
+			(method == "click" && (args.X == nil || args.Y == nil)) {
 			http.Error(w, "invalid desktop arguments", http.StatusBadRequest)
 			return
 		}
+		caps, err := driver.GetCapabilities(ctx)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+			return
+		}
+		if method != "info" && !desktopOperationAvailable(caps, method) {
+			http.Error(w, "desktop operation unavailable", http.StatusForbidden)
+			return
+		}
+		if ctx.Err() != nil {
+			http.Error(w, "desktop request expired", http.StatusRequestTimeout)
+			return
+		}
 		var result any
-		var err error
 		switch method {
 		case "info":
-			var caps ComputerCapabilities
-			caps, err = driver.GetCapabilities(ctx)
 			result = desktopInfo{SessionID: sessionID, Capabilities: caps}
 		case "screenshot":
 			result, err = driver.Screenshot(ctx)
 		case "windows":
 			result, err = driver.ListWindows(ctx)
 		case "click":
-			err = driver.Click(ctx, args.X, args.Y)
+			err = driver.Click(ctx, *args.X, *args.Y)
 		case "text":
 			err = driver.TypeText(ctx, args.Text)
 		case "key":
@@ -88,9 +109,24 @@ func DesktopHandler(driver ComputerDriver, sessionID, token string) http.Handler
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Cache-Control", "no-store")
 		_ = json.NewEncoder(w).Encode(result)
 	})
+}
+
+func desktopOperationAvailable(caps ComputerCapabilities, method string) bool {
+	switch method {
+	case "screenshot":
+		return caps.Screenshot
+	case "windows":
+		return caps.ListWindows
+	case "click":
+		return caps.Click
+	case "text":
+		return caps.TypeText
+	case "key":
+		return caps.PressKey
+	}
+	return false
 }
 
 type remoteDesktop struct {
@@ -152,6 +188,9 @@ func (d *remoteDesktop) call(ctx context.Context, method string, args desktopReq
 	req.Header.Set(desktopSessionHeader, d.info.SessionID)
 	resp, err := d.client.Do(req)
 	if err != nil {
+		if result == nil {
+			return fmt.Errorf("desktop input outcome unknown: %w", err)
+		}
 		return err
 	}
 	defer resp.Body.Close()
@@ -160,8 +199,10 @@ func (d *remoteDesktop) call(ctx context.Context, method string, args desktopReq
 		return fmt.Errorf("desktop executor returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(detail)))
 	}
 	if result == nil {
-		_, err := io.Copy(io.Discard, io.LimitReader(resp.Body, 64))
-		return err
+		if _, err := io.Copy(io.Discard, io.LimitReader(resp.Body, 64)); err != nil {
+			return fmt.Errorf("desktop input outcome unknown: %w", err)
+		}
+		return nil
 	}
 	const limit = 48 << 20
 	body, err = io.ReadAll(io.LimitReader(resp.Body, limit+1))
@@ -190,7 +231,7 @@ func (d *remoteDesktop) ListWindows(ctx context.Context) (windows []WindowInfo, 
 	return
 }
 func (d *remoteDesktop) Click(ctx context.Context, x, y int) error {
-	return d.call(ctx, "click", desktopRequest{X: x, Y: y}, nil)
+	return d.call(ctx, "click", desktopRequest{X: &x, Y: &y}, nil)
 }
 func (d *remoteDesktop) TypeText(ctx context.Context, text string) error {
 	return d.call(ctx, "text", desktopRequest{Text: text}, nil)
