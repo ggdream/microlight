@@ -64,6 +64,7 @@ type containerRuntime struct {
 	target Target
 	engine containerCLI
 	env    Environment
+	files  bool
 	jobs   bool
 }
 
@@ -93,7 +94,7 @@ func openContainer(ctx context.Context, target Target) (*containerRuntime, error
 		}
 	}
 	d.posixFiles = posixFiles{directory: target.Directory, command: d.command}
-	out, err := d.command(ctx, posixFileProbe+"; uname -sm", "")
+	out, err := d.runCommandControl(ctx, "uname -sm")
 	if err != nil {
 		return nil, err
 	}
@@ -102,9 +103,14 @@ func openContainer(ctx context.Context, target Target) (*containerRuntime, error
 		return nil, errors.New("容器需要 Linux 和 /bin/sh")
 	}
 	d.env.Arch = parts[1]
+	_, fileErr := d.command(ctx, posixFileProbe, "")
+	d.files = fileErr == nil
 	d.jobs = supportsRemoteCommands(ctx, d.runCommandControl)
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	if !d.files && !d.jobs {
+		return nil, fileErr
 	}
 	return d, nil
 }
@@ -117,16 +123,22 @@ func (d *containerRuntime) Commands() backgroundshell.RecoverableShell {
 }
 
 func (d *containerRuntime) runCommandControl(ctx context.Context, script string) (string, error) {
-	return d.command(ctx, script, "")
+	return d.commandAt(ctx, "/", script, "")
 }
 
 func (d *containerRuntime) Environment() Environment { return d.env }
 func (d *containerRuntime) Close() error             { return nil }
+func (d *containerRuntime) GetCapabilities(ctx context.Context) (Capabilities, error) {
+	return Capabilities{Files: d.files, Shell: true, RecoverableShell: d.jobs}, ctx.Err()
+}
 func (d *containerRuntime) args(script string) []string {
-	return []string{"exec", "-i", "-w", d.target.Directory, d.target.Container, "/bin/sh", "-c", script}
+	return []string{"exec", "-i", "-w", "/", d.target.Container, "/bin/sh", "-c", script}
 }
 func (d *containerRuntime) command(ctx context.Context, script, input string) (string, error) {
-	out, stderr, truncated, err := d.engine.run(ctx, strings.NewReader(input), d.args(script)...)
+	return d.commandAt(ctx, d.target.Directory, script, input)
+}
+func (d *containerRuntime) commandAt(ctx context.Context, directory, script, input string) (string, error) {
+	out, stderr, truncated, err := d.engine.run(ctx, strings.NewReader(input), d.args("cd "+quotePOSIX(directory)+" || exit 125\n"+script)...)
 	if err != nil {
 		return "", fmt.Errorf("容器操作失败: %w %s", err, strings.TrimSpace(stderr))
 	}
@@ -139,7 +151,7 @@ func (d *containerRuntime) command(ctx context.Context, script, input string) (s
 func (d *containerRuntime) Execute(ctx context.Context, req *filesystem.ExecuteRequest) (*filesystem.ExecuteResponse, error) {
 	deadline, cancel := commandContext(ctx, req)
 	defer cancel()
-	out, stderr, truncated, err := d.engine.run(deadline, nil, d.args(req.Command)...)
+	out, stderr, truncated, err := d.engine.run(deadline, nil, d.args("cd "+quotePOSIX(d.target.Directory)+" || exit 125\n"+req.Command)...)
 	if deadline.Err() != nil {
 		return nil, fmt.Errorf("容器命令结果未知: %w", deadline.Err())
 	}

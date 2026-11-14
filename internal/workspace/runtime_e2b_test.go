@@ -56,8 +56,12 @@ func TestE2BCommandTransport(t *testing.T) {
 				}
 				Stdin bool
 			}
+			directory := "/home/user"
+			if calls >= 3 && calls <= 6 {
+				directory = "/"
+			}
 			if err := json.Unmarshal(body[5:], &start); err != nil || start.Process.Cmd != "/bin/sh" ||
-				start.Process.Cwd != "/home/user" || len(start.Process.Args) != 2 || start.Process.Args[0] != "-c" || start.Stdin {
+				start.Process.Cwd != directory || len(start.Process.Args) != 2 || start.Process.Args[0] != "-c" || start.Stdin {
 				return nil, fmt.Errorf("invalid process I/O: %s", body[5:])
 			}
 			switch calls {

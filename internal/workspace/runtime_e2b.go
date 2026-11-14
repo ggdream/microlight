@@ -92,7 +92,7 @@ func openE2B(ctx context.Context, target Target, key string, client *http.Client
 	}
 	rt := &e2bRuntime{client: client, target: target, endpoint: "https://49983-" + target.Resource + "." + domain, token: info.EnvdAccessToken}
 	rt.posixFiles = posixFiles{directory: target.Directory, command: rt.fileCommand}
-	_, fileErr := rt.control(ctx, posixFileProbe+"; command -v base64 >/dev/null")
+	_, fileErr := rt.fileCommand(ctx, posixFileProbe+"; command -v base64 >/dev/null", "")
 	rt.files = fileErr == nil
 	rt.jobs = supportsRemoteCommands(ctx, rt.control)
 	if err := ctx.Err(); err != nil {
@@ -126,12 +126,16 @@ func (r *e2bRuntime) fileCommand(ctx context.Context, script, input string) (str
 			"printf '%s' " + quotePOSIX(encoded) + " | base64 -d > \"$input\" || exit; " +
 			"( " + script + " ) < \"$input\""
 	}
-	return r.control(ctx, script)
+	return r.process(ctx, r.target.Directory, script)
 }
 
 func (r *e2bRuntime) control(ctx context.Context, script string) (string, error) {
+	return r.process(ctx, "/", script)
+}
+
+func (r *e2bRuntime) process(ctx context.Context, directory, script string) (string, error) {
 	body, err := json.Marshal(map[string]any{
-		"process": map[string]any{"cmd": "/bin/sh", "args": []string{"-c", script}, "cwd": r.target.Directory},
+		"process": map[string]any{"cmd": "/bin/sh", "args": []string{"-c", script}, "cwd": directory},
 		"stdin":   false,
 	})
 	if err != nil {

@@ -41,6 +41,52 @@ func TestDockerCommandLifecycle(t *testing.T) {
 		return rt
 	}
 	testCommandLifecycle(t, ctx, connect)
+	t.Run("RecoverWithoutWorkingDirectory", func(t *testing.T) {
+		rt := connect().(*containerRuntime)
+		id := uuid.NewV7().String()
+		target := rt.target
+		target.Directory = "/tmp/microlight-" + id
+		if _, err := rt.runCommandControl(ctx, "mkdir "+quotePOSIX(target.Directory)); err != nil {
+			t.Fatal(err)
+		}
+		open := func() Runtime {
+			t.Helper()
+			runtime, err := Open(ctx, target, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { runtime.Close() })
+			return runtime
+		}
+		commands := open().(CommandProvider).Commands()
+		command := "printf original"
+		run, err := commands.StartCommand(ctx, &backgroundshell.StartCommandRequest{TaskID: id, Command: command})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := run.Wait(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := rt.runCommandControl(ctx, "rmdir "+quotePOSIX(target.Directory)); err != nil {
+			t.Fatal(err)
+		}
+		ops, err := DiscoverOperations(ctx, open())
+		if err != nil || ops.Files != nil || ops.Commands == nil {
+			t.Fatalf("capabilities after removing working directory: %+v, %v", ops.Capabilities, err)
+		}
+		run, err = ops.Commands.RecoverCommand(ctx, &backgroundshell.RecoverCommandRequest{TaskID: id, Command: command})
+		if err != nil {
+			t.Fatal(err)
+		}
+		outcome, err := run.Wait(ctx)
+		if err != nil || outcome.Status != backgroundtask.StatusCompleted {
+			t.Fatalf("recovered outcome = %+v, %v", outcome, err)
+		}
+		var result filesystem.ExecuteResponse
+		if err := json.Unmarshal(outcome.Data, &result); err != nil || result.Output != "original" {
+			t.Fatalf("recovered result = %+v, %v", result, err)
+		}
+	})
 }
 
 func TestSSHCommandLifecycle(t *testing.T) {
