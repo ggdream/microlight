@@ -30,6 +30,7 @@ type desktopCommandRequest struct {
 }
 
 const desktopCommandMissing = "command-task-not-found"
+const desktopCommandLease = 5 * time.Second
 
 type desktopCommandStore struct {
 	db     *sql.DB
@@ -66,6 +67,9 @@ func newDesktopCommandStore(name string) (*desktopCommandStore, error) {
 		);
 		CREATE TABLE IF NOT EXISTS command_stops (
 			id TEXT PRIMARY KEY REFERENCES commands(id), requested_at INTEGER NOT NULL
+		);
+		CREATE TABLE IF NOT EXISTS command_leases (
+			id TEXT PRIMARY KEY REFERENCES commands(id), expires_at INTEGER NOT NULL
 		)`); err != nil {
 		db.Close()
 		return nil, err
@@ -142,7 +146,9 @@ func (s *desktopCommandStore) command(ctx context.Context, method, id, signature
 func (s *desktopCommandStore) commandLocked(ctx context.Context, method, id, signature, command string, timeout time.Duration, directory func() (string, error)) (*backgroundtool.Outcome, bool, error) {
 	var savedSignature string
 	var data []byte
-	err := s.db.QueryRowContext(ctx, "SELECT signature, outcome FROM commands WHERE id=?", id).Scan(&savedSignature, &data)
+	var expiresAt int64
+	err := s.db.QueryRowContext(ctx, `SELECT signature, outcome, COALESCE(expires_at, 0)
+		FROM commands LEFT JOIN command_leases USING (id) WHERE commands.id=?`, id).Scan(&savedSignature, &data, &expiresAt)
 	switch {
 	case err == nil:
 		if savedSignature != signature {
@@ -165,17 +171,7 @@ func (s *desktopCommandStore) commandLocked(ctx context.Context, method, id, sig
 			// durably requested, but only the owner can confirm its outcome.
 			return nil, false, nil
 		}
-		if !running {
-			if method == "status" {
-				var requested int64
-				err := s.db.QueryRowContext(ctx, "SELECT requested_at FROM command_stops WHERE id=?", id).Scan(&requested)
-				if err == nil && time.Since(time.UnixMilli(requested)) < 5*time.Second {
-					return nil, false, nil
-				}
-				if err != nil && !errors.Is(err, sql.ErrNoRows) {
-					return nil, false, err
-				}
-			}
+		if !running && expiresAt <= time.Now().UnixMilli() {
 			return nil, false, errors.New("desktop command outcome is unknown")
 		}
 		return nil, false, nil
@@ -216,17 +212,30 @@ func (s *desktopCommandStore) commandLocked(ctx context.Context, method, id, sig
 }
 
 func (s *desktopCommandStore) claim(ctx context.Context, id, signature string, outcome []byte) (bool, error) {
-	result, err := s.db.ExecContext(ctx, "INSERT INTO commands VALUES (?, ?, ?) ON CONFLICT(id) DO NOTHING", id, signature, outcome)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+	result, err := tx.ExecContext(ctx, "INSERT INTO commands VALUES (?, ?, ?) ON CONFLICT(id) DO NOTHING", id, signature, outcome)
 	if err != nil {
 		return false, err
 	}
 	rows, err := result.RowsAffected()
-	return rows == 1, err
+	if err != nil || rows == 0 {
+		return false, err
+	}
+	if outcome == nil {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO command_leases VALUES (?, ?)", id, time.Now().Add(desktopCommandLease).UnixMilli()); err != nil {
+			return false, err
+		}
+	}
+	return true, tx.Commit()
 }
 
 func (s *desktopCommandStore) run(ctx context.Context, cancel context.CancelFunc, id, dir, command string) {
 	defer cancel()
-	go s.watchStop(ctx, cancel, id)
+	go s.monitorCommand(ctx, cancel, id)
 	outcome := runDesktopCommand(ctx, dir, command)
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -236,9 +245,12 @@ func (s *desktopCommandStore) run(ctx context.Context, cancel context.CancelFunc
 		// A failed save leaves the launch claim in place.
 		_, _ = s.db.Exec("UPDATE commands SET outcome=? WHERE id=?", data, id)
 	}
+	_, _ = s.db.Exec("DELETE FROM command_leases WHERE id=?", id)
 }
 
-func (s *desktopCommandStore) watchStop(ctx context.Context, cancel context.CancelFunc, id string) {
+// A lease lets other instances observe a live owner. Expiry never lets
+// another instance launch the same task.
+func (s *desktopCommandStore) monitorCommand(ctx context.Context, cancel context.CancelFunc, id string) {
 	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
 	for {
@@ -247,6 +259,7 @@ func (s *desktopCommandStore) watchStop(ctx context.Context, cancel context.Canc
 			cancel()
 			return
 		}
+		_, _ = s.db.ExecContext(ctx, "UPDATE command_leases SET expires_at=? WHERE id=?", time.Now().Add(desktopCommandLease).UnixMilli(), id)
 		select {
 		case <-ctx.Done():
 			return

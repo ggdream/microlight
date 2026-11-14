@@ -171,6 +171,9 @@ func TestDesktopCommandReconnect(t *testing.T) {
 	if _, err := store.db.Exec("INSERT INTO commands VALUES (?, ?, NULL)", abandonedID, signature); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := store.db.Exec("INSERT INTO command_leases VALUES (?, ?)", abandonedID, time.Now().Add(-time.Second).UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := connect(restarted.URL).StartCommand(ctx, &backgroundshell.StartCommandRequest{TaskID: "abandoned", Command: command}); err == nil || !strings.Contains(err.Error(), "outcome is unknown") {
 		t.Fatalf("abandoned launch: %v", err)
 	}
@@ -183,6 +186,14 @@ func TestDesktopCommandReconnect(t *testing.T) {
 			}
 		}
 		other := connect(restarted.URL)
+		if id == "cancel-running" {
+			if _, err := other.RecoverCommand(ctx, request); err != nil {
+				t.Fatalf("could not attach to command owned by another instance: %v", err)
+			}
+			if _, err := other.StartCommand(ctx, start); err != nil {
+				t.Fatalf("could not acknowledge duplicate start of running command: %v", err)
+			}
+		}
 		run, err := other.(CommandStopper).StopCommand(ctx, request)
 		if err != nil {
 			t.Fatal(err)
