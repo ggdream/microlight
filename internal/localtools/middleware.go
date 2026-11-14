@@ -149,7 +149,7 @@ func (h Middleware) BeforeAgent(ctx context.Context, run *adk.ChatModelAgentCont
 	if remote, ok := ctx.Value(runtimeAccessKey{}).(runtimeAccess); ok {
 		updated := *run
 		env := remote.runtime.Environment()
-		updated.Instruction += fmt.Sprintf("\nFile and command tools execute in the selected %s workspace at %q (OS %q, architecture %q, shell %q). Web fetch and configured MCP are managed by Microlight separately.", remote.target.Kind, remote.target.Directory, env.OS, env.Arch, env.Shell)
+		updated.Instruction += fmt.Sprintf("\nAvailable file, shell, browser and desktop tools operate in the selected %s execution environment (directory %q, OS %q, architecture %q, shell %q). Web fetch and configured MCP are managed by Microlight.", remote.target.Kind, remote.target.Directory, env.OS, env.Arch, env.Shell)
 		return ctx, &updated, nil
 	}
 	workspace := Workspace(ctx, h.Workspace)
@@ -560,10 +560,12 @@ func (op localOperation) executeLocalFile(ctx context.Context) (string, *diff.Li
 
 func resolveRuntime(ctx context.Context, access runtimeAccess, name, raw string) (localOperation, error) {
 	op := localOperation{name: name, runtime: access.runtime}
-	if name == Execute && !access.capabilities.Shell {
+	_, hasShell := access.runtime.(filesystem.Shell)
+	files, hasFiles := access.runtime.(project.ResolvedFileSystem)
+	if name == Execute && (!access.capabilities.Shell || !hasShell) {
 		return op, errors.New("所选工作区不支持命令执行")
 	}
-	if name != Execute && !access.capabilities.Files {
+	if name != Execute && (!access.capabilities.Files || !hasFiles) {
 		return op, errors.New("所选工作区不支持文件操作")
 	}
 	var args localArguments
@@ -582,7 +584,7 @@ func resolveRuntime(ctx context.Context, access runtimeAccess, name, raw string)
 		return op, errors.New("请指定路径")
 	}
 	var err error
-	op.target, op.fileVersion, err = access.runtime.Resolve(ctx, args.Path, name == Write)
+	op.target, op.fileVersion, err = files.Resolve(ctx, args.Path, name == Write)
 	if err != nil {
 		return op, err
 	}
@@ -592,7 +594,7 @@ func resolveRuntime(ctx context.Context, access runtimeAccess, name, raw string)
 		}
 		op.content, op.exists = *args.Content, op.fileVersion != "missing"
 	}
-	root, _, err := access.runtime.Resolve(ctx, access.target.Directory, false)
+	root, _, err := files.Resolve(ctx, access.target.Directory, false)
 	if err != nil {
 		return op, err
 	}
@@ -616,7 +618,8 @@ func resolveRuntime(ctx context.Context, access runtimeAccess, name, raw string)
 }
 
 func (op localOperation) executeRuntime(ctx context.Context) (string, *diff.Lines, error) {
-	target, version, err := op.runtime.Resolve(ctx, op.target, op.name == Write)
+	files := op.runtime.(project.ResolvedFileSystem)
+	target, version, err := files.Resolve(ctx, op.target, op.name == Write)
 	approved, _, _ := strings.Cut(op.fileVersion, "\x00")
 	if err != nil {
 		return "", nil, err
@@ -625,7 +628,7 @@ func (op localOperation) executeRuntime(ctx context.Context) (string, *diff.Line
 		return "", nil, errors.New("操作目标已变化，请重新请求批准")
 	}
 	ctx = project.WithWriteVersion(ctx, target, version)
-	return executeFiles(ctx, op.runtime, op)
+	return executeFiles(ctx, files, op)
 }
 
 func executeFiles(ctx context.Context, backend project.FileSystem, op localOperation) (string, *diff.Lines, error) {

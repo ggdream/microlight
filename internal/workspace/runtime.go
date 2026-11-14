@@ -38,10 +38,14 @@ type FileSystem interface {
 	Write(context.Context, *filesystem.WriteRequest) error
 }
 
-type Runtime interface {
-	filesystem.Shell
+type ResolvedFileSystem interface {
 	FileSystem
 	Resolve(context.Context, string, bool) (path, version string, err error)
+}
+
+// Runtime owns the connection to an execution environment. Its operations
+// are discovered separately.
+type Runtime interface {
 	Environment() Environment
 	Close() error
 }
@@ -87,7 +91,7 @@ func WithWriteVersion(ctx context.Context, path, version string) context.Context
 	return context.WithValue(ctx, expectedWriteKey{}, expectedWrite{path, version})
 }
 
-func writeVersion(ctx context.Context, target Runtime, name string) (string, error) {
+func writeVersion(ctx context.Context, target ResolvedFileSystem, name string) (string, error) {
 	resolved, version, err := target.Resolve(ctx, name, true)
 	if err != nil {
 		return "", err

@@ -46,20 +46,19 @@ func (agent PersonalAgent) run(ctx context.Context, store *localStore, sessionID
 			return nil, &workspaceConnectionError{agent.target, err}
 		}
 		defer runtime.Close()
-		capabilities, err := workspace.DiscoverCapabilities(connect, runtime)
+		ops, err := workspace.DiscoverOperations(connect, runtime)
 		cancel()
 		if err != nil {
 			return nil, &workspaceConnectionError{agent.target, err}
 		}
-		ctx = localtools.WithRuntime(ctx, agent.access, runtime, agent.target, capabilities)
+		ctx = localtools.WithRuntime(ctx, agent.access, runtime, agent.target, ops.Capabilities)
 		ctx = localtools.WithWorkspaceReconnect(ctx, func(ctx context.Context) (workspace.Runtime, error) {
 			return open(ctx, agent.target, agent.secret)
 		})
-		if capabilities.Files {
-			ctx = workspace.WithRuntimeInstructions(ctx, runtime, agent.target.Directory)
+		if ops.Files != nil {
+			ctx = workspace.WithRuntimeInstructions(ctx, ops.Files, agent.target.Directory)
 		}
-		if capabilities.Browser {
-			driver := runtime.(workspace.BrowserProvider).Browser()
+		if driver := ops.Browser; driver != nil {
 			identity := ""
 			if session, ok := driver.(workspace.BrowserSession); ok {
 				identity = session.BrowserSessionID()
@@ -69,13 +68,12 @@ func (agent PersonalAgent) run(ctx context.Context, store *localStore, sessionID
 			}
 			browser = browserBinding{driver: driver, identity: agent.target.Identity() + "/" + identity, label: agent.target.Label()}
 		}
-		if capabilities.Computer != (workspace.ComputerCapabilities{}) {
-			driver := runtime.(workspace.ComputerProvider).Computer()
+		if driver := ops.Computer; ops.Capabilities.Computer != (workspace.ComputerCapabilities{}) {
 			identity := newID()
 			if session, ok := driver.(workspace.ComputerSession); ok && session.ComputerSessionID() != "" {
 				identity = session.ComputerSessionID()
 			}
-			computer = computerBinding{driver: driver, capabilities: capabilities.Computer, identity: agent.target.Identity() + "/" + identity, label: agent.target.Label()}
+			computer = computerBinding{driver: driver, capabilities: ops.Capabilities.Computer, identity: agent.target.Identity() + "/" + identity, label: agent.target.Label()}
 		}
 	} else if computer.driver != nil {
 		capabilities, err := computer.driver.GetCapabilities(ctx)

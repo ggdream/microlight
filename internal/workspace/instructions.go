@@ -30,7 +30,7 @@ func WithRequestedSkills(ctx context.Context, names []string) context.Context {
 
 type workspaceInstructionsKey struct{}
 
-func WithRuntimeInstructions(ctx context.Context, runtime Runtime, directory string) context.Context {
+func WithRuntimeInstructions(ctx context.Context, runtime ResolvedFileSystem, directory string) context.Context {
 	root, _, err := runtime.Resolve(ctx, directory, false)
 	if err != nil {
 		return ctx

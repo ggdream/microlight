@@ -1,6 +1,10 @@
 package workspace
 
-import "context"
+import (
+	"context"
+
+	"github.com/cloudwego/eino/adk/filesystem"
+)
 
 type Image struct {
 	MIMEType string
@@ -79,31 +83,48 @@ type CapabilityProvider interface {
 	GetCapabilities(context.Context) (Capabilities, error)
 }
 
-// DiscoverCapabilities probes the connected executor. Browser and desktop are
+type Operations struct {
+	Capabilities Capabilities
+	Files        ResolvedFileSystem
+	Browser      BrowserDriver
+	Computer     ComputerDriver
+}
+
+// DiscoverOperations probes the connected executor. Browser and desktop are
 // independent, since a browser may be available in a headless environment.
-func DiscoverCapabilities(ctx context.Context, runtime Runtime) (Capabilities, error) {
-	capabilities := Capabilities{Files: true, Shell: true}
+func DiscoverOperations(ctx context.Context, runtime Runtime) (Operations, error) {
+	var ops Operations
+	ops.Files, _ = runtime.(ResolvedFileSystem)
+	_, shell := runtime.(filesystem.Shell)
+	capabilities := &ops.Capabilities
+	capabilities.Files, capabilities.Shell = ops.Files != nil, shell
 	if provider, ok := runtime.(CapabilityProvider); ok {
 		discovered, err := provider.GetCapabilities(ctx)
 		if err != nil {
-			return Capabilities{}, err
+			return Operations{}, err
 		}
-		capabilities.Files, capabilities.Shell = discovered.Files, discovered.Shell
+		capabilities.Files = capabilities.Files && discovered.Files
+		capabilities.Shell = capabilities.Shell && discovered.Shell
+		if !capabilities.Files {
+			ops.Files = nil
+		}
 	}
 	if provider, ok := runtime.(BrowserProvider); ok {
-		capabilities.Browser = provider.Browser() != nil
+		ops.Browser = provider.Browser()
+		capabilities.Browser = ops.Browser != nil
 	}
 	if provider, ok := runtime.(CommandProvider); ok && capabilities.Shell {
 		capabilities.RecoverableShell = provider.Commands() != nil
 	}
 	if provider, ok := runtime.(ComputerProvider); ok {
-		if driver := provider.Computer(); driver != nil {
+		ops.Computer = provider.Computer()
+		if ops.Computer != nil {
 			var err error
-			capabilities.Computer, err = driver.GetCapabilities(ctx)
+			capabilities.Computer, err = ops.Computer.GetCapabilities(ctx)
 			if err != nil {
-				return capabilities, err
+				return Operations{}, err
 			}
 		}
 	}
-	return capabilities, ctx.Err()
+	return ops, ctx.Err()
 }

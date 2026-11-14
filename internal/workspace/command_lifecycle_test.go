@@ -138,7 +138,7 @@ func testCommandLifecycle(t *testing.T, ctx context.Context, connect func() Runt
 	if err != nil || json.Unmarshal(outcome.Data, &result) != nil || !result.Truncated || len(result.Output) != fileLimit {
 		t.Fatalf("expected truncated output, outcome = %.120s, error = %v", outcome.Data, err)
 	}
-	if path, _, err := rt.Resolve(ctx, id, false); err == nil {
+	if path, _, err := rt.(ResolvedFileSystem).Resolve(ctx, id, false); err == nil {
 		t.Fatalf("canceled command performed side effect at %s", path)
 	}
 }

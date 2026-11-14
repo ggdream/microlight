@@ -104,19 +104,26 @@ func TestBrowserApprovalBindsDriver(t *testing.T) {
 	}
 }
 
-type restrictedRuntime struct {
-	workspace.Runtime
-}
+type restrictedRuntime struct{}
 
 func (restrictedRuntime) Environment() workspace.Environment {
 	return workspace.Environment{OS: "linux"}
 }
 func (restrictedRuntime) Close() error { return nil }
-func (restrictedRuntime) GetCapabilities(context.Context) (workspace.Capabilities, error) {
-	return workspace.Capabilities{}, nil
+
+type browserOnlyRuntime struct {
+	restrictedRuntime
+	driver workspace.BrowserDriver
 }
 
+func (r browserOnlyRuntime) Browser() workspace.BrowserDriver { return r.driver }
+
+type desktopOnlyRuntime struct{ restrictedRuntime }
+
+func (desktopOnlyRuntime) Computer() workspace.ComputerDriver { return &approvalComputer{} }
+
 func TestSelectedEnvironmentDeterminesOfferedTools(t *testing.T) {
+	var selectedBrowser, selectedDesktop bool
 	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var request struct {
 			Tools []struct{ Function struct{ Name string } }
@@ -126,7 +133,7 @@ func TestSelectedEnvironmentDeterminesOfferedTools(t *testing.T) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		hasFetch := false
+		hasFetch, hasBrowser, hasDesktop := false, false, false
 		for _, entry := range request.Tools {
 			name := entry.Function.Name
 			switch name {
@@ -136,11 +143,17 @@ func TestSelectedEnvironmentDeterminesOfferedTools(t *testing.T) {
 				hasFetch = true
 			}
 			if strings.HasPrefix(name, "browser_") {
-				t.Errorf("local browser leaked into selected environment: %s", name)
+				hasBrowser = true
+			}
+			if strings.HasPrefix(name, "computer_") {
+				hasDesktop = true
 			}
 		}
 		if !hasFetch {
 			t.Error("web fetch is missing")
+		}
+		if hasBrowser != selectedBrowser || hasDesktop != selectedDesktop {
+			t.Errorf("offered browser/desktop = %v/%v, expected %v/%v", hasBrowser, hasDesktop, selectedBrowser, selectedDesktop)
 		}
 		writeTestStream(w, "Finished")
 	}))
@@ -155,11 +168,21 @@ func TestSelectedEnvironmentDeterminesOfferedTools(t *testing.T) {
 		target:  workspace.Target{Kind: "remote", Directory: "/workspace"},
 		access:  localtools.NewAccess("", localtools.Ask),
 		browser: browserBinding{driver: &approvalBrowser{}, identity: "local browser", label: "Local"},
-		connect: func(context.Context, workspace.Target, string) (workspace.Runtime, error) {
-			return restrictedRuntime{}, nil
-		},
 	}
-	if q, err := agent.run(t.Context(), store, newID(), []*turn{userTurn("Show tools")}, nil, "", func(replyDelta) error { return nil }); err != nil || q != nil {
-		t.Fatalf("session returned %+v, %v", q, err)
+	for _, tc := range []struct {
+		runtime          workspace.Runtime
+		browser, desktop bool
+	}{
+		{runtime: restrictedRuntime{}},
+		{runtime: browserOnlyRuntime{driver: &approvalBrowser{}}, browser: true},
+		{runtime: desktopOnlyRuntime{}, desktop: true},
+	} {
+		selectedBrowser, selectedDesktop = tc.browser, tc.desktop
+		agent.connect = func(context.Context, workspace.Target, string) (workspace.Runtime, error) {
+			return tc.runtime, nil
+		}
+		if q, err := agent.run(t.Context(), store, newID(), []*turn{userTurn("Show tools")}, nil, "", func(replyDelta) error { return nil }); err != nil || q != nil {
+			t.Fatalf("%T session returned %+v, %v", tc.runtime, q, err)
+		}
 	}
 }

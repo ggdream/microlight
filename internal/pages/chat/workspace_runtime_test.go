@@ -143,7 +143,8 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 					t.Fatal(err)
 				}
 				defer rt.Close()
-				resolved, _, err := rt.Resolve(ctx, filename, false)
+				files := rt.(workspace.ResolvedFileSystem)
+				resolved, _, err := files.Resolve(ctx, filename, false)
 				if want == "" {
 					if err == nil {
 						t.Fatal("file already exists on target")
@@ -153,7 +154,7 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				actual, err := rt.Read(ctx, &filesystem.ReadRequest{FilePath: resolved})
+				actual, err := files.Read(ctx, &filesystem.ReadRequest{FilePath: resolved})
 				if err != nil || actual.Content != want {
 					t.Fatalf("target file = %+v, %v; want %q", actual, err, want)
 				}
@@ -199,11 +200,12 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 					t.Fatal(err)
 				}
 				defer rt.Close()
-				resolved, _, err := rt.Resolve(ctx, filename, true)
+				files := rt.(workspace.ResolvedFileSystem)
+				resolved, _, err := files.Resolve(ctx, filename, true)
 				if err != nil {
 					t.Fatal(err)
 				}
-				if err := rt.Write(ctx, &filesystem.WriteRequest{FilePath: resolved, Content: "external edit"}); err != nil {
+				if err := files.Write(ctx, &filesystem.WriteRequest{FilePath: resolved, Content: "external edit"}); err != nil {
 					t.Fatal(err)
 				}
 			}()

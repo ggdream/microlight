@@ -71,7 +71,7 @@ func (localCommandShell) Execute(ctx context.Context, input *filesystem.ExecuteR
 	case commands != nil && harness.OperationScope(ctx) != "" && op.callID != "":
 		response, err = executeRecoverable(ctx, commands, op)
 	case op.runtime != nil:
-		response, err = op.runtime.Execute(ctx, input)
+		response, err = op.runtime.(filesystem.Shell).Execute(ctx, input)
 	default:
 		response, err = shell.Execute(ctx, op.content, op.target, input.Timeout)
 	}
