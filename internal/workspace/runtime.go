@@ -73,6 +73,8 @@ func (t Target) Label() string {
 		return locales.WorkspaceBrowser()
 	case "desktop":
 		return locales.WorkspaceDesktop()
+	case "e2b":
+		return "E2B · " + t.Resource
 	default:
 		if t.Kind == "" {
 			return locales.WorkspaceLocal()
@@ -90,7 +92,7 @@ func NewConnector(additional map[string]ConnectFunc) (ConnectFunc, error) {
 	connectors := map[string]ConnectFunc{
 		"docker": connectContainer, "container": connectContainer, "remote": connectSSH,
 		"browser": connectBrowser, "desktop": connectDesktop,
-		"microvm": connectMicroVM,
+		"microvm": connectMicroVM, "e2b": connectE2B,
 	}
 	for kind, connect := range additional {
 		if kind == "" || kind == "local" || kind == "invalid" || strings.TrimSpace(kind) != kind || connectors[kind] != nil || connect == nil {

@@ -41,6 +41,7 @@ func TestWorkspaceTargetPersistsWithConversation(t *testing.T) {
 		{Kind: "container", Directory: "/work", Engine: workspace.ContainerEngine{Name: "podman", Connection: "local"}, Container: "podman-id"},
 		{Kind: "container", Directory: "/work", Engine: workspace.ContainerEngine{Name: "nerdctl", Connection: "default"}, Container: "containerd-id"},
 		{Kind: "test-vm", Resource: "workspace-42"},
+		{Kind: "e2b", Resource: "sandbox-test", Directory: "/home/user", Credential: "e2b-credential-reference"},
 		{Kind: "microvm", Directory: "/work", Host: "guest.example.invalid", User: "guest", Port: "22", HostKey: "SHA256:fixture"},
 	} {
 		chat := &conversation{ID: newID(), Title: "Workspace", target: target}

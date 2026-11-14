@@ -237,6 +237,7 @@ func (app *chatApp) workspaceControl(c *ui.Context, chat *conversation) {
 			theme.PopupItem{Label: locales.WorkspaceBrowser(), Icon: icons.Menu("desktop"), OnSelect: func() { app.openNewWorkspaceForm("browser") }},
 			theme.PopupItem{Label: locales.WorkspaceDesktop(), Icon: icons.Menu("desktop_signal"), OnSelect: func() { app.openNewWorkspaceForm("desktop") }},
 			theme.PopupItem{Label: locales.WorkspaceMicroVM(), Icon: icons.Menu("cube"), OnSelect: func() { app.openNewWorkspaceForm("microvm") }},
+			theme.PopupItem{Label: locales.WorkspaceE2B(), Icon: icons.Menu("cube"), OnSelect: func() { app.openNewWorkspaceForm("e2b") }},
 		)
 		if path != "" || target.Kind != "" {
 			clearLabel := locales.ClearWorkspace()

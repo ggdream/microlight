@@ -1818,6 +1818,36 @@ func (msgs Messages) WorkspaceDesktopToken() string {
 	return Catalog.Format(msgs.locale, "workspaceDesktopToken", nil)
 }
 
+// WorkspaceE2B says "E2B Sandbox"
+// in the language the app shows.
+func WorkspaceE2B() string { return In(i18n.Locale()).WorkspaceE2B() }
+
+// WorkspaceE2B says "E2B Sandbox"
+// in the language of msgs.
+func (msgs Messages) WorkspaceE2B() string {
+	return Catalog.Format(msgs.locale, "workspaceE2B", nil)
+}
+
+// WorkspaceE2BSandboxID says "Running sandbox ID"
+// in the language the app shows.
+func WorkspaceE2BSandboxID() string { return In(i18n.Locale()).WorkspaceE2BSandboxID() }
+
+// WorkspaceE2BSandboxID says "Running sandbox ID"
+// in the language of msgs.
+func (msgs Messages) WorkspaceE2BSandboxID() string {
+	return Catalog.Format(msgs.locale, "workspaceE2BSandboxID", nil)
+}
+
+// WorkspaceE2BAPIKey says "E2B API key"
+// in the language the app shows.
+func WorkspaceE2BAPIKey() string { return In(i18n.Locale()).WorkspaceE2BAPIKey() }
+
+// WorkspaceE2BAPIKey says "E2B API key"
+// in the language of msgs.
+func (msgs Messages) WorkspaceE2BAPIKey() string {
+	return Catalog.Format(msgs.locale, "workspaceE2BAPIKey", nil)
+}
+
 // WorkspaceMicroVM says "MicroVM"
 // in the language the app shows.
 func WorkspaceMicroVM() string { return In(i18n.Locale()).WorkspaceMicroVM() }

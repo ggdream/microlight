@@ -98,6 +98,8 @@ func (app *chatApp) workspaceDialog(c *ui.Context) {
 		title, glyph = locales.WorkspaceSSHTitle(), "desktop_signal"
 	case "microvm":
 		title, glyph = locales.WorkspaceMicroVMTitle(), "cube"
+	case "e2b":
+		title, glyph = locales.WorkspaceE2B(), "cube"
 	case "desktop":
 		glyph = "desktop_signal"
 	case "docker", "container":
@@ -124,6 +126,8 @@ func (app *chatApp) workspaceDialog(c *ui.Context) {
 					tokenLabel = locales.WorkspaceBrowserToken()
 				case "desktop":
 					tokenLabel = locales.WorkspaceDesktopToken()
+				case "e2b":
+					tokenLabel = locales.WorkspaceE2BAPIKey()
 				}
 				if f.chat != nil {
 					settings.Card(body.Key("summary"), locales.WorkspaceConnection(), func() {
@@ -132,7 +136,7 @@ func (app *chatApp) workspaceDialog(c *ui.Context) {
 							ui.Text(body, f.target.Directory).FontSize(12).TextColor(muted).Selectable()
 						}
 					})
-					if f.kind == "remote" || f.kind == "microvm" || f.kind == "browser" || f.kind == "desktop" {
+					if f.kind == "remote" || f.kind == "microvm" || f.kind == "browser" || f.kind == "desktop" || f.kind == "e2b" {
 						settings.Card(body.Key("auth"), locales.WorkspaceAuthentication(), func() {
 							settings.Field(body.Key("credential"), tokenLabel, "", &f.secret).Password().Disabled(f.busy)
 							theme.Checkbox(body.Key("remember"), &f.remember, locales.WorkspaceRemember(), f.busy)
@@ -140,6 +144,13 @@ func (app *chatApp) workspaceDialog(c *ui.Context) {
 					}
 				} else if f.kind == "container" {
 					app.containerWorkspaceFields(body, f)
+				} else if f.kind == "e2b" {
+					settings.Card(body.Key("e2b"), locales.WorkspaceConnection(), func() {
+						settings.Field(body.Key("sandbox"), locales.WorkspaceE2BSandboxID(), "", &f.target.Resource).Disabled(f.busy)
+						settings.Field(body.Key("directory"), locales.WorkspaceRemoteFolder(), "/home/user", &f.target.Directory).Disabled(f.busy)
+						settings.Field(body.Key("key"), tokenLabel, "", &f.secret).Password().Disabled(f.busy)
+						theme.Checkbox(body.Key("remember"), &f.remember, locales.WorkspaceRemember(), f.busy)
+					})
 				} else if f.kind == "browser" || f.kind == "desktop" {
 					label, placeholder := locales.WorkspaceBrowserEndpoint(), "wss://…/devtools/browser/…"
 					if f.kind == "desktop" {
@@ -435,7 +446,7 @@ func (app *chatApp) connectWorkspace(f *workspaceForm) {
 		target.Host, target.User, target.Port = strings.TrimSpace(target.Host), strings.TrimSpace(target.User), strings.TrimSpace(target.Port)
 		target.Directory = strings.TrimSpace(target.Directory)
 		target.Resource = strings.TrimSpace(target.Resource)
-		if (target.Kind == "remote" || target.Kind == "microvm" || target.Kind == "browser" || target.Kind == "desktop") && target.Credential == "" {
+		if (target.Kind == "remote" || target.Kind == "microvm" || target.Kind == "browser" || target.Kind == "desktop" || target.Kind == "e2b") && target.Credential == "" {
 			target.Credential = newID()
 		}
 	}

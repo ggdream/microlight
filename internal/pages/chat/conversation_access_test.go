@@ -81,7 +81,7 @@ func TestWorkspaceMenuAndSSHFormFollowLocale(t *testing.T) {
 				t.Fatal(err)
 			}
 			messages := locales.In(tc.tag)
-			for _, label := range []string{tc.local, tc.docker, tc.remote, messages.WorkspaceBrowser(), messages.WorkspaceDesktop(), messages.WorkspaceMicroVM()} {
+			for _, label := range []string{tc.local, tc.docker, tc.remote, messages.WorkspaceBrowser(), messages.WorkspaceDesktop(), messages.WorkspaceMicroVM(), messages.WorkspaceE2B()} {
 				if _, found := surface.Find(label); !found {
 					t.Errorf("missing workspace menu item %q", label)
 				}
@@ -137,6 +137,20 @@ func TestWorkspaceMenuAndSSHFormFollowLocale(t *testing.T) {
 			for _, label := range []string{messages.WorkspaceMicroVMTitle(), tc.host, tc.connect} {
 				if _, found := surface.Find(label); !found {
 					t.Errorf("missing MicroVM form item %q", label)
+				}
+			}
+			if err := surface.Click(messages.Cancel()); err != nil {
+				t.Fatal(err)
+			}
+			if err := surface.Click(messages.Workspace()); err != nil {
+				t.Fatal(err)
+			}
+			if err := surface.Click(messages.WorkspaceE2B()); err != nil {
+				t.Fatal(err)
+			}
+			for _, label := range []string{messages.WorkspaceE2BSandboxID(), messages.WorkspaceE2BAPIKey(), tc.connect} {
+				if _, found := surface.Find(label); !found {
+					t.Errorf("missing E2B form item %q", label)
 				}
 			}
 		})
