@@ -195,6 +195,33 @@ func TestSSHCommandLifecycle(t *testing.T) {
 			t.Fatalf("MicroVM task affected by SSH cancellation: %+v, %v", outcome, err)
 		}
 	})
+	t.Run("CanceledFileChannelLeavesSSHAvailable", func(t *testing.T) {
+		rt := connect().(*sshRuntime)
+		fileCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		files, closeFiles, err := rt.openFiles(fileCtx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer closeFiles()
+		cancel()
+		closed := make(chan struct{})
+		go func() {
+			_ = files.Wait()
+			close(closed)
+		}()
+		select {
+		case <-closed:
+		case <-time.After(3 * time.Second):
+			t.Fatal("canceled SFTP channel did not close")
+		}
+		if output, err := rt.runCommandControl(ctx, "printf healthy"); err != nil || output != "healthy" {
+			t.Fatalf("command channel after SFTP cancellation = %q, %v", output, err)
+		}
+		if _, _, err := rt.Resolve(ctx, ".", false); err != nil {
+			t.Fatalf("new SFTP channel after cancellation: %v", err)
+		}
+	})
 	t.Run("CanceledCommandLeavesFileChannelAvailable", func(t *testing.T) {
 		rt := connect().(*sshRuntime)
 		started := "started-" + uuid.NewV7().String()

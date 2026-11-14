@@ -32,8 +32,6 @@ func (e *UnknownHostKey) Error() string { return "SSH 主机指纹 " + e.Fingerp
 
 type sshRuntime struct {
 	client       *ssh.Client
-	files        *sftp.Client
-	connection   net.Conn
 	target       Target
 	env          Environment
 	journalID    string
@@ -106,8 +104,8 @@ func openSSH(ctx context.Context, target Target, secret string) (*sshRuntime, er
 		conn.Close()
 		return nil, err
 	}
-	r := &sshRuntime{client: ssh.NewClient(c, ch, requests), connection: conn, target: target}
-	r.files, err = sftp.NewClient(r.client)
+	r := &sshRuntime{client: ssh.NewClient(c, ch, requests), target: target}
+	files, closeFiles, err := r.startFiles(ctx)
 	if err == nil {
 		out, _, probeErr := r.run(ctx, "uname -sm")
 		fields := strings.Fields(out)
@@ -127,12 +125,12 @@ func openSSH(ctx context.Context, target Target, secret string) (*sshRuntime, er
 		if !path.IsAbs(name) && !(r.env.OS == "windows" && len(name) > 2 && name[1:3] == ":/") {
 			err = errors.New("请输入远端绝对路径")
 		} else {
-			directory, resolveErr := r.files.RealPath(name)
+			directory, resolveErr := files.RealPath(name)
 			err = resolveErr
 			if err == nil {
 				r.target.Directory = directory
 				var info os.FileInfo
-				info, err = r.files.Stat(directory)
+				info, err = files.Stat(directory)
 				if err == nil && !info.IsDir() {
 					err = errors.New("SSH 工作目录不可用")
 				}
@@ -147,6 +145,9 @@ func openSSH(ctx context.Context, target Target, secret string) (*sshRuntime, er
 				err = nil
 			}
 		}
+	}
+	if closeFiles != nil {
+		closeFiles()
 	}
 	if err != nil {
 		r.Close()
@@ -272,9 +273,126 @@ func (r *sshRuntime) Execute(ctx context.Context, req *filesystem.ExecuteRequest
 	return shellResult(out, truncated, err)
 }
 
+// Each file operation owns its SFTP channel. A canceled operation can leave
+// requests in flight, so the channel is discarded instead of reused.
+func (r *sshRuntime) openFiles(ctx context.Context) (*sftp.Client, func(), error) {
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
+	type result struct {
+		files *sftp.Client
+		close func()
+		err   error
+	}
+	done := make(chan result)
+	go func() {
+		files, close, err := r.startFiles(ctx)
+		select {
+		case done <- result{files, close, err}:
+		case <-ctx.Done():
+			if close != nil {
+				close()
+			}
+		}
+	}()
+	select {
+	case <-ctx.Done():
+		return nil, nil, ctx.Err()
+	case response := <-done:
+		return response.files, response.close, response.err
+	}
+}
+
+func (r *sshRuntime) startFiles(ctx context.Context) (*sftp.Client, func(), error) {
+	session, err := r.client.NewSession()
+	if err != nil {
+		return nil, nil, err
+	}
+	stop := context.AfterFunc(ctx, func() { _ = session.Close() })
+	closeSession := func() {
+		stop()
+		_ = session.Close()
+	}
+	if err := ctx.Err(); err != nil {
+		closeSession()
+		return nil, nil, err
+	}
+	files, err := openSFTP(session)
+	if err != nil {
+		closeSession()
+		return nil, nil, err
+	}
+	return files, func() {
+		closeSession()
+		_ = files.Close()
+	}, nil
+}
+
+func openSFTP(session *ssh.Session) (*sftp.Client, error) {
+	in, err := session.StdinPipe()
+	if err != nil {
+		return nil, err
+	}
+	out, err := session.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+	stderr, err := session.StderrPipe()
+	if err != nil {
+		return nil, err
+	}
+	go func() { _, _ = io.Copy(io.Discard, stderr) }()
+	if err := session.RequestSubsystem("sftp"); err != nil {
+		return nil, err
+	}
+	return sftp.NewClientPipe(out, in)
+}
+
+type sshFiles struct {
+	*sshRuntime
+	files *sftp.Client
+}
+
 func (r *sshRuntime) Resolve(ctx context.Context, name string, write bool) (string, string, error) {
-	stop := context.AfterFunc(ctx, func() { _ = r.connection.Close() })
-	defer stop()
+	files, close, err := r.openFiles(ctx)
+	if err != nil {
+		return "", "", err
+	}
+	defer close()
+	return (sshFiles{r, files}).Resolve(ctx, name, write)
+}
+
+func (r *sshRuntime) LsInfo(ctx context.Context, req *filesystem.LsInfoRequest) ([]filesystem.FileInfo, error) {
+	files, close, err := r.openFiles(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer close()
+	return (sshFiles{r, files}).LsInfo(ctx, req)
+}
+
+func (r *sshRuntime) Read(ctx context.Context, req *filesystem.ReadRequest) (*filesystem.FileContent, error) {
+	files, close, err := r.openFiles(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer close()
+	return (sshFiles{r, files}).Read(ctx, req)
+}
+
+func (r *sshRuntime) Write(ctx context.Context, req *filesystem.WriteRequest) error {
+	files, close, err := r.openFiles(ctx)
+	if err != nil {
+		return err
+	}
+	defer close()
+	return (sshFiles{r, files}).Write(ctx, req)
+}
+
+func (r sshFiles) Resolve(ctx context.Context, name string, write bool) (string, string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", "", err
+	}
 	name = r.normalize(name)
 	if !path.IsAbs(name) && !(r.env.OS == "windows" && len(name) > 2 && name[1:3] == ":/") {
 		name = path.Join(r.target.Directory, name)
@@ -319,9 +437,10 @@ func (r *sshRuntime) Resolve(ctx context.Context, name string, write bool) (stri
 	return name, version, nil
 }
 
-func (r *sshRuntime) LsInfo(ctx context.Context, req *filesystem.LsInfoRequest) ([]filesystem.FileInfo, error) {
-	stop := context.AfterFunc(ctx, func() { _ = r.connection.Close() })
-	defer stop()
+func (r sshFiles) LsInfo(ctx context.Context, req *filesystem.LsInfoRequest) ([]filesystem.FileInfo, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	list, err := r.files.ReadDirContext(ctx, req.Path)
 	if err != nil {
 		return nil, err
@@ -332,9 +451,10 @@ func (r *sshRuntime) LsInfo(ctx context.Context, req *filesystem.LsInfoRequest) 
 	}
 	return result, nil
 }
-func (r *sshRuntime) Read(ctx context.Context, req *filesystem.ReadRequest) (*filesystem.FileContent, error) {
-	stop := context.AfterFunc(ctx, func() { _ = r.connection.Close() })
-	defer stop()
+func (r sshFiles) Read(ctx context.Context, req *filesystem.ReadRequest) (*filesystem.FileContent, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	info, err := r.files.Stat(req.FilePath)
 	if err != nil {
 		return nil, err
@@ -349,9 +469,10 @@ func (r *sshRuntime) Read(ctx context.Context, req *filesystem.ReadRequest) (*fi
 	defer file.Close()
 	return readText(file, req)
 }
-func (r *sshRuntime) Write(ctx context.Context, req *filesystem.WriteRequest) error {
-	stop := context.AfterFunc(ctx, func() { _ = r.connection.Close() })
-	defer stop()
+func (r sshFiles) Write(ctx context.Context, req *filesystem.WriteRequest) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	version, err := writeVersion(ctx, r, req.FilePath)
 	if err != nil {
 		return err
