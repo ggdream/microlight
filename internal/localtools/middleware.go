@@ -625,7 +625,11 @@ func resolveRuntime(ctx context.Context, access runtimeAccess, name, raw string)
 	prefix := strings.TrimSuffix(root, "/") + "/"
 	if target == root || strings.HasPrefix(target, prefix) {
 		op.root = root
-		for part := range strings.SplitSeq(strings.TrimPrefix(target, prefix), "/") {
+		relative := ""
+		if target != root {
+			relative = strings.TrimPrefix(target, prefix)
+		}
+		for part := range strings.SplitSeq(relative, "/") {
 			part = strings.ToLower(part)
 			if strings.HasPrefix(part, ".") || strings.Contains(part, "secret") || strings.Contains(part, "credential") ||
 				strings.Contains(part, "password") || strings.HasSuffix(part, ".pem") || strings.HasSuffix(part, ".key") {
