@@ -31,13 +31,14 @@ type desktopInfo struct {
 	SessionID    string
 	Capabilities ComputerCapabilities
 	Files        bool
+	Commands     bool
 	Environment  Environment
 }
 
 // DesktopHandler serves a single interactive desktop for the lifetime of
 // sessionID. The process running it owns the native driver.
 func DesktopHandler(driver ComputerDriver, sessionID, token string) http.Handler {
-	return desktopHandler(driver, sessionID, token, nil)
+	return desktopHandler(driver, sessionID, token, nil, nil)
 }
 
 // DesktopWorkspaceHandler serves native desktop operations and files under root.
@@ -46,10 +47,23 @@ func DesktopWorkspaceHandler(driver ComputerDriver, sessionID, token, root strin
 	if err != nil {
 		return nil, err
 	}
-	return desktopHandler(driver, sessionID, token, files), nil
+	return desktopHandler(driver, sessionID, token, files, nil), nil
 }
 
-func desktopHandler(driver ComputerDriver, sessionID, token string, files *desktopFiles) http.Handler {
+// DesktopCommandHandler enables native shell execution and workspace files.
+func DesktopCommandHandler(driver ComputerDriver, sessionID, token, root string) (http.Handler, error) {
+	files, err := openDesktopFiles(root)
+	if err != nil {
+		return nil, err
+	}
+	commands, err := openDesktopCommandStore(files.directory)
+	if err != nil {
+		return nil, err
+	}
+	return desktopHandler(driver, sessionID, token, files, commands), nil
+}
+
+func desktopHandler(driver ComputerDriver, sessionID, token string, files *desktopFiles, commands *desktopCommandStore) http.Handler {
 	gate := make(chan struct{}, 1)
 	auth := sha256.Sum256([]byte("Bearer " + token))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -74,6 +88,14 @@ func desktopHandler(driver ComputerDriver, sessionID, token string, files *deskt
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 		defer cancel()
+		if method, ok := strings.CutPrefix(method, "commands/"); ok {
+			if commands == nil {
+				http.Error(w, "desktop command execution is disabled", http.StatusForbidden)
+				return
+			}
+			commands.serve(ctx, w, r, files, method)
+			return
+		}
 		if method, ok := strings.CutPrefix(method, "files/"); ok {
 			if files == nil {
 				http.Error(w, "desktop file operations unavailable", http.StatusForbidden)
@@ -113,7 +135,11 @@ func desktopHandler(driver ComputerDriver, sessionID, token string, files *deskt
 		var result any
 		switch method {
 		case "info":
-			result = desktopInfo{SessionID: sessionID, Capabilities: caps, Files: files != nil, Environment: desktopEnvironment()}
+			env := desktopEnvironment()
+			if commands != nil {
+				env.Shell = desktopShellName
+			}
+			result = desktopInfo{SessionID: sessionID, Capabilities: caps, Files: files != nil, Commands: commands != nil, Environment: env}
 		case "screenshot":
 			result, err = driver.Screenshot(ctx)
 		case "windows":
@@ -225,6 +251,15 @@ func connectDesktop(ctx context.Context, target Target, token string) (Runtime, 
 	return d, nil
 }
 
+type desktopHTTPError struct {
+	code   int
+	detail string
+}
+
+func (e *desktopHTTPError) Error() string {
+	return fmt.Sprintf("desktop executor returned HTTP %d: %s", e.code, e.detail)
+}
+
 func (d *remoteDesktop) call(ctx context.Context, method string, args any, result any) error {
 	body, err := json.Marshal(args)
 	if err != nil {
@@ -247,7 +282,7 @@ func (d *remoteDesktop) call(ctx context.Context, method string, args any, resul
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return fmt.Errorf("desktop executor returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(detail)))
+		return &desktopHTTPError{resp.StatusCode, strings.TrimSpace(string(detail))}
 	}
 	if result == nil {
 		if _, err := io.Copy(io.Discard, io.LimitReader(resp.Body, 64)); err != nil {

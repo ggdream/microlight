@@ -15,6 +15,7 @@ import (
 func main() {
 	addr := flag.String("listen", "127.0.0.1:9420", "loopback address for a local client, SSH tunnel or TLS reverse proxy")
 	root := flag.String("workspace", "", "directory to expose to authenticated workspace file tools")
+	commands := flag.Bool("commands", false, "allow authenticated shell commands under the executor account")
 	flag.Parse()
 	host, _, err := net.SplitHostPort(*addr)
 	if err != nil || !net.ParseIP(host).IsLoopback() {
@@ -30,11 +31,16 @@ func main() {
 	}
 	sessionID := uuid.NewV7().String()
 	handler := workspace.DesktopHandler(driver, sessionID, token)
-	if *root != "" {
-		handler, err = workspace.DesktopWorkspaceHandler(driver, sessionID, token, *root)
-		if err != nil {
-			log.Fatal(err)
+	if *commands {
+		if *root == "" {
+			log.Fatal("-commands requires -workspace")
 		}
+		handler, err = workspace.DesktopCommandHandler(driver, sessionID, token, *root)
+	} else if *root != "" {
+		handler, err = workspace.DesktopWorkspaceHandler(driver, sessionID, token, *root)
+	}
+	if err != nil {
+		log.Fatal(err)
 	}
 	server := &http.Server{
 		Addr: *addr, Handler: handler,

@@ -27,6 +27,17 @@ type desktopFiles struct {
 
 func desktopEnvironment() Environment { return Environment{OS: runtime.GOOS, Arch: runtime.GOARCH} }
 
+func (f *desktopFiles) commandDirectory(ctx context.Context, name string) (string, error) {
+	result, err := f.execute(ctx, "resolve", "", desktopFileRequest{Path: name})
+	if err != nil {
+		return "", err
+	}
+	if !result.(desktopFileReply).IsDir {
+		return "", errors.New("desktop command directory must be a directory")
+	}
+	return filepath.Join(f.directory, filepath.FromSlash(strings.TrimPrefix(name, "/"))), nil
+}
+
 func openDesktopFiles(directory string) (*desktopFiles, error) {
 	directory, err := filepath.Abs(directory)
 	if err != nil {
@@ -78,12 +89,9 @@ func (f *desktopFiles) execute(ctx context.Context, method, session string, args
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	name := strings.TrimPrefix(args.Path, "/")
-	if name == "" {
-		name = "."
-	}
-	if !strings.HasPrefix(args.Path, "/") || !filepath.IsLocal(name) || path.Clean(name) != name || name == ".." || strings.HasPrefix(name, "../") || strings.ContainsAny(name, "\\:\x00") {
-		return nil, errors.New("invalid desktop workspace path")
+	name, err := desktopRelativePath(args.Path)
+	if err != nil {
+		return nil, err
 	}
 	root, err := os.OpenRoot(f.directory)
 	if err != nil {
@@ -144,6 +152,18 @@ func (f *desktopFiles) execute(ctx context.Context, method, session string, args
 	default:
 		return nil, errors.New("unknown desktop file operation")
 	}
+}
+
+func desktopRelativePath(name string) (string, error) {
+	if name == "/" {
+		return ".", nil
+	}
+	relative, rooted := strings.CutPrefix(name, "/")
+	if !rooted || !filepath.IsLocal(relative) || path.Clean(relative) != relative ||
+		relative == "." || relative == ".." || strings.HasPrefix(relative, "../") || strings.ContainsAny(relative, "\\:\x00") {
+		return "", errors.New("invalid desktop workspace path")
+	}
+	return relative, nil
 }
 
 func desktopFileInfo(root *os.Root, name string) (os.FileInfo, error) {

@@ -1,7 +1,6 @@
 package workspace
 
 import (
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -27,12 +26,11 @@ func TestRemoteBrowserRetainsTabOnDisconnect(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
 	var endpoint string
+	var lastReadErr error
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		data, err := os.ReadFile(filepath.Join(profile, "DevToolsActivePort"))
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			t.Fatal(err)
-		}
+		lastReadErr = err
 		fields := strings.Fields(string(data))
 		if len(fields) == 2 {
 			endpoint = "ws://127.0.0.1:" + fields[0] + fields[1]
@@ -41,7 +39,7 @@ func TestRemoteBrowserRetainsTabOnDisconnect(t *testing.T) {
 		time.Sleep(25 * time.Millisecond)
 	}
 	if endpoint == "" {
-		t.Fatal("Chromium did not publish its debugging endpoint")
+		t.Fatalf("Chromium did not publish its debugging endpoint: %v", lastReadErr)
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`<title>Remote browser</title><button id="go" onclick="this.textContent='Clicked'">Ready</button>`))
