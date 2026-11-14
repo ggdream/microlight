@@ -3,7 +3,6 @@ package chat
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/ggdream/microlight/internal/harness"
 	"github.com/ggdream/microlight/internal/localtools"
@@ -44,23 +43,17 @@ func (agent PersonalAgent) run(ctx context.Context, store harness.Store, session
 			open = func(context.Context, workspace.Target, string) (workspace.Runtime, error) { return native, nil }
 		}
 	}
-	probe, cancel := context.WithTimeout(ctx, 20*time.Second)
-	defer cancel()
-	executor, err := open(probe, agent.target, agent.secret)
+	connect := func(ctx context.Context) (workspace.Runtime, error) {
+		return open(ctx, agent.target, agent.secret)
+	}
+	executor, ops, err := harness.OpenExecution(ctx, connect)
 	if err != nil {
 		return nil, &workspaceConnectionError{agent.target, err}
 	}
 	defer executor.Close()
-	ops, err := workspace.DiscoverOperations(probe, executor)
-	cancel()
-	if err != nil {
-		return nil, &workspaceConnectionError{agent.target, err}
-	}
 	ctx = localtools.WithRuntime(ctx, agent.access, executor, agent.target, ops)
 	if _, native := executor.(localtools.LocalRuntime); !native {
-		ctx = localtools.WithWorkspaceReconnect(ctx, func(ctx context.Context) (workspace.Runtime, error) {
-			return open(ctx, agent.target, agent.secret)
-		})
+		ctx = localtools.WithWorkspaceReconnect(ctx, connect)
 		browser, computer = browserBinding{}, computerBinding{}
 		if ops.Files != nil {
 			ctx = workspace.WithRuntimeInstructions(ctx, ops.Files, agent.target.Directory)
