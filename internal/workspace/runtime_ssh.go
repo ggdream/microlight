@@ -211,13 +211,38 @@ func (r *sshRuntime) normalize(name string) string {
 }
 
 func (r *sshRuntime) run(ctx context.Context, command string) (string, bool, error) {
-	stop := context.AfterFunc(ctx, func() { _ = r.connection.Close() })
-	defer stop()
+	if err := ctx.Err(); err != nil {
+		return "", false, err
+	}
+	type result struct {
+		output    string
+		truncated bool
+		err       error
+	}
+	done := make(chan result, 1)
+	go func() {
+		output, truncated, err := r.runSession(ctx, command)
+		done <- result{output, truncated, err}
+	}()
+	select {
+	case <-ctx.Done():
+		return "", false, ctx.Err()
+	case response := <-done:
+		return response.output, response.truncated, response.err
+	}
+}
+
+func (r *sshRuntime) runSession(ctx context.Context, command string) (string, bool, error) {
 	session, err := r.client.NewSession()
 	if err != nil {
 		return "", false, err
 	}
 	defer session.Close()
+	stop := context.AfterFunc(ctx, func() { _ = session.Close() })
+	defer stop()
+	if err := ctx.Err(); err != nil {
+		return "", false, err
+	}
 	out := &boundedOutput{limit: remoteResponseLimit}
 	session.Stdout, session.Stderr = out, out
 	err = session.Run(command)

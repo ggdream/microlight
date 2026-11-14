@@ -195,6 +195,41 @@ func TestSSHCommandLifecycle(t *testing.T) {
 			t.Fatalf("MicroVM task affected by SSH cancellation: %+v, %v", outcome, err)
 		}
 	})
+	t.Run("CanceledCommandLeavesFileChannelAvailable", func(t *testing.T) {
+		rt := connect().(*sshRuntime)
+		started := "started-" + uuid.NewV7().String()
+		commandCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		done := make(chan error, 1)
+		go func() {
+			_, _, err := rt.run(commandCtx, "touch "+quotePOSIX(path.Join(target.Directory, started))+" && exec sleep 3")
+			done <- err
+		}()
+		for {
+			_, _, err := rt.Resolve(ctx, started, false)
+			if err == nil {
+				break
+			}
+			if !errors.Is(err, os.ErrNotExist) {
+				t.Fatal(err)
+			}
+			select {
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			case <-time.After(25 * time.Millisecond):
+			}
+		}
+		cancel()
+		if err := <-done; !errors.Is(err, context.Canceled) {
+			t.Fatalf("canceled command: %v", err)
+		}
+		if _, _, err := rt.Resolve(ctx, started, false); err != nil {
+			t.Fatalf("file channel failed after canceling a command: %v", err)
+		}
+		if result, err := rt.runCommandControl(ctx, "printf healthy"); err != nil || result != "healthy" {
+			t.Fatalf("new command channel = %q, %v", result, err)
+		}
+	})
 	for _, kind := range []string{"remote", "microvm"} {
 		t.Run(kind+"/RecoverWithoutWorkingDirectory", func(t *testing.T) {
 			rt := connect().(*sshRuntime)
