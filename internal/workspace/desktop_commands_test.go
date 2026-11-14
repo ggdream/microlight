@@ -21,6 +21,49 @@ import (
 	"github.com/cloudwego/eino/adk/filesystem"
 )
 
+func TestDesktopStopWinsWhileAnotherExecutorPreparesLaunch(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "commands.sqlite3")
+	starter, err := newDesktopCommandStore(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer starter.db.Close()
+	stopper, err := newDesktopCommandStore(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stopper.db.Close()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	dir := t.TempDir()
+	preparing, stopped := make(chan struct{}), make(chan struct{})
+	stopResult := make(chan error, 1)
+	go func() {
+		<-preparing
+		defer close(stopped)
+		outcome, err := stopper.command(ctx, "stop", "task", "signature", "", 0, nil)
+		if err == nil && (outcome == nil || outcome.Status != backgroundtask.StatusCanceled) {
+			err = fmt.Errorf("unexpected stop outcome: %+v", outcome)
+		}
+		stopResult <- err
+	}()
+	outcome, err := starter.command(ctx, "start", "task", "signature", "echo unexpected", time.Minute, func() (string, error) {
+		close(preparing)
+		select {
+		case <-stopped:
+			return dir, nil
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
+	})
+	if err != nil || outcome == nil || outcome.Status != backgroundtask.StatusCanceled {
+		t.Fatalf("launch raced with stop: %+v, %v", outcome, err)
+	}
+	if err := <-stopResult; err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestDesktopCommandReconnect(t *testing.T) {
 	const token = "desktop-test-token-00000000000000"
 	t.Setenv("MICROLIGHT_DESKTOP_TOKEN", token)
@@ -139,7 +182,8 @@ func TestDesktopCommandReconnect(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		run, err := reconnected.(CommandStopper).StopCommand(ctx, request)
+		other := connect(restarted.URL)
+		run, err := other.(CommandStopper).StopCommand(ctx, request)
 		if err != nil {
 			t.Fatal(err)
 		}

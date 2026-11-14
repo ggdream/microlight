@@ -63,6 +63,9 @@ func newDesktopCommandStore(name string) (*desktopCommandStore, error) {
 		);
 		CREATE TABLE IF NOT EXISTS command_store (
 			singleton INTEGER PRIMARY KEY CHECK (singleton = 1), id TEXT NOT NULL
+		);
+		CREATE TABLE IF NOT EXISTS command_stops (
+			id TEXT PRIMARY KEY REFERENCES commands(id), requested_at INTEGER NOT NULL
 		)`); err != nil {
 		db.Close()
 		return nil, err
@@ -128,65 +131,102 @@ func (s *desktopCommandStore) command(ctx context.Context, method, id, signature
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	for {
+		outcome, retry, err := s.commandLocked(ctx, method, id, signature, command, timeout, directory)
+		if !retry || err != nil {
+			return outcome, err
+		}
+	}
+}
+
+func (s *desktopCommandStore) commandLocked(ctx context.Context, method, id, signature, command string, timeout time.Duration, directory func() (string, error)) (*backgroundtool.Outcome, bool, error) {
 	var savedSignature string
 	var data []byte
 	err := s.db.QueryRowContext(ctx, "SELECT signature, outcome FROM commands WHERE id=?", id).Scan(&savedSignature, &data)
 	switch {
 	case err == nil:
 		if savedSignature != signature {
-			return nil, errors.New("task ID is already bound to another command")
+			return nil, false, errors.New("task ID is already bound to another command")
 		}
 		if data != nil {
 			var outcome backgroundtool.Outcome
 			err := json.Unmarshal(data, &outcome)
-			return &outcome, err
+			return &outcome, false, err
 		}
 		cancel, running := s.active[id]
-		if !running {
-			return nil, errors.New("desktop command outcome is unknown")
-		}
 		if method == "stop" {
-			cancel()
+			if _, err := s.db.ExecContext(ctx, "INSERT INTO command_stops VALUES (?, ?) ON CONFLICT DO NOTHING", id, time.Now().UnixMilli()); err != nil {
+				return nil, false, err
+			}
+			if running {
+				cancel()
+			}
+			// A different executor process may own this task. The stop is
+			// durably requested, but only the owner can confirm its outcome.
+			return nil, false, nil
 		}
-		return nil, nil
+		if !running {
+			if method == "status" {
+				var requested int64
+				err := s.db.QueryRowContext(ctx, "SELECT requested_at FROM command_stops WHERE id=?", id).Scan(&requested)
+				if err == nil && time.Since(time.UnixMilli(requested)) < 5*time.Second {
+					return nil, false, nil
+				}
+				if err != nil && !errors.Is(err, sql.ErrNoRows) {
+					return nil, false, err
+				}
+			}
+			return nil, false, errors.New("desktop command outcome is unknown")
+		}
+		return nil, false, nil
 	case !errors.Is(err, sql.ErrNoRows):
-		return nil, err
+		return nil, false, err
 	}
 	switch method {
 	case "status":
-		return nil, backgroundtask.ErrNotFound
+		return nil, false, backgroundtask.ErrNotFound
 	case "stop":
 		outcome := &backgroundtool.Outcome{Status: backgroundtask.StatusCanceled}
 		data, err := json.Marshal(outcome)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		_, err = s.db.ExecContext(ctx, "INSERT INTO commands VALUES (?, ?, ?)", id, signature, data)
-		return outcome, err
+		claimed, err := s.claim(ctx, id, signature, data)
+		return outcome, !claimed, err
 	case "start":
 		if len(s.active) >= 8 {
-			return nil, errors.New("desktop command limit reached")
+			return nil, false, errors.New("desktop command limit reached")
 		}
 		dir, err := directory()
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		// Commit the claim before launching. After a process crash, an
 		// unresolved claim stays unknown and can never start a second time.
-		if _, err := s.db.ExecContext(ctx, "INSERT INTO commands VALUES (?, ?, NULL)", id, signature); err != nil {
-			return nil, err
+		if claimed, err := s.claim(ctx, id, signature, nil); err != nil || !claimed {
+			return nil, !claimed, err
 		}
 		runCtx, cancel := context.WithTimeout(context.Background(), timeout)
 		s.active[id] = cancel
 		go s.run(runCtx, cancel, id, dir, command)
-		return nil, nil
+		return nil, false, nil
 	default:
-		return nil, errors.New("unknown command operation")
+		return nil, false, errors.New("unknown command operation")
 	}
+}
+
+func (s *desktopCommandStore) claim(ctx context.Context, id, signature string, outcome []byte) (bool, error) {
+	result, err := s.db.ExecContext(ctx, "INSERT INTO commands VALUES (?, ?, ?) ON CONFLICT(id) DO NOTHING", id, signature, outcome)
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	return rows == 1, err
 }
 
 func (s *desktopCommandStore) run(ctx context.Context, cancel context.CancelFunc, id, dir, command string) {
 	defer cancel()
+	go s.watchStop(ctx, cancel, id)
 	outcome := runDesktopCommand(ctx, dir, command)
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -195,6 +235,23 @@ func (s *desktopCommandStore) run(ctx context.Context, cancel context.CancelFunc
 	if err == nil {
 		// A failed save leaves the launch claim in place.
 		_, _ = s.db.Exec("UPDATE commands SET outcome=? WHERE id=?", data, id)
+	}
+}
+
+func (s *desktopCommandStore) watchStop(ctx context.Context, cancel context.CancelFunc, id string) {
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		var stop bool
+		if err := s.db.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM command_stops WHERE id=?)", id).Scan(&stop); err == nil && stop {
+			cancel()
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 	}
 }
 
