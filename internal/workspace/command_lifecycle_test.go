@@ -141,4 +141,36 @@ func testCommandLifecycle(t *testing.T, ctx context.Context, connect func() Runt
 	if path, _, err := rt.(ResolvedFileSystem).Resolve(ctx, id, false); err == nil {
 		t.Fatalf("canceled command performed side effect at %s", path)
 	}
+
+	// A canceled launch may reach the executor after the cancellation.
+	id = uuid.NewV7().String()
+	beforeLaunch := &backgroundshell.RecoverCommandRequest{TaskID: id, Command: "touch " + id, Attempt: 1}
+	if _, err := commands.RecoverCommand(ctx, beforeLaunch); !errors.Is(err, backgroundtask.ErrNotFound) {
+		t.Fatalf("observe before launch = %v", err)
+	}
+	stopper := commands.(CommandStopper)
+	run, err = stopper.StopCommand(ctx, beforeLaunch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outcome, err = run.Wait(ctx)
+	if err != nil || outcome.Status != backgroundtask.StatusCanceled {
+		t.Fatalf("cancel before launch = %+v, %v", outcome, err)
+	}
+	run, err = commands.StartCommand(ctx, &backgroundshell.StartCommandRequest{
+		TaskID: id, Command: beforeLaunch.Command, Attempt: 2,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	outcome, err = run.Wait(ctx)
+	if err != nil || outcome.Status != backgroundtask.StatusCanceled {
+		t.Fatalf("late launch = %+v, %v", outcome, err)
+	}
+	if _, _, err := rt.(ResolvedFileSystem).Resolve(ctx, id, false); err == nil {
+		t.Fatal("late launch performed a side effect")
+	}
+	if _, err := stopper.StopCommand(ctx, &backgroundshell.RecoverCommandRequest{TaskID: id, Command: "true"}); err == nil {
+		t.Fatal("cancellation accepted a different command for an existing ID")
+	}
 }

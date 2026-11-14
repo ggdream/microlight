@@ -177,9 +177,18 @@ func RecoverRemoteCommand(ctx context.Context, connect func(context.Context) (wo
 	if !ok || provider.Commands() == nil {
 		return nil, errors.New("recoverable shell capability is unavailable")
 	}
-	run, err := provider.Commands().RecoverCommand(ctx, &backgroundshell.RecoverCommandRequest{
+	commands := provider.Commands()
+	req := &backgroundshell.RecoverCommandRequest{
 		TaskID: record.ID, Command: record.Command, Attempt: 1,
-	})
+	}
+	if stopper, ok := commands.(workspace.CommandStopper); stop && ok {
+		run, err := stopper.StopCommand(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		return run.Wait(ctx)
+	}
+	run, err := commands.RecoverCommand(ctx, req)
 	if err != nil {
 		return nil, err
 	}

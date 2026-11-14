@@ -235,10 +235,7 @@ func (app *chatApp) recoverRemoteCommands(chat *conversation, entry *turn, ordin
 				outcome, err = localtools.RecoverRemoteCommand(ctx, connect, record.RemoteCommand, true)
 			}
 			if errors.Is(err, backgroundtask.ErrNotFound) {
-				// The executor never claimed this task or its record is gone.
-				// Reattachment never launches an approved command.
-				outcome = &backgroundtool.Outcome{Status: backgroundtask.StatusFailed, Error: locales.RemoteCommandNotFound()}
-				err = nil
+				err = errors.New(locales.RemoteCommandNotFound())
 			}
 			if err == nil {
 				err = store.finishRemoteCommand(ctx, record.ID, outcome)

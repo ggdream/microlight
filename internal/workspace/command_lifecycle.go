@@ -27,6 +27,11 @@ type CommandProvider interface {
 	Commands() backgroundshell.RecoverableShell
 }
 
+// CommandStopper can record cancellation even before a launch is acknowledged.
+type CommandStopper interface {
+	StopCommand(context.Context, *backgroundshell.RecoverCommandRequest) (backgroundtool.Run, error)
+}
+
 type remoteCommands struct {
 	run       func(context.Context, string) (string, error)
 	directory string
@@ -75,6 +80,20 @@ func (c remoteCommands) RecoverCommand(ctx context.Context, req *backgroundshell
 	return task, nil
 }
 
+func (c remoteCommands) StopCommand(ctx context.Context, req *backgroundshell.RecoverCommandRequest) (backgroundtool.Run, error) {
+	if req == nil {
+		return nil, errors.New("command request is required")
+	}
+	task, err := c.task(req.TaskID, req.Command)
+	if err != nil {
+		return nil, err
+	}
+	if err := task.Stop(ctx); err != nil {
+		return nil, err
+	}
+	return task, nil
+}
+
 type remoteCommand struct {
 	remoteCommands
 	key, signature string
@@ -110,25 +129,28 @@ signature=$2
 directory=$3
 command=$4
 cd "$task"
+exec 8>launch
+flock 8
+[ ! -f signature ] && [ ! -f canceled-before-launch ] || exit 0
 exec 9>lease
 flock -n 9 || exit 0
-[ ! -f signature ] || exit 0
-printf '%s\n' "$signature" > signature.tmp
-mv signature.tmp signature
 
 # Keep only the first 64 KiB and drain the rest without retaining it.
 rm -f fifo
 mkfifo fifo
-setsid /bin/sh -c 'head -c 65537; cat > /dev/null' < fifo > output 9>&- &
+setsid /bin/sh -c 'head -c 65537; cat > /dev/null' < fifo > output 8>&- 9>&- &
 reader=$!
 
 # Start the command in its own process group. Keep the supervisor outside
 # that group, so it can record the result after canceling the command.
+printf '%s\n' "$signature" > signature.tmp
+mv signature.tmp signature
 setsid /bin/sh -c '
     cd "$1" || exit 125
     exec /bin/sh -c "$2"
-' sh "$directory" "$command" < /dev/null > fifo 2>&1 9>&- &
+' sh "$directory" "$command" < /dev/null > fifo 2>&1 8>&- 9>&- &
 pid=$!
+exec 8>&-
 start=$(date +%s)
 status=exit
 while kill -0 "$pid" 2>/dev/null; do
@@ -160,11 +182,11 @@ rm -f fifo
 func (r *remoteCommand) launch(ctx context.Context, command string) error {
 	body := `for utility in nohup setsid flock mkfifo head date; do command -v "$utility" >/dev/null; done
 mkdir -p "$task"
-if [ ! -f "$task/signature" ]; then
+if [ ! -f "$task/signature" ] && [ ! -f "$task/canceled-before-launch" ]; then
     nohup setsid /bin/sh -c ` + quotePOSIX(commandWorker) + ` sh "$task" "$signature" ` + quotePOSIX(r.directory) + " " + quotePOSIX(command) + ` </dev/null >/dev/null 2>&1 &
 fi
 tries=0
-while [ ! -f "$task/signature" ] && [ "$tries" -lt 50 ]; do
+while [ ! -f "$task/signature" ] && [ ! -f "$task/canceled-before-launch" ] && [ "$tries" -lt 50 ]; do
     sleep 0.1
     tries=$((tries + 1))
 done
@@ -176,7 +198,11 @@ done
 	return nil
 }
 
-const verifyCommand = `if [ ! -f "$task/signature" ]; then printf 'missing\n'; exit; fi
+const verifyCommand = `if [ -f "$task/canceled-before-launch" ]; then
+    if [ "$(cat "$task/canceled-before-launch")" = "$signature" ]; then printf 'canceled 0\n'; else printf 'conflict\n'; fi
+    exit
+fi
+if [ ! -f "$task/signature" ]; then printf 'missing\n'; exit; fi
 if [ "$(cat "$task/signature")" != "$signature" ]; then printf 'conflict\n'; exit; fi
 `
 
@@ -190,7 +216,7 @@ if [ ! -f result ]; then
     fi
 fi
 cat result
-head -c 65537 output
+if [ -f output ]; then head -c 65537 output; fi
 `))
 	if err != nil {
 		return nil, &CommandTransportError{err}
@@ -245,8 +271,20 @@ func (r *remoteCommand) Wait(ctx context.Context) (*backgroundtool.Outcome, erro
 }
 
 func (r *remoteCommand) Stop(ctx context.Context) error {
-	state, err := r.run(ctx, r.script(verifyCommand+`
+	state, err := r.run(ctx, r.script(`mkdir -p "$task"
 cd "$task"
+exec 8>launch
+flock 8
+if [ -f canceled-before-launch ]; then
+    if [ "$(cat canceled-before-launch)" != "$signature" ]; then printf 'conflict\n'; fi
+    exit
+fi
+if [ ! -f signature ]; then
+    printf '%s\n' "$signature" > canceled.tmp
+    mv canceled.tmp canceled-before-launch
+    exit
+fi
+if [ "$(cat signature)" != "$signature" ]; then printf 'conflict\n'; exit; fi
 if [ ! -f result ]; then mkdir -p stop; fi
 `))
 	if err != nil {
@@ -255,8 +293,6 @@ if [ ! -f result ]; then mkdir -p stop; fi
 	switch strings.TrimSpace(state) {
 	case "":
 		return nil
-	case "missing":
-		return backgroundtask.ErrNotFound
 	default:
 		return errors.New("task ID is already bound to another command")
 	}
