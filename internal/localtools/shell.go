@@ -54,7 +54,22 @@ func WithCommandReattachment(ctx context.Context, record RemoteCommand, outcome 
 
 type RemoteCommand struct {
 	ID, CallID, Command string
+	ExecutorID          string
 	LaunchConfirmed     bool
+}
+
+func commandExecutorID(runtime workspace.Runtime) string {
+	if session, ok := runtime.(workspace.CommandSession); ok {
+		return session.CommandSessionID()
+	}
+	return ""
+}
+
+func checkCommandExecutor(runtime workspace.Runtime, expected string) error {
+	if expected != "" && commandExecutorID(runtime) != expected {
+		return errors.New("execution environment command journal changed")
+	}
+	return nil
 }
 
 type CommandJournal struct {
@@ -177,9 +192,19 @@ func executeRecoverable(ctx context.Context, commands backgroundshell.Recoverabl
 	id := harness.OperationScope(ctx) + "/" + op.callID
 	record, restoring := ctx.Value(commandReattachmentKey{}).(commandReattachment)
 	reattach := restoring && record.ID == id && record.CallID == op.callID
+	executorID := commandExecutorID(op.runtime)
+	if reattach {
+		if err := checkCommandExecutor(op.runtime, record.ExecutorID); err != nil {
+			return nil, err
+		}
+	}
+	entry := RemoteCommand{ID: id, CallID: op.callID, Command: op.content, ExecutorID: executorID}
+	if reattach {
+		entry.ExecutorID = record.ExecutorID
+	}
 	journal, _ := ctx.Value(commandJournalKey{}).(CommandJournal)
 	if journal.Record != nil {
-		if err := journal.Record(ctx, RemoteCommand{ID: id, CallID: op.callID, Command: op.content}); err != nil {
+		if err := journal.Record(ctx, entry); err != nil {
 			return nil, fmt.Errorf("record remote command before launch: %w", err)
 		}
 	}
@@ -187,7 +212,7 @@ func executeRecoverable(ctx context.Context, commands backgroundshell.Recoverabl
 	recoverFirst := reattach
 	// A journal entry is written before launch. Only a missing, unconfirmed
 	// task can be retried here, and only on an executor that deduplicates starts.
-	allowLaunchRetry := reattach && !record.LaunchConfirmed
+	allowLaunchRetry := reattach && !record.LaunchConfirmed && (record.ExecutorID != "" || executorID == "")
 	wait := func(commands backgroundshell.RecoverableShell) (*filesystem.ExecuteResponse, error) {
 		var run backgroundtool.Run
 		var err error
@@ -224,22 +249,6 @@ func executeRecoverable(ctx context.Context, commands backgroundshell.Recoverabl
 	}
 	response, err := wait(commands)
 	reconnect, _ := ctx.Value(reconnectWorkspaceKey{}).(func(context.Context) (workspace.Runtime, error))
-	if reconnect != nil {
-		if original, ok := op.runtime.(workspace.CommandSession); ok {
-			open := reconnect
-			reconnect = func(ctx context.Context) (workspace.Runtime, error) {
-				rt, err := open(ctx)
-				if err != nil {
-					return nil, err
-				}
-				if session, ok := rt.(workspace.CommandSession); !ok || session.CommandSessionID() != original.CommandSessionID() {
-					rt.Close()
-					return nil, errors.New("execution environment command journal changed")
-				}
-				return rt, nil
-			}
-		}
-	}
 	var transport *workspace.CommandTransportError
 	if reconnect != nil && ctx.Err() == nil && errors.As(err, &transport) {
 		if !recoverFirst {
@@ -249,6 +258,12 @@ func executeRecoverable(ctx context.Context, commands backgroundshell.Recoverabl
 		}
 		openCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 		runtime, openErr := reconnect(openCtx)
+		if openErr == nil {
+			if identityErr := checkCommandExecutor(runtime, executorID); identityErr != nil {
+				runtime.Close()
+				openErr = identityErr
+			}
+		}
 		if openErr == nil {
 			defer runtime.Close()
 			recovered, discoverErr := workspace.DiscoverCommands(openCtx, runtime)
@@ -265,7 +280,8 @@ func executeRecoverable(ctx context.Context, commands backgroundshell.Recoverabl
 	if errors.Is(context.Cause(ctx), ErrStopReply) && err != nil && reconnect != nil {
 		stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
 		defer cancel()
-		outcome, err := RecoverRemoteCommand(stopCtx, reconnect, RemoteCommand{ID: id, Command: op.content}, true)
+		entry.ExecutorID = executorID
+		outcome, err := RecoverRemoteCommand(stopCtx, reconnect, entry, true)
 		if err != nil {
 			return nil, fmt.Errorf("remote command %s cancellation could not be confirmed: %w", id, err)
 		}
@@ -304,6 +320,9 @@ func RecoverRemoteCommand(ctx context.Context, connect func(context.Context) (wo
 		return nil, err
 	}
 	defer runtime.Close()
+	if err := checkCommandExecutor(runtime, record.ExecutorID); err != nil {
+		return nil, err
+	}
 	commands, err := workspace.DiscoverCommands(connectCtx, runtime)
 	cancel()
 	if err != nil {

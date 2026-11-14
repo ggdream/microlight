@@ -3,7 +3,11 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -18,6 +22,69 @@ import (
 func TestRemoteCommandJournalSurvivesReopen(t *testing.T) {
 	target := workspace.Target{Kind: "remote", Directory: "/work"}
 	testRemoteCommandReopen(t, target)
+}
+
+func TestDesktopCommandRecoveryChecksPersistedExecutor(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/desktop/info":
+			_, _ = w.Write([]byte(`{"SessionID":"desktop","CommandStoreID":"replacement","Files":true,"Commands":true}`))
+		case "/v1/desktop/files/resolve":
+			_, _ = w.Write([]byte(`{"Path":"/","IsDir":true}`))
+		default:
+			requests.Add(1)
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	store, err := openLocalStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	target := workspace.Target{Kind: "desktop", Directory: "/", Resource: server.URL}
+	chat := &conversation{ID: newID(), target: target, Turns: []*turn{
+		userTurn("Run a command"), {message: message{Role: "assistant"}, State: "pending"},
+	}}
+	if err := store.saveHistory(history{Chats: []*conversation{chat}, Selected: chat.ID}, chat); err != nil {
+		t.Fatal(err)
+	}
+	record := localtools.RemoteCommand{ID: newID(), CallID: "tool", Command: "echo original", ExecutorID: "journal/original"}
+	journal := store.commandJournal(chat.ID, chat.branchID, target.Identity(), 1)
+	if err := journal.Record(t.Context(), record); err != nil {
+		t.Fatal(err)
+	}
+	conflict := record
+	conflict.ExecutorID = "journal/replacement"
+	if err := journal.Record(t.Context(), conflict); err == nil {
+		t.Fatal("allowed a different executor to claim the recorded command")
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := openLocalStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	saved, err := reopened.loadRemoteCommands(chat.ID, chat.branchID, 1)
+	if err != nil || len(saved) != 1 || saved[0].RemoteCommand != record {
+		t.Fatalf("restored record = %+v, %v", saved, err)
+	}
+	connect := func(ctx context.Context) (workspace.Runtime, error) {
+		return workspace.Open(ctx, target, "desktop-test-token-00000000000000")
+	}
+	for _, stop := range []bool{false, true} {
+		if _, err := localtools.RecoverRemoteCommand(t.Context(), connect, saved[0].RemoteCommand, stop); err == nil || !strings.Contains(err.Error(), "command journal changed") {
+			t.Fatalf("recovery with stop=%t: %v", stop, err)
+		}
+	}
+	if requests.Load() != 0 {
+		t.Fatalf("sent %d command requests to the replacement executor", requests.Load())
+	}
 }
 
 func TestRemoteCommandsFollowBranchAncestry(t *testing.T) {

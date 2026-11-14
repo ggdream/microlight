@@ -20,7 +20,7 @@ func (store *localStore) migrate(dir string) error {
 		return err
 	}
 	switch version {
-	case 18:
+	case 19:
 		return nil
 	case 0:
 		if err := createBaseSchema(tx); err != nil {
@@ -210,6 +210,20 @@ func (store *localStore) migrate(dir string) error {
 			INSERT OR IGNORE INTO confirmed_remote_launches (task_id) SELECT id FROM remote_commands;
 			PRAGMA user_version = 18;
 		`); err != nil {
+			return err
+		}
+		fallthrough
+	case 18:
+		var exists bool
+		if err := tx.QueryRow("SELECT EXISTS (SELECT 1 FROM pragma_table_info('remote_commands') WHERE name = 'executor_id')").Scan(&exists); err != nil {
+			return err
+		}
+		if !exists {
+			if _, err := tx.Exec("ALTER TABLE remote_commands ADD COLUMN executor_id TEXT NOT NULL DEFAULT ''"); err != nil {
+				return err
+			}
+		}
+		if _, err := tx.Exec("PRAGMA user_version = 19"); err != nil {
 			return err
 		}
 	default:

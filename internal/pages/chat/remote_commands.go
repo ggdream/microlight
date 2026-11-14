@@ -228,16 +228,16 @@ func (store *localStore) commandJournal(chatID, branch, targetID string, ordinal
 			}
 			defer tx.Rollback()
 			result, err := tx.ExecContext(ctx, `
-				INSERT INTO remote_commands (id, conversation_id, turn_ordinal, branch_id, target_id, call_id, command)
-				SELECT ?, c.id, t.ordinal, c.branch_id, ?, ?, ? FROM conversations c
+				INSERT INTO remote_commands (id, conversation_id, turn_ordinal, branch_id, target_id, call_id, command, executor_id)
+				SELECT ?, c.id, t.ordinal, c.branch_id, ?, ?, ?, ? FROM conversations c
 				JOIN turns t ON t.conversation_id = c.id
 				WHERE c.id = ? AND c.branch_id = ? AND t.ordinal = ? AND t.state = 'pending'
 				ON CONFLICT(id) DO UPDATE SET id = excluded.id
 				WHERE remote_commands.conversation_id = excluded.conversation_id
 				AND remote_commands.branch_id = excluded.branch_id AND remote_commands.turn_ordinal = excluded.turn_ordinal
 				AND remote_commands.target_id = excluded.target_id AND remote_commands.call_id = excluded.call_id
-				AND remote_commands.command = excluded.command`,
-				record.ID, targetID, record.CallID, record.Command, chatID, branch, ordinal)
+				AND remote_commands.command = excluded.command AND remote_commands.executor_id = excluded.executor_id`,
+				record.ID, targetID, record.CallID, record.Command, record.ExecutorID, chatID, branch, ordinal)
 			if err != nil {
 				return err
 			}
@@ -274,7 +274,7 @@ func (store *localStore) finishRemoteCommand(ctx context.Context, id string, out
 
 func (store *localStore) loadRemoteCommands(chatID, branch string, ordinal int) ([]savedRemoteCommand, error) {
 	return store.queryRemoteCommands(commandLineage+`
-		SELECT id, call_id, command, target_id, result, checkpoint_id, interrupt_id,
+		SELECT id, call_id, command, target_id, executor_id, result, checkpoint_id, interrupt_id,
 			(result IS NOT NULL OR EXISTS (SELECT 1 FROM confirmed_remote_launches WHERE task_id = id)) FROM remote_commands
 		LEFT JOIN remote_command_checkpoints ON task_id = id
 		WHERE conversation_id = ? AND turn_ordinal = ? AND EXISTS (
@@ -289,7 +289,7 @@ func (store *localStore) loadDetachedCommands(chat *conversation) ([]savedRemote
 
 func (store *localStore) loadDetachedCommandsAt(chatID, branch string, turnCount int) ([]savedRemoteCommand, error) {
 	return store.queryRemoteCommands(commandLineage+`
-		SELECT id, call_id, command, target_id, result, checkpoint_id, interrupt_id,
+		SELECT id, call_id, command, target_id, executor_id, result, checkpoint_id, interrupt_id,
 			(result IS NOT NULL OR EXISTS (SELECT 1 FROM confirmed_remote_launches WHERE task_id = id)) FROM remote_commands
 		LEFT JOIN remote_command_checkpoints ON task_id = id
 		WHERE conversation_id = ? AND NOT EXISTS (
@@ -310,7 +310,7 @@ func (store *localStore) queryRemoteCommands(query string, args ...any) ([]saved
 		var record savedRemoteCommand
 		var raw []byte
 		var checkpoint, interrupt *string
-		if err := rows.Scan(&record.ID, &record.CallID, &record.Command, &record.targetID, &raw, &checkpoint, &interrupt, &record.LaunchConfirmed); err != nil {
+		if err := rows.Scan(&record.ID, &record.CallID, &record.Command, &record.targetID, &record.ExecutorID, &raw, &checkpoint, &interrupt, &record.LaunchConfirmed); err != nil {
 			return nil, err
 		}
 		if checkpoint != nil && interrupt != nil {
