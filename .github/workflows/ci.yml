@@ -47,6 +47,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends dbus-daemon glib-networking gsettings-desktop-schemas libglib2.0-bin
+      - name: Allow Chromium sandbox user namespaces
+        if: runner.os == 'Linux'
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Test
         if: runner.os != 'Linux'
         run: go test -mod=readonly -count=1 ./...
