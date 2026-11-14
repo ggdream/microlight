@@ -70,7 +70,10 @@ type Access struct {
 }
 
 func WithRuntime(ctx context.Context, access *Access, runtime project.Runtime, target project.Target, operations project.Operations) context.Context {
-	return context.WithValue(WithAccess(ctx, access), runtimeAccessKey{}, runtimeAccess{runtime, target, operations})
+	if access != nil {
+		ctx = WithAccess(ctx, access)
+	}
+	return context.WithValue(ctx, runtimeAccessKey{}, runtimeAccess{runtime, target, operations})
 }
 
 type runtimeAccessKey struct{}
@@ -95,7 +98,7 @@ func WithAccess(ctx context.Context, access *Access) context.Context {
 }
 
 func Workspace(ctx context.Context, fallback string) string {
-	if _, ok := ctx.Value(runtimeAccessKey{}).(runtimeAccess); ok {
+	if selected, ok := ctx.Value(runtimeAccessKey{}).(runtimeAccess); ok && selected.target.Kind != "" {
 		return ""
 	}
 	if access, ok := ctx.Value(sessionAccessKey{}).(*Access); ok {
@@ -149,7 +152,7 @@ func (h Middleware) ChatModelAgentMiddlewareName() string {
 }
 
 func (h Middleware) BeforeAgent(ctx context.Context, run *adk.ChatModelAgentContext[*schema.AgenticMessage]) (context.Context, *adk.ChatModelAgentContext[*schema.AgenticMessage], error) {
-	if remote, ok := ctx.Value(runtimeAccessKey{}).(runtimeAccess); ok {
+	if remote, ok := ctx.Value(runtimeAccessKey{}).(runtimeAccess); ok && remote.target.Kind != "" {
 		updated := *run
 		env := remote.runtime.Environment()
 		updated.Instruction += fmt.Sprintf("\nAvailable file, shell, browser and desktop tools operate in the selected %s execution environment (directory %q, OS %q, architecture %q, shell %q). Web fetch and configured MCP are managed by Microlight.", remote.target.Kind, remote.target.Directory, env.OS, env.Arch, env.Shell)
@@ -229,13 +232,17 @@ func (h Middleware) WrapInvokableToolCall(_ context.Context, next adk.InvokableT
 			op.target, op.fileVersion, op.approvalTitle = driver.Label, driver.Identity, driver.Title
 		} else if !isMCP {
 			var err error
-			if remote, ok := ctx.Value(runtimeAccessKey{}).(runtimeAccess); ok && call.Name != Fetch {
-				op, err = resolveRuntime(ctx, remote, call.Name, args)
+			selected, connected := ctx.Value(runtimeAccessKey{}).(runtimeAccess)
+			if connected && selected.target.Kind != "" && call.Name != Fetch {
+				op, err = resolveRuntime(ctx, selected, call.Name, args)
 			} else {
 				op, err = policy.resolve(call.Name, args)
 			}
 			if err != nil {
 				return "无法执行：" + err.Error(), nil
+			}
+			if connected && selected.target.Kind == "" && call.Name != Fetch {
+				op.runtime, op.operations = selected.runtime, selected.operations
 			}
 		}
 		// Bind the decision to this tool call and the exact resolved target and arguments.
@@ -349,21 +356,9 @@ func (h Middleware) resolve(name, raw string) (localOperation, error) {
 		if strings.TrimSpace(args.Command) == "" || len(args.Command) > maxLocalWrite || strings.ContainsRune(args.Command, 0) {
 			return op, errors.New("需要有效的命令，且不能超过 16 KiB")
 		}
-		dir := h.Workspace
-		if dir == "" {
-			var err error
-			dir, err = os.UserHomeDir()
-			if err != nil {
-				return op, err
-			}
-		}
-		resolved, err := filepath.EvalSymlinks(dir)
+		resolved, err := localCommandDirectory(h.Workspace)
 		if err != nil {
 			return op, err
-		}
-		info, err := os.Stat(resolved)
-		if err != nil || !info.IsDir() || !filepath.IsAbs(resolved) {
-			return op, errors.New("命令的工作目录不可用")
 		}
 		op.target, op.content = resolved, args.Command
 		return op, nil
@@ -379,6 +374,11 @@ func (h Middleware) resolve(name, raw string) (localOperation, error) {
 		op.target, op.webOffset = u.String(), args.Offset
 		return op, nil
 	}
+	return h.resolveLocalFile(name, args)
+}
+
+func (h Middleware) resolveLocalFile(name string, args localArguments) (localOperation, error) {
+	op := localOperation{name: name}
 	path := args.Path
 	if strings.TrimSpace(path) == "" {
 		return op, errors.New("请指定路径")
@@ -481,6 +481,9 @@ func (t Tool) InvokableRun(ctx context.Context, _ string, _ ...tool.Option) (str
 }
 
 func (op localOperation) execute(ctx context.Context) (string, *diff.Lines, error) {
+	if local, ok := op.operations.Files.(LocalRuntime); ok {
+		return local.executeApprovedFile(ctx, op)
+	}
 	if op.runtime != nil {
 		return op.executeRuntime(ctx)
 	}

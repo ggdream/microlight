@@ -56,6 +56,7 @@ func TestDeepExecuteRespectsConversationApproval(t *testing.T) {
 	backend := newChat(modelSettings{Protocol: openAIChat, BaseURL: server.URL, Model: "test"})
 	access := localtools.NewAccess(workspace, localtools.Ask)
 	ctx := localtools.WithAccess(t.Context(), access)
+	agent := PersonalAgent{backend: backend, access: access}
 
 	for _, test := range []struct {
 		mode   localtools.Mode
@@ -71,7 +72,7 @@ func TestDeepExecuteRespectsConversationApproval(t *testing.T) {
 			emit := func(delta replyDelta) error { reply.appendDelta(delta); return nil }
 			access.SetMode(test.mode)
 			id := newID()
-			pending, err := backend.runSession(ctx, store, id, []*turn{userTurn("Run a command")}, nil, "", emit)
+			pending, err := agent.run(ctx, store, id, []*turn{userTurn("Run a command")}, nil, "", emit)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -82,7 +83,7 @@ func TestDeepExecuteRespectsConversationApproval(t *testing.T) {
 				if _, err := os.Stat(proof); !errors.Is(err, os.ErrNotExist) {
 					t.Fatalf("command ran before approval: %v", err)
 				}
-				pending, err = backend.runSession(ctx, store, id, nil, pending, test.answer, emit)
+				pending, err = agent.run(ctx, store, id, nil, pending, test.answer, emit)
 			}
 			if err != nil || pending != nil {
 				t.Fatalf("command run did not finish: %+v, %v", pending, err)

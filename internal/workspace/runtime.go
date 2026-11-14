@@ -178,11 +178,18 @@ func writeVersion(ctx context.Context, target ResolvedFileSystem, name string) (
 	if err != nil {
 		return "", err
 	}
-	if expected, ok := ctx.Value(expectedWriteKey{}).(expectedWrite); ok && (resolved != expected.Path || version != expected.Version) {
-		return "", errors.New("文件已变化，请重新请求批准")
+	if err := CheckWriteVersion(ctx, resolved, version); err != nil {
+		return "", err
 	}
 	if resolved != name {
 		return "", errors.New("文件路径已变化")
 	}
 	return version, nil
+}
+
+func CheckWriteVersion(ctx context.Context, path, version string) error {
+	if expected, ok := ctx.Value(expectedWriteKey{}).(expectedWrite); ok && (path != expected.Path || version != expected.Version) {
+		return errors.New("文件已变化，请重新请求批准")
+	}
+	return nil
 }

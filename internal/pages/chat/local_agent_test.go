@@ -64,7 +64,8 @@ func TestSessionPermissionChangesBetweenToolCalls(t *testing.T) {
 	ctx := localtools.WithAccess(t.Context(), access)
 	config := modelSettings{Protocol: openAIChat, BaseURL: server.URL, Model: "test", Workspace: t.TempDir(), AccessMode: localtools.Full}
 	var reply turn
-	pending, err := newChat(config).runSession(ctx, store, "live-mode", []*turn{userTurn("Create two files")}, nil, "", func(delta replyDelta) error {
+	agent := PersonalAgent{backend: newChat(config), access: access}
+	pending, err := agent.run(ctx, store, "live-mode", []*turn{userTurn("Create two files")}, nil, "", func(delta replyDelta) error {
 		reply.appendDelta(delta)
 		return nil
 	})

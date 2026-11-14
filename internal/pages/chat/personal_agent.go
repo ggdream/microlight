@@ -32,29 +32,36 @@ func (e *workspaceConnectionError) Unwrap() error { return e.cause }
 func (agent PersonalAgent) run(ctx context.Context, store *localStore, sessionID string, input []*turn, resume *clarification, answer string, emit func(replyDelta) error) (*clarification, error) {
 	browser := agent.browser
 	computer := agent.computer
-	if agent.target.Kind != "" {
+	var executor workspace.Runtime
+	probe, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	if agent.target.Kind == "" {
+		directory := localtools.Workspace(ctx, agent.backend.config.Workspace)
+		executor = localtools.LocalRuntime{Directory: directory, BrowserDriver: browser.driver, DesktopDriver: computer.driver}
+	} else {
 		browser = browserBinding{}
 		computer = computerBinding{}
 		open := agent.connect
 		if open == nil {
 			open = workspace.Open
 		}
-		connect, cancel := context.WithTimeout(ctx, 20*time.Second)
-		runtime, err := open(connect, agent.target, agent.secret)
-		if err != nil {
-			cancel()
-			return nil, &workspaceConnectionError{agent.target, err}
-		}
-		defer runtime.Close()
-		ops, err := workspace.DiscoverOperations(connect, runtime)
-		cancel()
+		runtime, err := open(probe, agent.target, agent.secret)
 		if err != nil {
 			return nil, &workspaceConnectionError{agent.target, err}
 		}
-		ctx = localtools.WithRuntime(ctx, agent.access, runtime, agent.target, ops)
+		executor = runtime
 		ctx = localtools.WithWorkspaceReconnect(ctx, func(ctx context.Context) (workspace.Runtime, error) {
 			return open(ctx, agent.target, agent.secret)
 		})
+	}
+	defer executor.Close()
+	ops, err := workspace.DiscoverOperations(probe, executor)
+	cancel()
+	if err != nil {
+		return nil, &workspaceConnectionError{agent.target, err}
+	}
+	ctx = localtools.WithRuntime(ctx, agent.access, executor, agent.target, ops)
+	if agent.target.Kind != "" {
 		if ops.Files != nil {
 			ctx = workspace.WithRuntimeInstructions(ctx, ops.Files, agent.target.Directory)
 		}
@@ -75,12 +82,9 @@ func (agent PersonalAgent) run(ctx context.Context, store *localStore, sessionID
 			}
 			computer = computerBinding{driver: driver, capabilities: ops.Capabilities.Computer, identity: agent.target.Identity() + "/" + identity, label: agent.target.Label()}
 		}
-	} else if computer.driver != nil {
-		capabilities, err := computer.driver.GetCapabilities(ctx)
-		if err != nil {
-			return nil, err
-		}
-		computer.capabilities = capabilities
+	} else {
+		browser.driver = ops.Browser
+		computer.driver, computer.capabilities = ops.Computer, ops.Capabilities.Computer
 	}
 	ctx = context.WithValue(ctx, browserContextKey{}, browser)
 	ctx = context.WithValue(ctx, computerContextKey{}, computer)

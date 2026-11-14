@@ -114,7 +114,13 @@ func (localCommandShell) Execute(ctx context.Context, input *filesystem.ExecuteR
 		if op.operations.Shell == nil {
 			return nil, errors.New("command requires a recoverable session and tool call ID")
 		}
-		response, err = op.operations.Shell.Execute(ctx, input)
+		executor := op.operations.Shell
+		if native, ok := executor.(LocalRuntime); ok {
+			// Use the path resolved during approval.
+			response, err = native.executeApprovedCommand(ctx, op.target, input)
+		} else {
+			response, err = executor.Execute(ctx, input)
+		}
 	default:
 		response, err = shell.Execute(ctx, op.content, op.target, input.Timeout)
 	}
