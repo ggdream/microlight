@@ -161,6 +161,25 @@ func TestSSHCommandLifecycle(t *testing.T) {
 		t.Cleanup(func() { rt.Close() })
 		return rt
 	}
+	if os.Getenv("MICROLIGHT_TEST_SSH_SFTP_ONLY") == "1" {
+		rt := connect()
+		ops, err := DiscoverOperations(ctx, rt)
+		if err != nil || ops.Files == nil || ops.Shell != nil || ops.Commands != nil {
+			t.Fatalf("SFTP-only capabilities: %+v, %v", ops.Capabilities, err)
+		}
+		name, version, err := ops.Files.Resolve(ctx, "sftp-only-"+uuid.NewV7().String(), true)
+		if err != nil || version != "missing" {
+			t.Fatalf("resolve = %q, %q, %v", name, version, err)
+		}
+		if err := ops.Files.Write(WithWriteVersion(ctx, name, version), &filesystem.WriteRequest{FilePath: name, Content: "sftp only"}); err != nil {
+			t.Fatal(err)
+		}
+		content, err := ops.Files.Read(ctx, &filesystem.ReadRequest{FilePath: name})
+		if err != nil || content.Content != "sftp only" {
+			t.Fatalf("read = %+v, %v", content, err)
+		}
+		return
+	}
 	if os.Getenv("MICROLIGHT_TEST_SSH_NO_SFTP") == "1" {
 		ops, err := DiscoverOperations(ctx, connect())
 		if err != nil || ops.Files != nil || ops.Commands == nil {

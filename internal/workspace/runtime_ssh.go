@@ -108,22 +108,21 @@ func openSSH(ctx context.Context, target Target, secret string) (*sshRuntime, er
 	r := &sshRuntime{client: ssh.NewClient(c, ch, requests), target: target}
 	out, _, probeErr := r.run(ctx, "uname -sm")
 	fields := strings.Fields(out)
-	if probeErr == nil && len(fields) >= 2 {
+	if probeErr == nil && len(fields) == 2 {
 		r.env = Environment{OS: strings.ToLower(fields[0]), Arch: fields[1], Shell: "/bin/sh"}
 	} else {
-		out, _, err = r.run(ctx, powerShell("[Console]::WriteLine([System.Environment]::GetEnvironmentVariable('PROCESSOR_ARCHITECTURE'))"))
-		if err == nil && strings.TrimSpace(out) != "" {
-			r.env = Environment{OS: "windows", Arch: strings.TrimSpace(out), Shell: "PowerShell"}
+		out, _, err = r.run(ctx, powerShell("[Console]::WriteLine('microlight-windows:' + [System.Environment]::GetEnvironmentVariable('PROCESSOR_ARCHITECTURE'))"))
+		arch, ok := strings.CutPrefix(strings.TrimSpace(out), "microlight-windows:")
+		if err == nil && ok && arch != "" {
+			r.env = Environment{OS: "windows", Arch: arch, Shell: "PowerShell"}
 		} else if err == nil {
 			err = errors.New("无法探测 SSH Shell")
 		}
 	}
-	if err == nil {
-		err = r.probeDirectory(ctx)
-	}
-	if err != nil {
+	shellErr := err
+	if err := r.probeDirectory(ctx); err != nil {
 		r.Close()
-		return nil, err
+		return nil, errors.Join(shellErr, err)
 	}
 	_ = conn.SetDeadline(time.Time{})
 	if r.env.OS == "linux" {
@@ -142,7 +141,7 @@ func openSSH(ctx context.Context, target Target, secret string) (*sshRuntime, er
 
 func (r *sshRuntime) probeDirectory(ctx context.Context) error {
 	name := r.normalize(r.target.Directory)
-	if !path.IsAbs(name) && !(r.env.OS == "windows" && len(name) > 2 && name[1:3] == ":/") {
+	if !path.IsAbs(name) && !((r.env.OS == "windows" || r.env.OS == "") && len(name) > 2 && name[1:3] == ":/") {
 		return errors.New("请输入远端绝对路径")
 	}
 	files, closeFiles, err := r.startFiles(ctx)
@@ -190,7 +189,7 @@ func (r *sshRuntime) Commands() backgroundshell.RecoverableShell {
 }
 
 func (r *sshRuntime) GetCapabilities(ctx context.Context) (Capabilities, error) {
-	return Capabilities{Files: r.directoryErr == nil && r.fileErr == nil, Shell: true, RecoverableShell: r.journalID != ""}, ctx.Err()
+	return Capabilities{Files: r.directoryErr == nil && r.fileErr == nil, Shell: r.env.Shell != "", RecoverableShell: r.journalID != ""}, ctx.Err()
 }
 
 func (r *sshRuntime) CommandSessionID() string {
@@ -219,7 +218,7 @@ func powerShell(script string) string {
 func (r *sshRuntime) Environment() Environment { return r.env }
 func (r *sshRuntime) Close() error             { return r.client.Close() }
 func (r *sshRuntime) normalize(name string) string {
-	if r.env.OS == "windows" {
+	if r.env.OS == "windows" || (r.env.OS == "" && len(name) >= 2 && name[1] == ':') {
 		return strings.ReplaceAll(name, "\\", "/")
 	}
 	return name
@@ -268,6 +267,9 @@ func (r *sshRuntime) runSession(ctx context.Context, command string) (string, bo
 }
 
 func (r *sshRuntime) Execute(ctx context.Context, req *filesystem.ExecuteRequest) (*filesystem.ExecuteResponse, error) {
+	if r.env.Shell == "" {
+		return nil, errors.New("SSH Shell 不可用")
+	}
 	if r.directoryErr != nil {
 		return nil, r.directoryErr
 	}
@@ -413,7 +415,7 @@ func (r sshFiles) Resolve(ctx context.Context, name string, write bool) (string,
 		return "", "", err
 	}
 	name = r.normalize(name)
-	if !path.IsAbs(name) && !(r.env.OS == "windows" && len(name) > 2 && name[1:3] == ":/") {
+	if !path.IsAbs(name) && !((r.env.OS == "windows" || r.env.OS == "") && len(name) > 2 && name[1:3] == ":/") {
 		name = path.Join(r.target.Directory, name)
 	}
 	if write {
