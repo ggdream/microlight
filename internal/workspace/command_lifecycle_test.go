@@ -90,6 +90,29 @@ func TestDockerCommandLifecycle(t *testing.T) {
 	})
 }
 
+func TestE2BCommandLifecycle(t *testing.T) {
+	sandbox := os.Getenv("MICROLIGHT_TEST_E2B_SANDBOX")
+	if sandbox == "" {
+		t.Skip("set MICROLIGHT_TEST_E2B_SANDBOX to test with a disposable E2B sandbox")
+	}
+	key, dir := os.Getenv("E2B_API_KEY"), os.Getenv("MICROLIGHT_TEST_E2B_DIR")
+	if key == "" || dir == "" {
+		t.Fatal("set E2B_API_KEY and MICROLIGHT_TEST_E2B_DIR for the disposable E2B sandbox")
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
+	defer cancel()
+	target := Target{Kind: "e2b", Resource: sandbox, Directory: dir}
+	testCommandLifecycle(t, ctx, func() Runtime {
+		t.Helper()
+		rt, err := Open(ctx, target, key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { rt.Close() })
+		return rt
+	})
+}
+
 func TestSSHCommandLifecycle(t *testing.T) {
 	key := os.Getenv("MICROLIGHT_TEST_SSH_KEY")
 	if key == "" {

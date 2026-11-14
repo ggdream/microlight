@@ -25,7 +25,10 @@ import (
 type runtimeWithoutCommandRecovery struct {
 	workspace.Runtime
 	workspace.ResolvedFileSystem
-	filesystem.Shell
+}
+
+func (runtimeWithoutCommandRecovery) Execute(context.Context, *filesystem.ExecuteRequest) (*filesystem.ExecuteResponse, error) {
+	return nil, errors.New("saved command result must not execute again")
 }
 
 func TestWorkspaceTargetPersistsWithConversation(t *testing.T) {
@@ -76,13 +79,21 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 			Kind: "microvm", Host: host, Directory: dir, User: "root", Auth: "key", KeyFile: key,
 		})
 	}
+	if sandbox := os.Getenv("MICROLIGHT_TEST_E2B_SANDBOX"); sandbox != "" {
+		dir := os.Getenv("MICROLIGHT_TEST_E2B_DIR")
+		if os.Getenv("E2B_API_KEY") == "" || dir == "" {
+			t.Fatal("set E2B_API_KEY and MICROLIGHT_TEST_E2B_DIR for the disposable E2B sandbox")
+		}
+		targets = append(targets, workspace.Target{Kind: "e2b", Resource: sandbox, Directory: dir})
+	}
 	if len(targets) == 0 {
-		t.Skip("set MICROLIGHT_TEST_DOCKER, MICROLIGHT_TEST_SSH_KEY or MICROLIGHT_TEST_MICROVM_KEY to run against disposable workspaces")
+		t.Skip("set MICROLIGHT_TEST_DOCKER, MICROLIGHT_TEST_SSH_KEY, MICROLIGHT_TEST_MICROVM_KEY or MICROLIGHT_TEST_E2B_SANDBOX to run against disposable workspaces")
 	}
 	for _, target := range targets {
 		t.Run(target.Kind, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
 			defer cancel()
+			var secret string
 			if target.Kind == "docker" {
 				engine, _, err := workspace.ListContainers(ctx, "docker")
 				if err != nil {
@@ -106,13 +117,21 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 				if !found {
 					t.Fatal("created container is missing from the running container selector")
 				}
+			} else if target.Kind == "e2b" {
+				secret = os.Getenv("E2B_API_KEY")
 			} else {
-				_, err := workspace.Open(ctx, target, "")
+				rt, err := workspace.Open(ctx, target, "")
+				if rt != nil {
+					rt.Close()
+				}
 				var unknown *workspace.UnknownHostKey
 				if !errors.As(err, &unknown) {
 					t.Fatalf("expected host fingerprint, got %v", err)
 				}
 				target.HostKey = unknown.Fingerprint
+			}
+			open := func(ctx context.Context) (workspace.Runtime, error) {
+				return workspace.Open(ctx, target, secret)
 			}
 
 			host := t.TempDir()
@@ -154,11 +173,11 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 			}
 			defer store.Close()
 			backend := newChat(modelSettings{Protocol: openAIChat, BaseURL: model.URL, Model: "test"})
-			agent := PersonalAgent{backend: backend, target: target, access: localtools.NewAccess(host, localtools.Ask)}
+			agent := PersonalAgent{backend: backend, target: target, secret: secret, access: localtools.NewAccess(host, localtools.Ask)}
 			emit := func(replyDelta) error { return nil }
 			read := func(want string) {
 				t.Helper()
-				rt, err := workspace.Open(ctx, target, "")
+				rt, err := open(ctx)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -215,7 +234,7 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 			arguments["content"] = "stale approval"
 			id, q = start()
 			func() {
-				rt, err := workspace.Open(ctx, target, "")
+				rt, err := open(ctx)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -244,7 +263,7 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 			}
 			// The approved tool must go through the recoverable command path,
 			// using the same checkpoint and call ID on resume.
-			rt, err := workspace.Open(ctx, target, "")
+			rt, err := open(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -284,7 +303,7 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 				if err := before.commandJournal(chat.ID, "", target.Identity(), 1).Record(ctx, record); err != nil {
 					t.Fatal(err)
 				}
-				rt, err := workspace.Open(ctx, target, "")
+				rt, err := open(ctx)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -370,7 +389,7 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 						if !test.launched {
 							return simulatedExit
 						}
-						rt, err := workspace.Open(ctx, target, "")
+						rt, err := open(ctx)
 						if err != nil {
 							return err
 						}
@@ -445,7 +464,7 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 							if err != nil {
 								return nil, err
 							}
-							return runtimeWithoutCommandRecovery{rt, rt.(workspace.ResolvedFileSystem), rt.(filesystem.Shell)}, nil
+							return runtimeWithoutCommandRecovery{rt, rt.(workspace.ResolvedFileSystem)}, nil
 						}
 					}
 					q, err = sessionAgent.run(resumeCtx, after, restored.sessionID, nil, question, question.Answer, emit)
