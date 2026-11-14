@@ -137,7 +137,7 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 		if record.beforeJournal {
 			ctx = localtools.WithCommandCheckpoint(ctx, record.checkpoint)
 		} else {
-			ctx = localtools.WithCommandReattachment(ctx, record.RemoteCommand)
+			ctx = localtools.WithCommandReattachment(ctx, record.RemoteCommand, record.outcome)
 		}
 	}
 	if store != nil && target.Kind != "" {

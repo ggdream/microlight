@@ -40,9 +40,15 @@ func WithCommandCheckpoint(ctx context.Context, checkpoint CommandCheckpoint) co
 	return context.WithValue(ctx, commandCheckpointKey{}, checkpoint)
 }
 
-// WithCommandReattachment binds a restored approval to its existing task.
-func WithCommandReattachment(ctx context.Context, record RemoteCommand) context.Context {
-	return context.WithValue(ctx, commandReattachmentKey{}, record)
+type commandReattachment struct {
+	RemoteCommand
+	outcome *backgroundtool.Outcome
+}
+
+// WithCommandReattachment binds a restored approval to its existing task and
+// its terminal result, if the journal already received it.
+func WithCommandReattachment(ctx context.Context, record RemoteCommand, outcome *backgroundtool.Outcome) context.Context {
+	return context.WithValue(ctx, commandReattachmentKey{}, commandReattachment{record, outcome})
 }
 
 type RemoteCommand struct {
@@ -95,12 +101,16 @@ func (localCommandShell) Execute(ctx context.Context, input *filesystem.ExecuteR
 	if provider, ok := op.runtime.(workspace.CommandProvider); ok {
 		commands = provider.Commands()
 	}
-	record, restoring := ctx.Value(commandReattachmentKey{}).(RemoteCommand)
+	record, restoring := ctx.Value(commandReattachmentKey{}).(commandReattachment)
+	reattach := restoring && record.ID == harness.OperationScope(ctx)+"/"+op.callID && record.CallID == op.callID
 	checkpoint := CheckpointForCommand(ctx, op.callID)
-	if commands == nil && ((restoring && record.ID == harness.OperationScope(ctx)+"/"+op.callID) || checkpoint.ID != "") {
-		return nil, errors.New("recoverable shell capability is unavailable")
-	}
 	switch {
+	case reattach && record.Command != op.content:
+		return nil, errors.New("restored command differs from the approved command")
+	case reattach && record.outcome != nil:
+		response, err = commandResponse(record.outcome, true)
+	case commands == nil && (reattach || checkpoint.ID != ""):
+		return nil, errors.New("recoverable shell capability is unavailable")
 	case commands != nil && harness.OperationScope(ctx) != "" && op.callID != "":
 		response, err = executeRecoverable(ctx, commands, op)
 	case op.runtime != nil:
@@ -125,11 +135,8 @@ func (localCommandShell) Execute(ctx context.Context, input *filesystem.ExecuteR
 
 func executeRecoverable(ctx context.Context, commands backgroundshell.RecoverableShell, op localOperation) (*filesystem.ExecuteResponse, error) {
 	id := harness.OperationScope(ctx) + "/" + op.callID
-	record, restoring := ctx.Value(commandReattachmentKey{}).(RemoteCommand)
-	reattach := restoring && record.ID == id
-	if reattach && record.Command != op.content {
-		return nil, errors.New("restored command differs from the approved command")
-	}
+	record, restoring := ctx.Value(commandReattachmentKey{}).(commandReattachment)
+	reattach := restoring && record.ID == id && record.CallID == op.callID
 	journal, _ := ctx.Value(commandJournalKey{}).(CommandJournal)
 	if journal.Record != nil {
 		if err := journal.Record(ctx, RemoteCommand{ID: id, CallID: op.callID, Command: op.content}); err != nil {
@@ -173,19 +180,7 @@ func executeRecoverable(ctx context.Context, commands backgroundshell.Recoverabl
 				return nil, err
 			}
 		}
-		switch outcome.Status {
-		case backgroundtask.StatusCompleted:
-			var response filesystem.ExecuteResponse
-			err = json.Unmarshal(outcome.Data, &response)
-			return &response, err
-		case backgroundtask.StatusCanceled:
-			if reattach {
-				return &filesystem.ExecuteResponse{Output: "Remote command canceled."}, nil
-			}
-			return nil, context.Canceled
-		default:
-			return nil, errors.New(outcome.Error)
-		}
+		return commandResponse(outcome, reattach)
 	}
 	response, err := wait(commands)
 	reconnect, _ := ctx.Value(reconnectWorkspaceKey{}).(func(context.Context) (workspace.Runtime, error))
@@ -216,6 +211,24 @@ func executeRecoverable(ctx context.Context, commands backgroundshell.Recoverabl
 		}
 	}
 	return response, err
+}
+
+func commandResponse(outcome *backgroundtool.Outcome, reattach bool) (*filesystem.ExecuteResponse, error) {
+	switch outcome.Status {
+	case backgroundtask.StatusCompleted:
+		var response filesystem.ExecuteResponse
+		if err := json.Unmarshal(outcome.Data, &response); err != nil {
+			return nil, err
+		}
+		return &response, nil
+	case backgroundtask.StatusCanceled:
+		if reattach {
+			return &filesystem.ExecuteResponse{Output: "Remote command canceled."}, nil
+		}
+		return nil, context.Canceled
+	default:
+		return nil, errors.New(outcome.Error)
+	}
 }
 
 func RecoverRemoteCommand(ctx context.Context, connect func(context.Context) (workspace.Runtime, error), record RemoteCommand, stop bool) (*backgroundtool.Outcome, error) {
