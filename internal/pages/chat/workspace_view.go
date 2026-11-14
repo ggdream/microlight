@@ -43,7 +43,7 @@ func (app *chatApp) openNewWorkspaceForm(kind string) {
 	app.workspaceForm = f
 	if kind == "container" {
 		app.refreshContainer(f)
-	} else {
+	} else if kind == "remote" {
 		f.target.Port, f.target.Auth = "22", "key"
 	}
 }
@@ -121,14 +121,24 @@ func (app *chatApp) workspaceDialog(c *ui.Context) {
 							ui.Text(body, f.target.Directory).FontSize(12).TextColor(muted).Selectable()
 						}
 					})
-					if f.kind == "remote" {
+					if f.kind == "remote" || f.kind == "browser" {
 						settings.Card(body.Key("auth"), locales.WorkspaceAuthentication(), func() {
-							settings.Field(body.Key("credential"), locales.WorkspaceCredential(), "", &f.secret).Password().Disabled(f.busy)
+							label := locales.WorkspaceCredential()
+							if f.kind == "browser" {
+								label = locales.WorkspaceBrowserToken()
+							}
+							settings.Field(body.Key("credential"), label, "", &f.secret).Password().Disabled(f.busy)
 							theme.Checkbox(body.Key("remember"), &f.remember, locales.WorkspaceRemember(), f.busy)
 						})
 					}
 				} else if f.kind == "container" {
 					app.containerWorkspaceFields(body, f)
+				} else if f.kind == "browser" {
+					settings.Card(body.Key("browser"), locales.WorkspaceConnection(), func() {
+						settings.Field(body.Key("endpoint"), locales.WorkspaceBrowserEndpoint(), "wss://…/devtools/browser/…", &f.target.Resource).Disabled(f.busy)
+						settings.Field(body.Key("token"), locales.WorkspaceBrowserToken(), "", &f.secret).Password().Disabled(f.busy)
+						theme.Checkbox(body.Key("remember"), &f.remember, locales.WorkspaceRemember(), f.busy)
+					})
 				} else {
 					app.sshWorkspaceFields(body, f)
 				}
@@ -410,7 +420,8 @@ func (app *chatApp) connectWorkspace(f *workspaceForm) {
 	if f.chat == nil {
 		target.Host, target.User, target.Port = strings.TrimSpace(target.Host), strings.TrimSpace(target.User), strings.TrimSpace(target.Port)
 		target.Directory = strings.TrimSpace(target.Directory)
-		if target.Kind == "remote" && target.Credential == "" {
+		target.Resource = strings.TrimSpace(target.Resource)
+		if (target.Kind == "remote" || target.Kind == "browser") && target.Credential == "" {
 			target.Credential = newID()
 		}
 	}

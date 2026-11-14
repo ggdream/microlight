@@ -234,6 +234,7 @@ func (app *chatApp) workspaceControl(c *ui.Context, chat *conversation) {
 			theme.PopupItem{Label: locales.WorkspaceLocal(), Icon: icons.Menu("desktop"), OnSelect: app.pickWorkspace},
 			theme.PopupItem{Label: locales.WorkspaceDocker(), Icon: icons.Menu("cube"), OnSelect: func() { app.openNewWorkspaceForm("container") }},
 			theme.PopupItem{Label: locales.WorkspaceRemote(), Icon: icons.Menu("desktop_signal"), OnSelect: func() { app.openNewWorkspaceForm("remote") }},
+			theme.PopupItem{Label: locales.WorkspaceBrowser(), Icon: icons.Menu("desktop"), OnSelect: func() { app.openNewWorkspaceForm("browser") }},
 		)
 		if path != "" || target.Kind != "" {
 			clearLabel := locales.ClearWorkspace()

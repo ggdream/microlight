@@ -1758,6 +1758,36 @@ func (msgs Messages) WorkspaceSSHTitle() string {
 	return Catalog.Format(msgs.locale, "workspaceSSHTitle", nil)
 }
 
+// WorkspaceBrowser says "Remote Browser"
+// in the language the app shows.
+func WorkspaceBrowser() string { return In(i18n.Locale()).WorkspaceBrowser() }
+
+// WorkspaceBrowser says "Remote Browser"
+// in the language of msgs.
+func (msgs Messages) WorkspaceBrowser() string {
+	return Catalog.Format(msgs.locale, "workspaceBrowser", nil)
+}
+
+// WorkspaceBrowserEndpoint says "Browser WebSocket URL"
+// in the language the app shows.
+func WorkspaceBrowserEndpoint() string { return In(i18n.Locale()).WorkspaceBrowserEndpoint() }
+
+// WorkspaceBrowserEndpoint says "Browser WebSocket URL"
+// in the language of msgs.
+func (msgs Messages) WorkspaceBrowserEndpoint() string {
+	return Catalog.Format(msgs.locale, "workspaceBrowserEndpoint", nil)
+}
+
+// WorkspaceBrowserToken says "Bearer token (optional)"
+// in the language the app shows.
+func WorkspaceBrowserToken() string { return In(i18n.Locale()).WorkspaceBrowserToken() }
+
+// WorkspaceBrowserToken says "Bearer token (optional)"
+// in the language of msgs.
+func (msgs Messages) WorkspaceBrowserToken() string {
+	return Catalog.Format(msgs.locale, "workspaceBrowserToken", nil)
+}
+
 // WorkspaceConnection says "Connection"
 // in the language the app shows.
 func WorkspaceConnection() string { return In(i18n.Locale()).WorkspaceConnection() }

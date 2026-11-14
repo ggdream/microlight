@@ -20,6 +20,7 @@ type LocalBrowser struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
 	executable string
+	allocator  func(context.Context) (context.Context, context.CancelFunc)
 	closed     bool
 }
 
@@ -68,13 +69,23 @@ func (b *LocalBrowser) run(ctx context.Context, tabID string, action func(contex
 	ctx, limit := context.WithTimeout(ctx, 30*time.Second)
 	defer limit()
 	if b.ctx == nil {
-		alloc, stop := chromedp.NewExecAllocator(context.Background(),
-			chromedp.ExecPath(b.executable), chromedp.Headless, chromedp.NoFirstRun,
-			chromedp.Flag("no-sandbox", false), chromedp.Flag("disable-background-networking", true))
-		browser, closeBrowser := chromedp.NewContext(alloc, chromedp.WithErrorf(func(string, ...any) {}))
+		allocate := b.allocator
+		if allocate == nil {
+			allocate = func(ctx context.Context) (context.Context, context.CancelFunc) {
+				return chromedp.NewExecAllocator(ctx, chromedp.ExecPath(b.executable), chromedp.Headless, chromedp.NoFirstRun,
+					chromedp.Flag("no-sandbox", false), chromedp.Flag("disable-background-networking", true))
+			}
+		}
+		alloc, stop := allocate(context.Background())
+		browser, closeBrowser := chromedp.NewContext(alloc, chromedp.WithDetachOnCancel(), chromedp.WithErrorf(func(string, ...any) {}))
 		cancel := func() { closeBrowser(); stop() }
 		startup := context.AfterFunc(ctx, stop)
-		err := chromedp.Do(browser)
+		var err error
+		if b.allocator == nil {
+			err = chromedp.Do(browser)
+		} else {
+			_, err = chromedp.Targets(browser)
+		}
 		if !startup() || err != nil || ctx.Err() != nil {
 			cancel()
 			if ctx.Err() != nil {
