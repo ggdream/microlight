@@ -11,6 +11,7 @@ import (
 	"github.com/ggdream/microlight/internal/attachment"
 	"github.com/ggdream/microlight/internal/localtools"
 	previewui "github.com/ggdream/microlight/internal/pages/chat/preview"
+	"github.com/ggdream/microlight/internal/theme"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/pkg/elastic"
@@ -201,22 +202,18 @@ func (app *chatApp) toolPreviewTab(c *ui.Context, tab *toolPreview) {
 }
 
 func (app *chatApp) composerMenu(c *ui.Context, workspace string) {
-	ui.Themed(c, conversationMenuTheme).Background(ui.Transparent).Shrink(0).Children(func() {
+	unavailable := app.loadingAttachments || len(app.draftAttachments) >= attachment.MaxPerMessage
+	theme.PopupMenu(c, func(c *ui.Context) ui.Element {
 		add := pointerButton(c, false).Label(locales.AddAttachment()).Tooltip(locales.AddAttachment()).
 			Size(34, 34).Radius(17).AlignItems(ui.Center).Justify(ui.Center)
 		add.Children(func() { icon(c, "plus", ink, 18) })
 		if add.Hovered() {
 			add.Background(hover)
 		}
-		add.PopoverMenuButton(func(menu *ui.Menu) {
-			unavailable := app.loadingAttachments || len(app.draftAttachments) >= attachment.MaxPerMessage
-			if menu.Item(locales.UploadFile()).Icon(icons.Menu("document_text")).Disabled(unavailable).Chosen() {
-				app.pickAttachments()
-			}
-			if menu.Item(locales.ChooseSkill()).Icon(icons.Menu("skill")).Chosen() {
-				app.openComposerSkills(workspace, true)
-			}
-			menu.Item(locales.PlanMode()).Icon(icons.Menu("update_tasks"))
-		}, ui.PopoverMenuButtonOptions{At: ui.AnchorTopStart, Self: ui.AnchorBottomStart})
-	})
+		return add
+	},
+		theme.PopupItem{Label: locales.UploadFile(), Icon: icons.Menu("document_text"), Disabled: unavailable, OnSelect: app.pickAttachments},
+		theme.PopupItem{Label: locales.ChooseSkill(), Icon: icons.Menu("skill"), OnSelect: func() { app.openComposerSkills(workspace, true) }},
+		theme.PopupItem{Label: locales.PlanMode(), Icon: icons.Menu("update_tasks")},
+	)
 }

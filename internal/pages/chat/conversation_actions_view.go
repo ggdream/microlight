@@ -5,16 +5,12 @@ import (
 
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/pages/settings"
+	"github.com/ggdream/microlight/internal/theme"
 
 	"github.com/egoist/mygo/ui"
 )
 
-var conversationMenuTheme = func() *ui.Theme {
-	t := ui.LightTheme()
-	t.Background, t.Border, t.Text, t.TextMuted = side, border, ink, muted
-	t.Accent, t.AccentText, t.Danger = tint, ink, errorFG
-	return t
-}()
+var conversationMenuTheme = theme.MenuTheme
 
 type conversationAction struct {
 	chat     *conversation
