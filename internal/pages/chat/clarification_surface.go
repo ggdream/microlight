@@ -2,7 +2,7 @@ package chat
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
 	"github.com/ggdream/microlight/assets/locales"
@@ -80,7 +80,7 @@ func (app *chatApp) clarificationForm(c *ui.Context, chat *conversation, reply *
 			err = processor.Apply(message)
 		}
 		if err != nil {
-			log.Printf("build clarification form: %v", err)
+			slog.Error("build clarification form", "error", err)
 			return
 		}
 		surface = processor.Surface(id)

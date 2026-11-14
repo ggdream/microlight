@@ -255,6 +255,7 @@
   "settingsGeneral": "通用",
   "appVersion": "版本",
   "appAbout": "关于",
+  "repositoryAddress": "仓库地址",
   "settingsSkills": "技能",
   "settingsTools": "工具",
   "skillsSettingsHint": "所有会话均可使用的全局技能。",

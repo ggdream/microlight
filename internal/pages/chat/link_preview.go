@@ -97,7 +97,7 @@ func (app *chatApp) linkPreview(c *ui.Context, root ui.Element) {
 		if !p.hideAt.IsZero() {
 			c.After(p.hideAt.Sub(now))
 		}
-		metadata, finished := p.metadata(c.Services(), previewRequest{target.String(), app.settings.Proxy})
+		metadata, finished := p.metadata(app.appContext(), c.Services(), previewRequest{target.String(), app.settings.Proxy})
 		panel.Children(func() {
 			p.cardHeader(c, target, panel)
 			ui.Box(c).FillWidth().Height(1).Background(border)
@@ -146,7 +146,7 @@ func (p *linkPreviews) cardHeader(c *ui.Context, target *url.URL, panel ui.Eleme
 	})
 }
 
-func (p *linkPreviews) metadata(services ui.Services, request previewRequest) (linkpreview.Metadata, bool) {
+func (p *linkPreviews) metadata(ctx context.Context, services ui.Services, request previewRequest) (linkpreview.Metadata, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	now := time.Now()
@@ -161,7 +161,7 @@ func (p *linkPreviews) metadata(services ui.Services, request previewRequest) (l
 	}
 	p.inFlight[request] = true
 	go func() {
-		metadata, err := linkpreview.Fetch(context.Background(), request.url, request.config)
+		metadata, err := linkpreview.Fetch(ctx, request.url, request.config)
 		ttl := 15 * time.Minute
 		if err != nil {
 			ttl = time.Minute
@@ -170,8 +170,12 @@ func (p *linkPreviews) metadata(services ui.Services, request previewRequest) (l
 		if len(p.results) >= 128 || p.results == nil {
 			p.results = make(map[previewRequest]previewResult)
 		}
-		p.results[request] = previewResult{metadata, time.Now().Add(ttl)}
 		delete(p.inFlight, request)
+		if ctx.Err() != nil {
+			p.mu.Unlock()
+			return
+		}
+		p.results[request] = previewResult{metadata, time.Now().Add(ttl)}
 		p.mu.Unlock()
 		services.Invalidate()
 	}()

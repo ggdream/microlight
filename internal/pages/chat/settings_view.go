@@ -26,6 +26,8 @@ func (app *chatApp) settingsPage(c *ui.Context) {
 			app.mcpSettings(c.Key("mcp-content"))
 		case settings.Archive:
 			app.archiveSettings(c.Key("archive-content"))
+		case settings.About:
+			settings.AboutPanel(c.Key("about-content"), icons, buildinfo.Version())
 		default:
 			app.generalSettings(c.Key("general-content"))
 		}
@@ -97,8 +99,6 @@ func (app *chatApp) generalSettings(c *ui.Context) {
 		if app.form.generalStatus.failed {
 			ui.Text(c, app.form.generalStatus.message).FontSize(12).TextColor(theme.ErrorFG)
 		}
-		settings.Version(c.Key("version"), buildinfo.Version())
-		settings.About(c.Key("about"), icons)
 	})
 }
 

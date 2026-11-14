@@ -14,25 +14,37 @@ import (
 const LegacyAgentName = "\x77\x65\x69\x67\x75\x61\x6e\x67"
 const legacyAppName = "微光对话"
 
-const DatabaseName = "microlight.sqlite3"
+const DatabaseName = "data/db.sqlite3"
 
 func MigrateAppDatabase(dir string) error {
 	target := filepath.Join(dir, DatabaseName)
 	if _, err := os.Stat(target); !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	source := filepath.Join(filepath.Dir(dir), legacyAppName, LegacyAgentName+".sqlite3")
-	if _, err := os.Stat(source); errors.Is(err, os.ErrNotExist) {
-		return nil
-	} else if err != nil {
-		return err
+	for _, source := range []string{
+		filepath.Join(dir, "microlight.sqlite3"),
+		filepath.Join(filepath.Dir(dir), legacyAppName, LegacyAgentName+".sqlite3"),
+	} {
+		if _, err := os.Stat(source); errors.Is(err, os.ErrNotExist) {
+			continue
+		} else if err != nil {
+			return err
+		}
+		return copyDatabase(source, target)
 	}
+	return nil
+}
 
+func copyDatabase(source, target string) error {
 	db, err := sql.Open("sqlite", source)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
+	dir := filepath.Dir(target)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
 	file, err := os.CreateTemp(dir, ".migration-*.sqlite3")
 	if err != nil {
 		return err

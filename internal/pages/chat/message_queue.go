@@ -2,13 +2,13 @@ package chat
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"slices"
 	"strings"
 	"time"
 
-	"github.com/ggdream/microlight/internal/attachment"
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/attachment"
 	"github.com/ggdream/microlight/internal/pages/chat/composer"
 	"github.com/ggdream/microlight/internal/storage"
 )
@@ -40,7 +40,7 @@ func (app *chatApp) loadBusySendMode() {
 	}
 	saved, err := app.store.getConfig(busySendConfigKey)
 	if err != nil {
-		log.Printf("read busy send preference: %v", err)
+		slog.Error("read busy send preference", "error", err)
 		return
 	}
 	switch busySendMode(saved) {
@@ -49,7 +49,7 @@ func (app *chatApp) loadBusySendMode() {
 	case busySendQueue:
 	default:
 		if err := storage.PutConfig(app.store.DB, busySendConfigKey, string(busySendQueue)); err != nil {
-			log.Printf("save default busy send preference: %v", err)
+			slog.Error("save default busy send preference", "error", err)
 		}
 	}
 }

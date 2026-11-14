@@ -3,7 +3,8 @@ package chat
 import (
 	"context"
 	"errors"
-	"log"
+	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -91,7 +92,8 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 	sessionID := chat.sessionID
 	store := app.store
 	chat.list.ScrollToEnd()
-	ctx, cancel := context.WithCancel(context.Background())
+	parent := app.appContext()
+	ctx, cancel := context.WithCancel(parent)
 	access := localtools.NewAccess(chat.workspace, chat.accessMode)
 	ctx = localtools.WithAccess(ctx, access)
 	ctx = context.WithValue(ctx, interfaceContextKey{}, chat.interfaceRequest())
@@ -110,7 +112,7 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 				return err
 			}
 			app.win.Update(func() {
-				if app.running == reply {
+				if parent.Err() == nil && app.running == reply {
 					reply.appendDelta(part)
 					if len(part.interfaceUpdates) != 0 {
 						chat.commitInterface(reply, len(reply.Content)-len(part.text), part.interfaceUpdates)
@@ -123,7 +125,7 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 		question, err := backend.runSession(ctx, store, sessionID, input, resume, answer, emit)
 		finishedAt := time.Now()
 		app.win.Update(func() {
-			if app.running != reply {
+			if parent.Err() != nil || app.running != reply {
 				return
 			}
 			reply.FinishedAt = finishedAt
@@ -136,7 +138,7 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 			switch {
 			case err != nil:
 				chat.sessionID = ""
-				log.Printf("对话执行失败（%T）", err)
+				slog.Error("对话执行失败", "error_type", fmt.Sprintf("%T", err))
 				reply.State, reply.Error = "error", replyRequestFailed
 				var integration *extensionError
 				if errors.As(err, &integration) {

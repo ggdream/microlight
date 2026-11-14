@@ -1,9 +1,13 @@
 package chat
 
 import (
+	"context"
+	"io"
 	"io/fs"
 	"log"
+	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/desktop"
@@ -16,33 +20,47 @@ import (
 )
 
 func Run(assets fs.FS) {
-	var err error
-	icons, err = asseticon.Load(assets)
-	if err != nil {
-		log.Fatal(err)
-	}
 	home, _ := os.UserHomeDir()
-	app := &chatApp{md: markup.New(ink), skillsHome: home}
-	app.md.Preview = app.links.offer
+	app := &chatApp{skillsHome: home}
 	dir, err := mygo.App.Path(mygo.PathUserData)
 	if err == nil {
 		mygo.App.SetPath(mygo.PathUserData, dir)
+		closeLogs, logErr := openAppLogs(dir)
+		if logErr != nil {
+			slog.Error("打开日志文件失败", "error", logErr)
+		} else {
+			defer closeLogs()
+		}
 		err = storage.MigrateAppDatabase(dir)
 		if err == nil {
 			app.store, err = openLocalStore(dir)
 		}
 	}
+	if app.store != nil {
+		defer app.store.Close()
+	}
+	loadedIcons, iconErr := asseticon.Load(assets)
+	if iconErr != nil {
+		slog.Error("读取应用图标失败", "error", iconErr)
+		return
+	}
+	icons = loadedIcons
+	ctx, cancel := context.WithCancel(context.Background())
+	app.ctx = ctx
+	defer cancel()
+	offQuit := mygo.App.OnQuit(cancel)
+	defer offQuit()
+	app.md = markup.New(ink)
+	app.md.Preview = app.links.offer
 	app.loadLanguage()
 	app.loadBusySendMode()
 	if dir != "" {
 		mygo.App.SetName(locales.AppName())
 	}
 	if err != nil {
-		log.Printf("打开本地数据库失败：%v", err)
+		slog.Error("打开本地数据库失败", "error", err)
 		app.historyErr = locales.HistoryOpenFailed()
 		app.settingsLoadErr = locales.SettingsOpenFailed()
-	} else {
-		defer app.store.Close()
 	}
 	app.loadHistory()
 	app.restoreDraft(app.history.Selected)
@@ -70,6 +88,41 @@ func Run(assets fs.FS) {
 		desktop.SetupTray(app.win, assets)
 	})
 	if err := mygo.App.Run(); err != nil {
-		log.Fatal(err)
+		slog.Error("运行应用失败", "error", err)
 	}
+}
+
+func (app *chatApp) appContext() context.Context {
+	if app.ctx != nil {
+		return app.ctx
+	}
+	return context.Background()
+}
+
+func openAppLogs(dir string) (func(), error) {
+	dir = filepath.Join(dir, "logs")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, err
+	}
+	appLog, err := os.OpenFile(filepath.Join(dir, "app.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	errorLog, err := os.OpenFile(filepath.Join(dir, "error.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		appLog.Close()
+		return nil, err
+	}
+	previous, writer, flags := slog.Default(), log.Writer(), log.Flags()
+	slog.SetDefault(slog.New(slog.NewMultiHandler(
+		slog.NewTextHandler(io.MultiWriter(writer, appLog), nil),
+		slog.NewTextHandler(errorLog, &slog.HandlerOptions{Level: slog.LevelError}),
+	)))
+	return func() {
+		slog.SetDefault(previous)
+		log.SetOutput(writer)
+		log.SetFlags(flags)
+		appLog.Close()
+		errorLog.Close()
+	}, nil
 }

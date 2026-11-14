@@ -1,7 +1,7 @@
 package chat
 
 import (
-	"log"
+	"log/slog"
 
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/pages/settings"
@@ -16,7 +16,7 @@ func (app *chatApp) loadLanguage() {
 	if app.store != nil {
 		saved, err := app.store.getConfig("language")
 		if err != nil {
-			log.Printf("read language preference: %v", err)
+			slog.Error("read language preference", "error", err)
 		} else {
 			switch settings.LanguagePreference(saved) {
 			case settings.English, settings.Chinese:
@@ -24,7 +24,7 @@ func (app *chatApp) loadLanguage() {
 			case settings.SystemLanguage:
 			default:
 				if err := storage.PutConfig(app.store.DB, "language", string(settings.SystemLanguage)); err != nil {
-					log.Printf("save default language preference: %v", err)
+					slog.Error("save default language preference", "error", err)
 				}
 			}
 		}

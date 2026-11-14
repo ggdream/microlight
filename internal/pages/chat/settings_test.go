@@ -16,6 +16,7 @@ import (
 	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/pages/settings"
+	"github.com/ggdream/microlight/internal/storage"
 	"github.com/ggdream/microlight/pkg/proxy"
 
 	"github.com/egoist/mygo/ui"
@@ -183,7 +184,7 @@ func TestSavedSettingsDriveNextRequest(t *testing.T) {
 			if app.form.failed {
 				t.Fatalf("save settings: %s", app.form.message)
 			}
-			if info, err := os.Stat(filepath.Join(dir, "microlight.sqlite3")); err != nil {
+			if info, err := os.Stat(filepath.Join(dir, storage.DatabaseName)); err != nil {
 				t.Fatal(err)
 			} else if runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
 				t.Error("settings file allows access by other users")

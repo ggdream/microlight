@@ -2506,6 +2506,16 @@ func (msgs Messages) AppAbout() string {
 	return Catalog.Format(msgs.locale, "appAbout", nil)
 }
 
+// RepositoryAddress says "Repository"
+// in the language the app shows.
+func RepositoryAddress() string { return In(i18n.Locale()).RepositoryAddress() }
+
+// RepositoryAddress says "Repository"
+// in the language of msgs.
+func (msgs Messages) RepositoryAddress() string {
+	return Catalog.Format(msgs.locale, "repositoryAddress", nil)
+}
+
 // SettingsSkills says "Skills"
 // in the language the app shows.
 func SettingsSkills() string { return In(i18n.Locale()).SettingsSkills() }

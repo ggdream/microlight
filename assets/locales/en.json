@@ -351,6 +351,7 @@
   "settingsGeneral": "General",
   "appVersion": "Version",
   "appAbout": "About",
+  "repositoryAddress": "Repository",
   "settingsSkills": "Skills",
   "settingsTools": "Tools",
   "skillsSettingsHint": "Skills available to the agent across all chats.",

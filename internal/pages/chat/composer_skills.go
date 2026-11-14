@@ -42,16 +42,16 @@ func (app *chatApp) openComposerSkills(workspace string, manual bool) {
 	index := &skillIndex{roots: skills.Roots(app.skillsHome, workspace)}
 	picker.index = index
 	if app.win == nil {
-		index.catalog = skills.Discover(context.Background(), index.roots)
+		index.catalog = skills.Discover(app.appContext(), index.roots)
 		return
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(app.appContext())
 	picker.cancelScan = cancel
 	go func() {
 		catalog := skills.Discover(ctx, index.roots)
 		if ctx.Err() == nil {
 			app.win.Update(func() {
-				if app.skillPicker.index == index {
+				if ctx.Err() == nil && app.skillPicker.index == index {
 					index.catalog = catalog
 				}
 			})

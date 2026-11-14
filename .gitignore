@@ -1,3 +1,6 @@
 /apikey.local.go
 /build/
 /dist/
+*.exe
+*.syso
+/.mygo/

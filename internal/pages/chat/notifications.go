@@ -1,31 +1,62 @@
 package chat
 
 import (
+	"context"
 	"errors"
-	"log"
+	"log/slog"
+	"strings"
 
 	"github.com/ggdream/microlight/assets/locales"
 
 	"github.com/egoist/mygo"
 )
 
-func (app *chatApp) notifyReply(chatID string, reply *turn) {
-	var title, body string
+func replyNotification(reply *turn) (title, body string) {
 	switch reply.State {
 	case "done":
-		title, body = locales.ReplyCompleted(), locales.ViewReply()
+		title, body = locales.ReplyCompleted(), reply.Content
+		if strings.TrimSpace(body) == "" {
+			body = locales.ViewReply()
+		}
 	case "error":
-		title, body = locales.ReplyNotificationFailed(), locales.ViewError()
+		title, body = locales.ReplyNotificationFailed(), reply.Error
+		if strings.TrimSpace(body) == "" {
+			body = locales.ViewError()
+		}
 	case "waiting":
 		title, body = locales.InputNeeded(), locales.AnswerQuestion()
-		if len(reply.Clarifications) > 0 && reply.Clarifications[len(reply.Clarifications)-1].Approval != nil {
-			title, body = locales.ApprovalNeeded(), locales.ViewApproval()
+		if len(reply.Clarifications) > 0 {
+			q := reply.Clarifications[len(reply.Clarifications)-1]
+			body = q.displayTitle()
+			if q.Approval != nil {
+				title = locales.ApprovalNeeded()
+				body += " · " + q.Approval.Target
+			}
 		}
-	default:
-		return
 	}
+	return title, notificationText(body)
+}
 
-	if app.win.IsDestroyed() || app.chatInForeground() {
+func notificationText(body string) string {
+	// The Windows notification backend has a 256 UTF-16 unit buffer.
+	const limit = 240
+	body = strings.Join(strings.Fields(strings.ReplaceAll(body, "\x00", "")), " ")
+	units := 0
+	for i, char := range body {
+		units++
+		if char > 0xffff {
+			units++
+		}
+		if units >= limit {
+			return strings.TrimSpace(body[:i]) + "…"
+		}
+	}
+	return body
+}
+
+func (app *chatApp) notifyReply(chatID string, reply *turn) {
+	title, body := replyNotification(reply)
+	if title == "" || app.win.IsDestroyed() || app.chatInForeground() {
 		return
 	}
 	app.unreadReplies++
@@ -41,6 +72,9 @@ func (app *chatApp) notifyReply(chatID string, reply *turn) {
 	n.OnClick(func() {
 		n.Close()
 		app.win.Update(func() {
+			if app.win.IsDestroyed() {
+				return
+			}
 			if app.history.Selected != chatID {
 				app.selectChat(chatID)
 			} else if app.settingsOpen && !app.deferSettingsLeave(app.closeSettings) {
@@ -52,14 +86,18 @@ func (app *chatApp) notifyReply(chatID string, reply *turn) {
 			mygo.App.Show()
 			app.win.Show()
 			mygo.App.Focus()
+			if chat := app.selected(); chat != nil && chat.ID == chatID {
+				chat.list.ScrollToEnd()
+			}
 		})
 	})
+	ctx := app.appContext()
 	go func() {
-		if app.chatInForeground() {
+		if ctx.Err() != nil || app.chatInForeground() {
 			return
 		}
-		if err := n.Show(); err != nil && !errors.Is(err, mygo.ErrNotificationsDenied) {
-			log.Printf("发送回复通知失败：%v", err)
+		if err := n.ShowContext(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, mygo.ErrNotificationsDenied) {
+			slog.Error("发送回复通知失败", "error", err)
 		}
 	}()
 }

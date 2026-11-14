@@ -1,8 +1,6 @@
 package chat
 
 import (
-	"context"
-
 	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/internal/pages/settings"
 	"github.com/ggdream/microlight/internal/skills"
@@ -31,10 +29,11 @@ func (app *chatApp) replySkillDirectory(activity timeline.Entry) string {
 		index := &skillIndex{roots: skills.Roots(app.skillsHome, workspace)}
 		app.replySkills = index
 		if win := app.win; win != nil {
+			ctx := app.appContext()
 			go func() {
-				catalog := skills.Discover(context.Background(), index.roots)
+				catalog := skills.Discover(ctx, index.roots)
 				win.Update(func() {
-					if app.replySkills == index {
+					if ctx.Err() == nil && app.replySkills == index {
 						index.catalog = catalog
 					}
 				})
@@ -61,10 +60,11 @@ func (app *chatApp) refreshSkills() {
 	index := &skillIndex{roots: skills.Roots(app.skillsHome, "")}
 	app.extensionsForm.skillIndex = index
 	win := app.win
+	ctx := app.appContext()
 	go func() {
-		catalog := skills.Discover(context.Background(), index.roots)
+		catalog := skills.Discover(ctx, index.roots)
 		win.Update(func() {
-			if app.settingsOpen && app.extensionsForm.skillIndex == index {
+			if ctx.Err() == nil && app.settingsOpen && app.extensionsForm.skillIndex == index {
 				index.catalog = catalog
 			}
 		})

@@ -2,7 +2,7 @@
 package markup
 
 import (
-	"log"
+	"log/slog"
 	"math"
 
 	"github.com/egoist/mygo/ui"
@@ -27,7 +27,7 @@ func New(ink ui.Color) *markdown.Options {
 	options.Code = map[string]func(*ui.Context, *markdown.CodeBlockView){"mermaid": mermaidBlock()}
 	renderer, err := texmath.New(texmath.DefaultFont())
 	if err != nil {
-		log.Printf("初始化公式渲染失败：%v", err)
+		slog.Error("初始化公式渲染失败", "error", err)
 		return options
 	}
 	// MyGo asks for a formula again as its paragraph streams in.

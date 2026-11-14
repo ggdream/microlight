@@ -481,14 +481,15 @@ func (app *chatApp) testConnection(model string) {
 	}
 	config := app.connectionConfig()
 	config.Model = model
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	parent := app.appContext()
+	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
 	test := &connectionTest{cancel: cancel, message: locales.TestingConnection()}
 	app.form.test = test
 	go func() {
 		defer cancel()
 		err := checkConnection(ctx, config)
 		app.win.Update(func() {
-			if app.form.test != test {
+			if parent.Err() != nil || app.form.test != test {
 				return
 			}
 			test.cancel = nil

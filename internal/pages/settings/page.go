@@ -1,8 +1,8 @@
 package settings
 
 import (
-	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/assets/locales"
+	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/internal/theme"
 
 	"github.com/egoist/mygo/ui"
@@ -18,6 +18,7 @@ const (
 	Skills
 	Tools
 	Archive
+	About
 )
 
 func Page(c *ui.Context, icons asseticon.Set, selected Tab, back func(), selectTab func(Tab), render func(*ui.Context, Tab)) {
@@ -34,6 +35,7 @@ func Page(c *ui.Context, icons asseticon.Set, selected Tab, back func(), selectT
 			navItem(c.Key("skills"), Skills, locales.SettingsSkills(), "skill")
 			navItem(c.Key("mcp"), Tools, locales.SettingsTools(), "wrench")
 			navItem(c.Key("archive"), Archive, locales.ArchivedChats(), "archive")
+			navItem(c.Key("about"), About, locales.AppAbout(), "info")
 		})
 		ui.Column(c).FillHeight().Grow(1).MinWidth(0).AlignItems(ui.Stretch).Children(func() {
 			render(c, selected)

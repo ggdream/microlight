@@ -62,6 +62,7 @@ type history struct {
 }
 
 type chatApp struct {
+	ctx                context.Context
 	skillsHome         string
 	backend            *Chat
 	settings           modelSettings

@@ -82,8 +82,19 @@ func Version(c *ui.Context, version string) {
 	})
 }
 
-func About(c *ui.Context, icons asseticon.Set) {
-	button := theme.PointerButton(c, false).Label(locales.AppAbout()).
+func AboutPanel(c *ui.Context, icons asseticon.Set, version string) {
+	section(c, func() {
+		ui.Text(c, locales.AppAbout()).FontSize(29).FontWeight(680)
+	}, func() {
+		Version(c.Key("version"), version)
+		repository(c.Key("repository"), icons)
+	})
+}
+
+func repository(c *ui.Context, icons asseticon.Set) {
+	const repositoryPath = "ggdream/microlight"
+	label := locales.RepositoryAddress()
+	button := theme.PointerButton(c, false).Label(label).
 		FillWidth().AlignItems(ui.Center).Gap(12).
 		Background(theme.White).Radius(13).Border(1, theme.Border).Padding(12, 16).
 		FocusRingColor(theme.Accent)
@@ -91,13 +102,13 @@ func About(c *ui.Context, icons asseticon.Set) {
 		button.Background(theme.Hover)
 	}
 	button.Children(func() {
-		ui.Text(c, locales.AppAbout()).Grow(1).MinWidth(0).FontSize(15).FontWeight(660)
+		ui.Text(c, label).Grow(1).MinWidth(0).FontSize(15).FontWeight(660)
 		ui.Row(c).AlignItems(ui.Center).Gap(7).Shrink(0).Children(func() {
 			ui.Icon(c, icons.SVG("github")).Size(16, 16).TextColor(theme.Ink)
-			ui.Text(c, "GitHub").FontSize(13).TextColor(theme.Ink)
+			ui.Text(c, repositoryPath).FontSize(13).TextColor(theme.Ink)
 			ui.Icon(c, icons.SVG("open")).Size(14, 14).TextColor(theme.Muted)
 		})
 	}).OnClick(func() {
-		c.OpenURL("https://github.com/ggdream/microlight")
+		c.OpenURL("https://github.com/" + repositoryPath)
 	})
 }

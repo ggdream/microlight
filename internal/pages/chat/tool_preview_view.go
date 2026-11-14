@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"context"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -77,14 +76,19 @@ func (app *chatApp) openToolPreview(entry *turn, index int) {
 	}
 	// Older records can open the current file on an explicit click. A stored
 	// result, when present, is always preferred to reading the filesystem again.
+	ctx := app.appContext()
 	go func() {
 		tool := activity.Tool
 		if tool == localtools.Write {
 			tool = localtools.Read
 		}
-		content, err := localtools.ReadPreview(context.Background(), workspace, tool, activity.DisplayTarget())
+		content, err := localtools.ReadPreview(ctx, workspace, tool, activity.DisplayTarget())
 		if err == nil {
-			app.win.Update(func() { preview.text = &content })
+			app.win.Update(func() {
+				if ctx.Err() == nil {
+					preview.text = &content
+				}
+			})
 		}
 	}()
 }
