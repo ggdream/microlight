@@ -152,6 +152,7 @@ func (store *localStore) deleteChat(chat *conversation, clearSelection bool) err
 		}
 	}
 	for _, query := range []string{
+		"DELETE FROM confirmed_remote_launches WHERE task_id IN (SELECT id FROM remote_commands WHERE conversation_id = ?)",
 		"DELETE FROM remote_command_checkpoints WHERE task_id IN (SELECT id FROM remote_commands WHERE conversation_id = ?)",
 		"DELETE FROM remote_commands WHERE conversation_id = ?",
 		"DELETE FROM adk_session_owners WHERE conversation_id = ?",

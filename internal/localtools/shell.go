@@ -47,11 +47,13 @@ func WithCommandReattachment(ctx context.Context, record RemoteCommand) context.
 
 type RemoteCommand struct {
 	ID, CallID, Command string
+	LaunchConfirmed     bool
 }
 
 type CommandJournal struct {
-	Record func(context.Context, RemoteCommand) error
-	Finish func(context.Context, string, *backgroundtool.Outcome) error
+	Record        func(context.Context, RemoteCommand) error
+	ConfirmLaunch func(context.Context, string) error
+	Finish        func(context.Context, string, *backgroundtool.Outcome) error
 }
 
 func CheckpointForCommand(ctx context.Context, callID string) CommandCheckpoint {
@@ -136,6 +138,9 @@ func executeRecoverable(ctx context.Context, commands backgroundshell.Recoverabl
 	}
 	request := &backgroundshell.StartCommandRequest{TaskID: id, Command: op.content, Attempt: 1}
 	started := reattach
+	// A journal entry is written before launch. Only a missing, unconfirmed
+	// task can be retried here, and only on an executor that deduplicates starts.
+	allowLaunchRetry := reattach && !record.LaunchConfirmed
 	wait := func(commands backgroundshell.RecoverableShell) (*filesystem.ExecuteResponse, error) {
 		var run backgroundtool.Run
 		var err error
@@ -143,6 +148,9 @@ func executeRecoverable(ctx context.Context, commands backgroundshell.Recoverabl
 			run, err = commands.RecoverCommand(ctx, &backgroundshell.RecoverCommandRequest{
 				TaskID: id, Command: op.content, Attempt: request.Attempt,
 			})
+			if starter, ok := commands.(workspace.IdempotentCommandStarter); ok && allowLaunchRetry && errors.Is(err, backgroundtask.ErrNotFound) && ctx.Err() == nil {
+				run, err = starter.StartCommandOnce(ctx, request)
+			}
 		} else {
 			run, err = commands.StartCommand(ctx, request)
 		}
@@ -150,6 +158,12 @@ func executeRecoverable(ctx context.Context, commands backgroundshell.Recoverabl
 			return nil, err
 		}
 		started = true
+		allowLaunchRetry = false
+		if journal.ConfirmLaunch != nil {
+			if err := journal.ConfirmLaunch(ctx, id); err != nil {
+				return nil, err
+			}
+		}
 		outcome, err := run.Wait(ctx)
 		if err != nil {
 			return nil, err

@@ -20,7 +20,7 @@ func (store *localStore) migrate(dir string) error {
 		return err
 	}
 	switch version {
-	case 17:
+	case 18:
 		return nil
 	case 0:
 		if err := createBaseSchema(tx); err != nil {
@@ -196,6 +196,19 @@ func (store *localStore) migrate(dir string) error {
 				checkpoint_id TEXT NOT NULL, interrupt_id TEXT NOT NULL
 			);
 			PRAGMA user_version = 17;
+		`); err != nil {
+			return err
+		}
+		fallthrough
+	case 17:
+		// Older records did not distinguish acknowledgement from launch
+		// intent. Keep their existing recover-only behavior.
+		if _, err := tx.Exec(`
+			CREATE TABLE IF NOT EXISTS confirmed_remote_launches (
+				task_id TEXT PRIMARY KEY REFERENCES remote_commands(id) ON DELETE CASCADE
+			);
+			INSERT OR IGNORE INTO confirmed_remote_launches (task_id) SELECT id FROM remote_commands;
+			PRAGMA user_version = 18;
 		`); err != nil {
 			return err
 		}

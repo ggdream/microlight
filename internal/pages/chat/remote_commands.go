@@ -254,6 +254,11 @@ func (store *localStore) commandJournal(chatID, branch, targetID string, ordinal
 			}
 			return tx.Commit()
 		},
+		ConfirmLaunch: func(ctx context.Context, id string) error {
+			_, err := store.ExecContext(ctx, `INSERT INTO confirmed_remote_launches (task_id)
+				SELECT id FROM remote_commands WHERE id = ? ON CONFLICT(task_id) DO NOTHING`, id)
+			return err
+		},
 		Finish: store.finishRemoteCommand,
 	}
 }
@@ -269,7 +274,8 @@ func (store *localStore) finishRemoteCommand(ctx context.Context, id string, out
 
 func (store *localStore) loadRemoteCommands(chatID, branch string, ordinal int) ([]savedRemoteCommand, error) {
 	return store.queryRemoteCommands(commandLineage+`
-		SELECT id, call_id, command, target_id, result, checkpoint_id, interrupt_id FROM remote_commands
+		SELECT id, call_id, command, target_id, result, checkpoint_id, interrupt_id,
+			(result IS NOT NULL OR EXISTS (SELECT 1 FROM confirmed_remote_launches WHERE task_id = id)) FROM remote_commands
 		LEFT JOIN remote_command_checkpoints ON task_id = id
 		WHERE conversation_id = ? AND turn_ordinal = ? AND EXISTS (
 			SELECT 1 FROM lineage WHERE turn_ordinal < inherited_before
@@ -283,7 +289,8 @@ func (store *localStore) loadDetachedCommands(chat *conversation) ([]savedRemote
 
 func (store *localStore) loadDetachedCommandsAt(chatID, branch string, turnCount int) ([]savedRemoteCommand, error) {
 	return store.queryRemoteCommands(commandLineage+`
-		SELECT id, call_id, command, target_id, result, checkpoint_id, interrupt_id FROM remote_commands
+		SELECT id, call_id, command, target_id, result, checkpoint_id, interrupt_id,
+			(result IS NOT NULL OR EXISTS (SELECT 1 FROM confirmed_remote_launches WHERE task_id = id)) FROM remote_commands
 		LEFT JOIN remote_command_checkpoints ON task_id = id
 		WHERE conversation_id = ? AND NOT EXISTS (
 			SELECT 1 FROM lineage WHERE turn_ordinal < inherited_before
@@ -303,7 +310,7 @@ func (store *localStore) queryRemoteCommands(query string, args ...any) ([]saved
 		var record savedRemoteCommand
 		var raw []byte
 		var checkpoint, interrupt *string
-		if err := rows.Scan(&record.ID, &record.CallID, &record.Command, &record.targetID, &raw, &checkpoint, &interrupt); err != nil {
+		if err := rows.Scan(&record.ID, &record.CallID, &record.Command, &record.targetID, &raw, &checkpoint, &interrupt, &record.LaunchConfirmed); err != nil {
 			return nil, err
 		}
 		if checkpoint != nil && interrupt != nil {

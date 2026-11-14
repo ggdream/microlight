@@ -27,6 +27,12 @@ type CommandProvider interface {
 	Commands() backgroundshell.RecoverableShell
 }
 
+// IdempotentCommandStarter guarantees that starting a command with an
+// existing task ID cannot run it again, including after a lost launch reply.
+type IdempotentCommandStarter interface {
+	StartCommandOnce(context.Context, *backgroundshell.StartCommandRequest) (backgroundtool.Run, error)
+}
+
 // CommandStopper can record cancellation even before a launch is acknowledged.
 type CommandStopper interface {
 	StopCommand(context.Context, *backgroundshell.RecoverCommandRequest) (backgroundtool.Run, error)
@@ -47,6 +53,10 @@ for utility in nohup setsid flock mkfifo head date; do command -v "$utility" >/d
 }
 
 func (c remoteCommands) StartCommand(ctx context.Context, req *backgroundshell.StartCommandRequest) (backgroundtool.Run, error) {
+	return c.StartCommandOnce(ctx, req)
+}
+
+func (c remoteCommands) StartCommandOnce(ctx context.Context, req *backgroundshell.StartCommandRequest) (backgroundtool.Run, error) {
 	if req == nil {
 		return nil, errors.New("command request is required")
 	}
