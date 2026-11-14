@@ -28,7 +28,8 @@ type e2bRuntime struct {
 	client          *http.Client
 	target          Target
 	endpoint, token string
-	files, jobs     bool
+	files           bool
+	journalID       string
 }
 
 func connectE2B(ctx context.Context, target Target, key string) (Runtime, error) {
@@ -94,11 +95,11 @@ func openE2B(ctx context.Context, target Target, key string, client *http.Client
 	rt.posixFiles = posixFiles{directory: target.Directory, command: rt.fileCommand}
 	_, fileErr := rt.fileCommand(ctx, posixFileProbe+"; command -v base64 >/dev/null", "")
 	rt.files = fileErr == nil
-	rt.jobs = supportsRemoteCommands(ctx, rt.control)
+	rt.journalID = probeRemoteCommands(ctx, rt.control)
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if !rt.files && !rt.jobs {
+	if !rt.files && rt.journalID == "" {
 		return nil, fmt.Errorf("could not verify file or recoverable command support in the E2B sandbox: %w", fileErr)
 	}
 	return rt, nil
@@ -107,14 +108,16 @@ func openE2B(ctx context.Context, target Target, key string, client *http.Client
 func (*e2bRuntime) Environment() Environment { return Environment{OS: "linux", Shell: "/bin/sh"} }
 func (r *e2bRuntime) Close() error           { r.client.CloseIdleConnections(); return nil }
 func (r *e2bRuntime) GetCapabilities(ctx context.Context) (Capabilities, error) {
-	return Capabilities{Files: r.files, Shell: r.jobs, RecoverableShell: r.jobs}, ctx.Err()
+	return Capabilities{Files: r.files, Shell: r.journalID != "", RecoverableShell: r.journalID != ""}, ctx.Err()
 }
 
+func (r *e2bRuntime) CommandSessionID() string { return r.journalID }
+
 func (r *e2bRuntime) Commands() backgroundshell.RecoverableShell {
-	if !r.jobs {
+	if r.journalID == "" {
 		return nil
 	}
-	return remoteCommands{run: r.control, directory: r.target.Directory, scope: r.target.Identity()}
+	return remoteCommands{journalID: r.journalID, run: r.control, directory: r.target.Directory, scope: r.target.Identity()}
 }
 
 func (r *e2bRuntime) fileCommand(ctx context.Context, script, input string) (string, error) {

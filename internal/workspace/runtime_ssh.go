@@ -36,7 +36,7 @@ type sshRuntime struct {
 	connection   net.Conn
 	target       Target
 	env          Environment
-	jobs         bool
+	journalID    string
 	directoryErr error
 }
 
@@ -154,13 +154,13 @@ func openSSH(ctx context.Context, target Target, secret string) (*sshRuntime, er
 	}
 	_ = conn.SetDeadline(time.Time{})
 	if r.env.OS == "linux" {
-		r.jobs = supportsRemoteCommands(ctx, r.runCommandControl)
+		r.journalID = probeRemoteCommands(ctx, r.runCommandControl)
 	}
 	if err := ctx.Err(); err != nil {
 		r.Close()
 		return nil, err
 	}
-	if r.directoryErr != nil && !r.jobs {
+	if r.directoryErr != nil && r.journalID == "" {
 		r.Close()
 		return nil, r.directoryErr
 	}
@@ -168,14 +168,21 @@ func openSSH(ctx context.Context, target Target, secret string) (*sshRuntime, er
 }
 
 func (r *sshRuntime) Commands() backgroundshell.RecoverableShell {
-	if !r.jobs {
+	if r.journalID == "" {
 		return nil
 	}
-	return remoteCommands{run: r.runCommandControl, directory: r.target.Directory, scope: r.target.Identity(), launchErr: r.directoryErr}
+	return remoteCommands{journalID: r.journalID, run: r.runCommandControl, directory: r.target.Directory, scope: r.target.Identity(), launchErr: r.directoryErr}
 }
 
 func (r *sshRuntime) GetCapabilities(ctx context.Context) (Capabilities, error) {
-	return Capabilities{Files: r.directoryErr == nil, Shell: true, RecoverableShell: r.jobs}, ctx.Err()
+	return Capabilities{Files: r.directoryErr == nil, Shell: true, RecoverableShell: r.journalID != ""}, ctx.Err()
+}
+
+func (r *sshRuntime) CommandSessionID() string {
+	if r.journalID == "" {
+		return ""
+	}
+	return r.journalID + "/" + r.target.Identity()
 }
 
 func (r *sshRuntime) runCommandControl(ctx context.Context, script string) (string, error) {

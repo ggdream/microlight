@@ -73,6 +73,7 @@ func TestE2BCommandTransport(t *testing.T) {
 				if !strings.Contains(start.Process.Args[1], "flock") {
 					t.Error("missing recovery capability probe")
 				}
+				data = processOutput("01900000-0000-7000-8000-000000000001\n")
 			case 4:
 				if !strings.Contains(start.Process.Args[1], "printf test") {
 					t.Error("original command absent from launch")

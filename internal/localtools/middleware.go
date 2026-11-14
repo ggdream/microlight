@@ -597,8 +597,8 @@ func resolveRuntime(ctx context.Context, access runtimeAccess, name, raw string)
 		if strings.TrimSpace(args.Command) == "" || len(args.Command) > maxLocalWrite || strings.ContainsRune(args.Command, 0) {
 			return op, errors.New("需要有效的命令，且不能超过 16 KiB")
 		}
-		if session, ok := access.runtime.(project.CommandSession); ok {
-			identity = access.target.Identity() + "/" + session.CommandSessionID()
+		if journal := commandExecutorID(access.runtime); journal != "" {
+			identity = access.target.Identity() + "/" + journal
 		}
 		op.target, op.content, op.fileVersion = access.target.Directory, args.Command, identity
 		return op, nil

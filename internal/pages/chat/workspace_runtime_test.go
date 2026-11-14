@@ -25,6 +25,7 @@ import (
 type runtimeWithoutCommandRecovery struct {
 	workspace.Runtime
 	workspace.ResolvedFileSystem
+	workspace.CommandSession
 }
 
 func (runtimeWithoutCommandRecovery) Execute(context.Context, *filesystem.ExecuteRequest) (*filesystem.ExecuteResponse, error) {
@@ -267,6 +268,7 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			executorID := rt.(workspace.CommandSession).CommandSessionID()
 			commands := rt.(workspace.CommandProvider).Commands()
 			if commands == nil {
 				rt.Close()
@@ -299,7 +301,7 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 				if err := before.saveHistory(history{Chats: []*conversation{chat}, Selected: chat.ID}, chat); err != nil {
 					t.Fatal(err)
 				}
-				record := localtools.RemoteCommand{ID: approval.CheckpointID + "/workspace-tool", CallID: "workspace-tool", Command: arguments["command"]}
+				record := localtools.RemoteCommand{ID: approval.CheckpointID + "/workspace-tool", CallID: "workspace-tool", Command: arguments["command"], ExecutorID: executorID}
 				if err := before.commandJournal(chat.ID, "", target.Identity(), 1).Record(ctx, record); err != nil {
 					t.Fatal(err)
 				}
@@ -464,7 +466,7 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 							if err != nil {
 								return nil, err
 							}
-							return runtimeWithoutCommandRecovery{rt, rt.(workspace.ResolvedFileSystem)}, nil
+							return runtimeWithoutCommandRecovery{rt, rt.(workspace.ResolvedFileSystem), rt.(workspace.CommandSession)}, nil
 						}
 					}
 					q, err = sessionAgent.run(resumeCtx, after, restored.sessionID, nil, question, question.Answer, emit)

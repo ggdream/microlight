@@ -88,6 +88,27 @@ func TestDockerCommandLifecycle(t *testing.T) {
 			t.Fatalf("recovered result = %+v, %v", result, err)
 		}
 	})
+	t.Run("RejectReplacedJournal", func(t *testing.T) {
+		first := connect().(*containerRuntime)
+		if first.CommandSessionID() != connect().(CommandSession).CommandSessionID() {
+			t.Fatal("command journal identity changed on reconnect")
+		}
+		if _, err := first.runCommandControl(ctx, commandPreamble+`mv -- "$base" "$base.replaced"`); err != nil {
+			t.Fatal(err)
+		}
+		second := connect().(CommandSession)
+		if second.CommandSessionID() == "" || second.CommandSessionID() == first.CommandSessionID() {
+			t.Fatal("replacement journal reused its old identity")
+		}
+		request := &backgroundshell.StartCommandRequest{TaskID: uuid.NewV7().String(), Command: "touch unexpected-launch"}
+		var transport *CommandTransportError
+		if _, err := first.Commands().StartCommand(ctx, request); !errors.As(err, &transport) {
+			t.Fatalf("stale connection attempted to use replacement journal: %v", err)
+		}
+		if _, err := first.command(ctx, "test ! -e unexpected-launch", ""); err != nil {
+			t.Fatal("stale connection launched a command")
+		}
+	})
 }
 
 func TestE2BCommandLifecycle(t *testing.T) {

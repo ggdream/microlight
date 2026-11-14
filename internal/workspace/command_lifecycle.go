@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"uuid"
 
 	"github.com/cloudwego/eino/adk/backgroundtask"
 	backgroundshell "github.com/cloudwego/eino/adk/backgroundtask/shell"
@@ -62,14 +63,25 @@ type remoteCommands struct {
 	directory string
 	scope     string
 	launchErr error
+	journalID string
 }
 
-func supportsRemoteCommands(ctx context.Context, run func(context.Context, string) (string, error)) bool {
-	_, err := run(ctx, `set -eu
+func probeRemoteCommands(ctx context.Context, run func(context.Context, string) (string, error)) string {
+	id, err := run(ctx, commandPreamble+`
 test -n "${HOME:-}" && test -w "$HOME"
-for utility in nohup setsid flock mkfifo head date; do command -v "$utility" >/dev/null; done
+for utility in nohup setsid flock mkfifo head date ln readlink; do command -v "$utility" >/dev/null; done
+mkdir -p "$base"
+ln -sT -- `+quotePOSIX(uuid.NewV7().String())+` "$base/journal-id" 2>/dev/null || :
+readlink -- "$base/journal-id"
 `)
-	return err == nil
+	if err != nil {
+		return ""
+	}
+	id = strings.TrimSpace(id)
+	if _, err := uuid.Parse(id); err != nil {
+		return ""
+	}
+	return id
 }
 
 func (c remoteCommands) StartCommand(ctx context.Context, req *backgroundshell.StartCommandRequest) (backgroundtool.Run, error) {
@@ -154,7 +166,8 @@ base="${XDG_CACHE_HOME:-${HOME:?}/.cache}/microlight/commands"
 `
 
 func (r *remoteCommand) script(body string) string {
-	return commandPreamble + `task="$base/` + r.scope + "/" + r.key + `"
+	return commandPreamble + `[ "$(readlink -- "$base/journal-id")" = ` + quotePOSIX(r.journalID) + ` ]
+task="$base/` + r.scope + "/" + r.key + `"
 signature=` + r.signature + "\n" + body
 }
 
@@ -167,9 +180,11 @@ signature=$2
 directory=$3
 command=$4
 timeout=$5
+journal=$6
 cd "$task"
 exec 8>launch
 flock 8
+[ "$(readlink -- ../../journal-id)" = "$journal" ] || exit 1
 [ ! -f signature ] && [ ! -f canceled-before-launch ] || exit 0
 exec 9>lease
 flock -n 9 || exit 0
@@ -222,7 +237,7 @@ func (r *remoteCommand) launch(ctx context.Context, command string) error {
 	body := `for utility in nohup setsid flock mkfifo head date; do command -v "$utility" >/dev/null; done
 mkdir -p "$task"
 if [ ! -f "$task/signature" ] && [ ! -f "$task/canceled-before-launch" ]; then
-    nohup setsid /bin/sh -c ` + quotePOSIX(commandWorker) + ` sh "$task" "$signature" ` + quotePOSIX(r.directory) + " " + quotePOSIX(command) + " " + strconv.Itoa(commandSeconds(ctx)) + ` </dev/null >/dev/null 2>&1 &
+    nohup setsid /bin/sh -c ` + quotePOSIX(commandWorker) + ` sh "$task" "$signature" ` + quotePOSIX(r.directory) + " " + quotePOSIX(command) + " " + strconv.Itoa(commandSeconds(ctx)) + " " + quotePOSIX(r.journalID) + ` </dev/null >/dev/null 2>&1 &
 fi
 tries=0
 while [ ! -f "$task/signature" ] && [ ! -f "$task/canceled-before-launch" ] && [ "$tries" -lt 50 ]; do

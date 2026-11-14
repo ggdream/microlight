@@ -61,11 +61,11 @@ func CreateContainer(ctx context.Context, target Target, image, source, id strin
 
 type containerRuntime struct {
 	posixFiles
-	target Target
-	engine containerCLI
-	env    Environment
-	files  bool
-	jobs   bool
+	target    Target
+	engine    containerCLI
+	env       Environment
+	files     bool
+	journalID string
 }
 
 func openContainer(ctx context.Context, target Target) (*containerRuntime, error) {
@@ -105,21 +105,21 @@ func openContainer(ctx context.Context, target Target) (*containerRuntime, error
 	d.env.Arch = parts[1]
 	_, fileErr := d.command(ctx, posixFileProbe, "")
 	d.files = fileErr == nil
-	d.jobs = supportsRemoteCommands(ctx, d.runCommandControl)
+	d.journalID = probeRemoteCommands(ctx, d.runCommandControl)
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if !d.files && !d.jobs {
+	if !d.files && d.journalID == "" {
 		return nil, fileErr
 	}
 	return d, nil
 }
 
 func (d *containerRuntime) Commands() backgroundshell.RecoverableShell {
-	if !d.jobs {
+	if d.journalID == "" {
 		return nil
 	}
-	return remoteCommands{run: d.runCommandControl, directory: d.target.Directory, scope: d.target.Identity()}
+	return remoteCommands{journalID: d.journalID, run: d.runCommandControl, directory: d.target.Directory, scope: d.target.Identity()}
 }
 
 func (d *containerRuntime) runCommandControl(ctx context.Context, script string) (string, error) {
@@ -129,8 +129,9 @@ func (d *containerRuntime) runCommandControl(ctx context.Context, script string)
 func (d *containerRuntime) Environment() Environment { return d.env }
 func (d *containerRuntime) Close() error             { return nil }
 func (d *containerRuntime) GetCapabilities(ctx context.Context) (Capabilities, error) {
-	return Capabilities{Files: d.files, Shell: true, RecoverableShell: d.jobs}, ctx.Err()
+	return Capabilities{Files: d.files, Shell: true, RecoverableShell: d.journalID != ""}, ctx.Err()
 }
+func (d *containerRuntime) CommandSessionID() string { return d.journalID }
 func (d *containerRuntime) args(script string) []string {
 	return []string{"exec", "-i", "-w", "/", d.target.Container, "/bin/sh", "-c", script}
 }

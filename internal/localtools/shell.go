@@ -212,6 +212,8 @@ func executeRecoverable(ctx context.Context, commands backgroundshell.Recoverabl
 	recoverFirst := reattach
 	// A journal entry is written before launch. Only a missing, unconfirmed
 	// task can be retried here, and only on an executor that deduplicates starts.
+	// Records created before identity pinning remain recover-only on
+	// executors that now expose a journal identity.
 	allowLaunchRetry := reattach && !record.LaunchConfirmed && (record.ExecutorID != "" || executorID == "")
 	wait := func(commands backgroundshell.RecoverableShell) (*filesystem.ExecuteResponse, error) {
 		var run backgroundtool.Run
