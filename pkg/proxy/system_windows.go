@@ -40,6 +40,11 @@ const (
 	winPACURL                 = 2
 	winAllowStatic            = 0x200
 	winAllowConnectionManager = 0x400
+
+	// WinHTTP defines INTERNET_SCHEME values separately from WinINet.
+	winSchemeHTTP  = 1
+	winSchemeHTTPS = 2
+	winSchemeSOCKS = 4
 )
 
 type winProxyConfig struct {
@@ -168,11 +173,11 @@ func systemRoutes(ctx context.Context, target *url.URL) ([]*url.URL, error) {
 		}
 		scheme := ""
 		switch entry.scheme {
-		case 3: // INTERNET_SCHEME_HTTP
+		case winSchemeHTTP:
 			scheme = "http"
-		case 4: // INTERNET_SCHEME_HTTPS
+		case winSchemeHTTPS:
 			scheme = "https"
-		case 8: // INTERNET_SCHEME_SOCKS
+		case winSchemeSOCKS:
 			scheme = "socks5"
 		}
 		if scheme == "" || entry.host == nil {
