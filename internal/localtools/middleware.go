@@ -105,8 +105,10 @@ func Workspace(ctx context.Context, fallback string) string {
 }
 
 type Approval struct {
-	Target  string
-	Preview string `json:",omitempty"`
+	Target    string
+	Preview   string `json:",omitempty"`
+	Automatic bool   `json:",omitempty"`
+	CallID    string `json:",omitempty"`
 }
 
 type localOperation struct {
@@ -237,21 +239,33 @@ func (h Middleware) WrapInvokableToolCall(_ context.Context, next adk.InvokableT
 		}
 		// Bind the decision to this tool call and the exact resolved target and arguments.
 		fingerprint := fmt.Sprintf("%x", sha256.Sum256([]byte(call.CallID+"\x00"+op.target+"\x00"+op.fileVersion+"\x00"+args)))
-		if wasInterrupted && (!hasState || saved != fingerprint) {
+		automaticState := fingerprint + "/automatic"
+		if wasInterrupted && (!hasState || (saved != fingerprint && saved != automaticState)) {
 			return "操作目标已变化，请重新请求批准。", nil
 		}
 		if scoped {
 			policy.Mode = access.mode.Load().(Mode)
 		}
-		if wasInterrupted || policy.needsApproval(op) {
+		needsApproval := policy.needsApproval(op)
+		journal, _ := ctx.Value(commandJournalKey{}).(CommandJournal)
+		runtime, _ := ctx.Value(runtimeAccessKey{}).(runtimeAccess)
+		automatic := !wasInterrupted && !needsApproval && op.name == Execute && runtime.capabilities.RecoverableShell && journal.Record != nil
+		if wasInterrupted || needsApproval || automatic {
 			if !targeted || !hasAnswer {
-				data, err := h.EncodeApproval(op.title(), Approval{Target: op.target, Preview: op.content})
+				approval := Approval{Target: op.target, Preview: op.content, Automatic: automatic || (saved == automaticState && !needsApproval)}
+				if approval.Automatic {
+					approval.CallID = call.CallID
+				}
+				data, err := h.EncodeApproval(op.title(), approval)
 				if err != nil {
 					return "", err
 				}
+				if approval.Automatic {
+					fingerprint = automaticState
+				}
 				return "", tool.StatefulInterrupt(ctx, string(data), fingerprint)
 			}
-			if !wasInterrupted || answer != AllowOnce {
+			if !wasInterrupted || (answer != AllowOnce && (answer != ContinueCommand || saved != automaticState || needsApproval)) {
 				return "未取得该操作的有效批准。", nil
 			}
 		}

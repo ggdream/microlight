@@ -305,6 +305,71 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 				}
 				read("commandx")
 			})
+			t.Run("resume-full-access", func(t *testing.T) {
+				dbDir := t.TempDir()
+				before, err := openLocalStore(dbDir)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer before.Close()
+				arguments = map[string]string{"command": "printf y >> " + filename + "; cat " + filename}
+				user := userTurn("Run without prompting")
+				chat := &conversation{ID: newID(), sessionID: newID(), target: target, accessMode: localtools.Full, sessionModel: backend.sessionModelKey(modelChoice{Model: "test"}), Turns: []*turn{
+					user, {message: message{Role: "assistant"}, State: "pending"},
+				}}
+				h := history{Chats: []*conversation{chat}, Selected: chat.ID}
+				if err := before.saveHistory(h, chat); err != nil {
+					t.Fatal(err)
+				}
+				fullAgent := agent
+				fullAgent.access = localtools.NewAccess(host, localtools.Full)
+				accessCtx := localtools.WithAccess(ctx, fullAgent.access)
+				journal := before.commandJournal(chat.ID, "", target.Identity(), 1)
+				recordCommand := journal.Record
+				simulatedExit := errors.New("simulated process exit")
+				journal.Record = func(ctx context.Context, record localtools.RemoteCommand) error {
+					if err := recordCommand(ctx, record); err != nil {
+						return err
+					}
+					rt, err := workspace.Open(ctx, target, "")
+					if err != nil {
+						return err
+					}
+					defer rt.Close()
+					_, err = rt.(workspace.CommandProvider).Commands().StartCommand(ctx, &backgroundshell.StartCommandRequest{TaskID: record.ID, Command: record.Command})
+					return errors.Join(simulatedExit, err)
+				}
+				q, err := fullAgent.run(localtools.WithCommandJournal(accessCtx, journal), before, chat.sessionID, []*turn{user}, nil, "", emit)
+				if q != nil || err == nil || !strings.Contains(err.Error(), simulatedExit.Error()) {
+					t.Fatalf("expected execution to stop after saving checkpoint and launching, got %+v, %v", q, err)
+				}
+				if err := before.Close(); err != nil {
+					t.Fatal(err)
+				}
+				after, err := openLocalStore(dbDir)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer after.Close()
+				app := &chatApp{store: after}
+				app.loadHistory()
+				restored := app.history.Chats[0]
+				entry := restored.Turns[1]
+				if entry.resumeCommand == nil || !entry.canResume() || !entry.Clarifications[0].Approval.Automatic {
+					t.Fatalf("automatic resume was not restored, commands: %+v", entry.remoteCommands)
+				}
+				entry.State = "pending"
+				if err := after.saveHistory(app.history, restored); err != nil {
+					t.Fatal(err)
+				}
+				resumeCtx := localtools.WithCommandJournal(accessCtx, after.commandJournal(chat.ID, "", target.Identity(), 1))
+				resumeCtx = localtools.WithCommandReattachment(resumeCtx, entry.resumeCommand.RemoteCommand)
+				q, err = fullAgent.run(resumeCtx, after, restored.sessionID, nil, &entry.Clarifications[0], localtools.ContinueCommand, emit)
+				if err != nil || q != nil || !strings.Contains(toolResponse, "commandxy") {
+					t.Fatalf("automatic continuation failed: %+v, %v, %q", q, err, toolResponse)
+				}
+				read("commandxy")
+			})
 			for _, tool := range []string{localtools.Read, localtools.List} {
 				toolName = tool
 				if tool == localtools.Read {
@@ -316,7 +381,7 @@ func TestWorkspaceRuntimeRoundTrip(t *testing.T) {
 				if q != nil {
 					t.Fatal("in-workspace read unexpectedly requested approval")
 				}
-				want := "commandx"
+				want := "commandxy"
 				if tool == localtools.List {
 					want = filename
 				}

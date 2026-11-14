@@ -80,12 +80,22 @@ func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID s
 		iter = runner.Run(ctx, msgs)
 	}
 	request, _ := ctx.Value(interfaceContextKey{}).(*interfaceRequest)
-	for pass := 0; ; pass++ {
+	for followupPasses := 0; ; {
 		question, followups, next, err := readAgentReply(ctx, iter, &toolResults, skills, request, emit)
+		if err == nil && question != nil && question.Approval != nil && question.Approval.Automatic {
+			checkpoint := localtools.CommandCheckpoint{ID: question.CheckpointID, InterruptID: question.InterruptID, CallID: question.Approval.CallID}
+			iter, err = runner.Resume(localtools.WithCommandCheckpoint(ctx, checkpoint), harness.Approval{
+				CheckpointID: checkpoint.ID, InterruptID: checkpoint.InterruptID, Answer: localtools.ContinueCommand,
+			})
+			if err != nil {
+				return nil, err
+			}
+			continue
+		}
 		if err != nil || question != nil || len(followups) == 0 {
 			return question, err
 		}
-		if pass == 2 {
+		if followupPasses == 2 {
 			return nil, emit(replyDelta{interfaceUpdates: []interfaceUpdate{{Invalid: true}}})
 		}
 		msgs := make([]*schema.AgenticMessage, 0, len(followups))
@@ -97,6 +107,7 @@ func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID s
 			msgs = append(msgs, msg)
 		}
 		request = next
+		followupPasses++
 		ctx = context.WithValue(ctx, interfaceContextKey{}, request)
 		iter = runner.Run(ctx, msgs)
 	}
@@ -135,6 +146,9 @@ func sessionInput(turns []*turn) ([]*schema.AgenticMessage, error) {
 				content.WriteString("\n" + a2uiagent.Wrap(a2uiagent.DirectJSON, string(raw)))
 			}
 			for _, q := range entry.Clarifications {
+				if q.Approval != nil && q.Approval.Automatic {
+					continue
+				}
 				if q.Answer != "" {
 					if q.Approval != nil {
 						content.WriteString("\n操作审批：" + q.Question + " " + q.Approval.Target + "\n用户决定：" + q.Answer)
@@ -371,6 +385,7 @@ func readAgentReply(ctx context.Context, iter *adk.AsyncIterator[*adk.TypedAgent
 }
 
 func clarificationFromInterrupt(info *adk.InterruptInfo) (*clarification, error) {
+	var automatic *clarification
 	for _, point := range info.InterruptContexts {
 		if !point.IsRootCause {
 			continue
@@ -383,8 +398,17 @@ func clarificationFromInterrupt(info *adk.InterruptInfo) (*clarification, error)
 		if err := json.Unmarshal([]byte(data), &question); err == nil &&
 			strings.TrimSpace(question.Question) != "" && point.ID != "" && info.CheckPointID != "" {
 			question.InterruptID, question.CheckpointID = point.ID, info.CheckPointID
+			if question.Approval != nil && question.Approval.Automatic {
+				if automatic == nil {
+					automatic = &question
+				}
+				continue
+			}
 			return &question, nil
 		}
+	}
+	if automatic != nil {
+		return automatic, nil
 	}
 	return nil, errors.New(locales.InterruptSaveFailed())
 }

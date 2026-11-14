@@ -27,6 +27,17 @@ type localCommandShell struct{}
 type reconnectWorkspaceKey struct{}
 type commandJournalKey struct{}
 type commandReattachmentKey struct{}
+type commandCheckpointKey struct{}
+
+const ContinueCommand = "continue-remote-command"
+
+type CommandCheckpoint struct {
+	ID, InterruptID, CallID string
+}
+
+func WithCommandCheckpoint(ctx context.Context, checkpoint CommandCheckpoint) context.Context {
+	return context.WithValue(ctx, commandCheckpointKey{}, checkpoint)
+}
 
 // WithCommandReattachment binds a restored approval to its existing task.
 func WithCommandReattachment(ctx context.Context, record RemoteCommand) context.Context {
@@ -40,6 +51,14 @@ type RemoteCommand struct {
 type CommandJournal struct {
 	Record func(context.Context, RemoteCommand) error
 	Finish func(context.Context, string, *backgroundtool.Outcome) error
+}
+
+func CheckpointForCommand(ctx context.Context, callID string) CommandCheckpoint {
+	checkpoint, _ := ctx.Value(commandCheckpointKey{}).(CommandCheckpoint)
+	if checkpoint.CallID != callID {
+		return CommandCheckpoint{}
+	}
+	return checkpoint
 }
 
 // WithCommandJournal records the approved command before the executor can

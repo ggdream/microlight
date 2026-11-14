@@ -20,7 +20,7 @@ func (store *localStore) migrate(dir string) error {
 		return err
 	}
 	switch version {
-	case 16:
+	case 17:
 		return nil
 	case 0:
 		if err := createBaseSchema(tx); err != nil {
@@ -185,6 +185,17 @@ func (store *localStore) migrate(dir string) error {
 			);
 			CREATE INDEX IF NOT EXISTS remote_commands_by_turn ON remote_commands(conversation_id, branch_id, turn_ordinal);
 			PRAGMA user_version = 16;
+		`); err != nil {
+			return err
+		}
+		fallthrough
+	case 16:
+		if _, err := tx.Exec(`
+			CREATE TABLE IF NOT EXISTS remote_command_checkpoints (
+				task_id TEXT PRIMARY KEY REFERENCES remote_commands(id) ON DELETE CASCADE,
+				checkpoint_id TEXT NOT NULL, interrupt_id TEXT NOT NULL
+			);
+			PRAGMA user_version = 17;
 		`); err != nil {
 			return err
 		}

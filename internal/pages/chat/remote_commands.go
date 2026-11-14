@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 	"time"
 
+	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/adk/backgroundtask"
 	backgroundtool "github.com/cloudwego/eino/adk/backgroundtask/tool"
 	"github.com/cloudwego/eino/adk/filesystem"
@@ -20,8 +22,9 @@ import (
 
 type savedRemoteCommand struct {
 	localtools.RemoteCommand
-	targetID string
-	outcome  *backgroundtool.Outcome
+	targetID   string
+	outcome    *backgroundtool.Outcome
+	checkpoint localtools.CommandCheckpoint
 }
 
 // A fork inherits commands for turns before its fork point. The root branch
@@ -39,11 +42,54 @@ func (entry *turn) hasUnresolvedRemoteCommands() bool {
 }
 
 func (store *localStore) recoverableReplyCommand(chat *conversation, entry *turn) *savedRemoteCommand {
-	if chat.sessionID == "" || (entry.State != "pending" && entry.State != "stopped" && entry.State != "error") || !entry.canResume() {
+	if store == nil || chat.sessionID == "" || (entry.State != "pending" && entry.State != "stopped" && entry.State != "error") {
+		return nil
+	}
+	if len(entry.remoteCommands) == 0 {
+		return nil
+	}
+	// The newest automatic interrupt may have replaced an earlier approval
+	// checkpoint in the same Agent turn.
+	latest, _ := store.LoadEvents(context.Background(), chat.sessionID, &adk.LoadSessionEventsRequest{
+		Reverse: true, Limit: 1, Kinds: []adk.SessionEventKind{adk.SessionEventInterrupt},
+	})
+	var activeInterrupts []*adk.InterruptContext
+	if latest != nil && len(latest.Events) == 1 && latest.Events[0].Interrupt != nil {
+		activeInterrupts = latest.Events[0].Interrupt.Contexts
+	}
+	isActive := func(id string) bool {
+		return slices.ContainsFunc(activeInterrupts, func(point *adk.InterruptContext) bool {
+			return point != nil && point.InterruptID == id
+		})
+	}
+	for i := len(entry.remoteCommands) - 1; i >= 0; i-- {
+		record := &entry.remoteCommands[i]
+		checkpoint := record.checkpoint
+		if record.targetID != chat.target.Identity() || checkpoint.ID == "" ||
+			record.ID != checkpoint.ID+"/"+record.CallID || !isActive(checkpoint.InterruptID) ||
+			!store.hasReplyCheckpoint(chat.sessionID, checkpoint.ID) {
+			continue
+		}
+		provider, _, _ := strings.Cut(chat.sessionModel, "\n")
+		model := chat.sessionModel[strings.LastIndex(chat.sessionModel, "\n")+1:]
+		question := clarification{
+			CheckpointID: checkpoint.ID, InterruptID: checkpoint.InterruptID, Answer: localtools.ContinueCommand,
+			Model:    modelChoice{ProviderID: provider, Model: model},
+			Approval: &localtools.Approval{Automatic: true, Preview: record.Command},
+		}
+		if entry.canResume() && entry.Clarifications[len(entry.Clarifications)-1].Approval != nil &&
+			entry.Clarifications[len(entry.Clarifications)-1].Approval.Automatic {
+			entry.Clarifications[len(entry.Clarifications)-1] = question
+		} else {
+			entry.Clarifications = append(entry.Clarifications, question)
+		}
+		return record
+	}
+	if !entry.canResume() {
 		return nil
 	}
 	approval := entry.Clarifications[len(entry.Clarifications)-1]
-	if approval.Answer != localtools.AllowOnce || approval.Approval == nil {
+	if approval.Answer != localtools.AllowOnce || approval.Approval == nil || !isActive(approval.InterruptID) {
 		return nil
 	}
 	var match *savedRemoteCommand
@@ -61,12 +107,16 @@ func (store *localStore) recoverableReplyCommand(chat *conversation, entry *turn
 	if match == nil {
 		return nil
 	}
-	var exists bool
-	err := store.QueryRow("SELECT EXISTS(SELECT 1 FROM adk_checkpoints WHERE id = ? AND session_id = ?)", approval.CheckpointID, chat.sessionID).Scan(&exists)
-	if err != nil || !exists {
+	if !store.hasReplyCheckpoint(chat.sessionID, approval.CheckpointID) {
 		return nil
 	}
 	return match
+}
+
+func (store *localStore) hasReplyCheckpoint(sessionID, id string) bool {
+	var exists bool
+	err := store.QueryRow("SELECT EXISTS(SELECT 1 FROM adk_checkpoints WHERE id = ? AND session_id = ?)", id, sessionID).Scan(&exists)
+	return err == nil && exists
 }
 
 func (app *chatApp) remoteCommandControls(c *ui.Context, chat *conversation, entry *turn, ordinal int) {
@@ -103,7 +153,12 @@ func (app *chatApp) remoteCommandControls(c *ui.Context, chat *conversation, ent
 func (store *localStore) commandJournal(chatID, branch, targetID string, ordinal int) localtools.CommandJournal {
 	return localtools.CommandJournal{
 		Record: func(ctx context.Context, record localtools.RemoteCommand) error {
-			result, err := store.ExecContext(ctx, `
+			tx, err := store.BeginTx(ctx, nil)
+			if err != nil {
+				return err
+			}
+			defer tx.Rollback()
+			result, err := tx.ExecContext(ctx, `
 				INSERT INTO remote_commands (id, conversation_id, turn_ordinal, branch_id, target_id, call_id, command)
 				SELECT ?, c.id, t.ordinal, c.branch_id, ?, ?, ? FROM conversations c
 				JOIN turns t ON t.conversation_id = c.id
@@ -120,7 +175,15 @@ func (store *localStore) commandJournal(chatID, branch, targetID string, ordinal
 			if n, err := result.RowsAffected(); err != nil || n != 1 {
 				return errors.Join(err, errors.New("the approved command no longer belongs to the active turn"))
 			}
-			return nil
+			checkpoint := localtools.CheckpointForCommand(ctx, record.CallID)
+			if checkpoint.ID != "" {
+				_, err := tx.ExecContext(ctx, `INSERT INTO remote_command_checkpoints (task_id, checkpoint_id, interrupt_id)
+					VALUES (?, ?, ?) ON CONFLICT(task_id) DO NOTHING`, record.ID, checkpoint.ID, checkpoint.InterruptID)
+				if err != nil {
+					return err
+				}
+			}
+			return tx.Commit()
 		},
 		Finish: store.finishRemoteCommand,
 	}
@@ -137,11 +200,12 @@ func (store *localStore) finishRemoteCommand(ctx context.Context, id string, out
 
 func (store *localStore) loadRemoteCommands(chatID, branch string, ordinal int) ([]savedRemoteCommand, error) {
 	return store.queryRemoteCommands(commandLineage+`
-		SELECT id, call_id, command, target_id, result FROM remote_commands
+		SELECT id, call_id, command, target_id, result, checkpoint_id, interrupt_id FROM remote_commands
+		LEFT JOIN remote_command_checkpoints ON task_id = id
 		WHERE conversation_id = ? AND turn_ordinal = ? AND EXISTS (
 			SELECT 1 FROM lineage WHERE turn_ordinal < inherited_before
 			AND (branch_id = lineage.branch OR (branch_id = '' AND lineage.branch = ?))
-		) ORDER BY rowid`, branch, ordinal+1, chatID, chatID, ordinal, chatID)
+		) ORDER BY remote_commands.rowid`, branch, ordinal+1, chatID, chatID, ordinal, chatID)
 }
 
 func (store *localStore) loadDetachedCommands(chat *conversation) ([]savedRemoteCommand, error) {
@@ -150,12 +214,13 @@ func (store *localStore) loadDetachedCommands(chat *conversation) ([]savedRemote
 
 func (store *localStore) loadDetachedCommandsAt(chatID, branch string, turnCount int) ([]savedRemoteCommand, error) {
 	return store.queryRemoteCommands(commandLineage+`
-		SELECT id, call_id, command, target_id, result FROM remote_commands
+		SELECT id, call_id, command, target_id, result, checkpoint_id, interrupt_id FROM remote_commands
+		LEFT JOIN remote_command_checkpoints ON task_id = id
 		WHERE conversation_id = ? AND NOT EXISTS (
 			SELECT 1 FROM lineage WHERE turn_ordinal < inherited_before
 			AND (branch_id = lineage.branch OR (branch_id = '' AND lineage.branch = ?))
 		)
-		ORDER BY rowid`, branch, turnCount, chatID, chatID, chatID)
+		ORDER BY remote_commands.rowid`, branch, turnCount, chatID, chatID, chatID)
 }
 
 func (store *localStore) queryRemoteCommands(query string, args ...any) ([]savedRemoteCommand, error) {
@@ -168,8 +233,12 @@ func (store *localStore) queryRemoteCommands(query string, args ...any) ([]saved
 	for rows.Next() {
 		var record savedRemoteCommand
 		var raw []byte
-		if err := rows.Scan(&record.ID, &record.CallID, &record.Command, &record.targetID, &raw); err != nil {
+		var checkpoint, interrupt *string
+		if err := rows.Scan(&record.ID, &record.CallID, &record.Command, &record.targetID, &raw, &checkpoint, &interrupt); err != nil {
 			return nil, err
+		}
+		if checkpoint != nil && interrupt != nil {
+			record.checkpoint = localtools.CommandCheckpoint{ID: *checkpoint, InterruptID: *interrupt}
 		}
 		if len(raw) > 0 {
 			if err := json.Unmarshal(raw, &record.outcome); err != nil {

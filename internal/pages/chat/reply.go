@@ -198,6 +198,7 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 			}
 			switch {
 			case err != nil:
+				reply.resumeCommand = store.recoverableReplyCommand(chat, reply)
 				if reply.resumeCommand == nil {
 					chat.sessionID = ""
 				}
