@@ -20,7 +20,7 @@ func (store *localStore) migrate(dir string) error {
 		return err
 	}
 	switch version {
-	case 14:
+	case 15:
 		return nil
 	case 0:
 		if err := createBaseSchema(tx); err != nil {
@@ -166,6 +166,14 @@ func (store *localStore) migrate(dir string) error {
 		if _, err := tx.Exec(`
 			ALTER TABLE turns ADD COLUMN a2ui BLOB;
 			PRAGMA user_version = 14;
+		`); err != nil {
+			return err
+		}
+		fallthrough
+	case 14:
+		if _, err := tx.Exec(`
+			ALTER TABLE turn_images ADD COLUMN path TEXT NOT NULL DEFAULT '';
+			PRAGMA user_version = 15;
 		`); err != nil {
 			return err
 		}

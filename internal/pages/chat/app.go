@@ -16,12 +16,20 @@ import (
 	"github.com/ggdream/microlight/pkg/markup"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/plugins/updater"
+	updatenative "github.com/egoist/mygo/plugins/updater/native"
 	"github.com/egoist/mygo/ui"
 )
 
 func Run(assets fs.FS) {
 	home, _ := os.UserHomeDir()
 	app := &chatApp{skillsHome: home}
+	defer func() {
+		if app.previewDirectory != "" {
+			os.RemoveAll(app.previewDirectory)
+		}
+	}()
+	mygo.Use(updatenative.New(updater.Options{DisableAutomaticChecks: true}))
 	dir, err := mygo.App.Path(mygo.PathUserData)
 	if err == nil {
 		mygo.App.SetPath(mygo.PathUserData, dir)
@@ -54,6 +62,7 @@ func Run(assets fs.FS) {
 	app.md.Preview = app.links.offer
 	app.loadLanguage()
 	app.loadBusySendMode()
+	app.loadDesktopPreferences()
 	if dir != "" {
 		mygo.App.SetName(locales.AppName())
 	}
@@ -86,6 +95,7 @@ func Run(assets fs.FS) {
 			app.win.Invalidate()
 		})
 		desktop.SetupTray(app.win, assets)
+		app.startDesktopShortcut()
 	})
 	if err := mygo.App.Run(); err != nil {
 		slog.Error("运行应用失败", "error", err)

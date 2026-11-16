@@ -92,9 +92,9 @@ func putAttachments(tx *sql.Tx, chat *conversation) error {
 	for turnIndex, entry := range chat.Turns {
 		for index, attachment := range entry.Attachments {
 			if _, err := tx.Exec(`
-				INSERT INTO turn_images (conversation_id, turn_ordinal, ordinal, name, mime, data)
-				VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (conversation_id, turn_ordinal, ordinal) DO NOTHING
-			`, chat.ID, turnIndex, index, attachment.Name, attachment.MIME, attachment.Data); err != nil {
+				INSERT INTO turn_images (conversation_id, turn_ordinal, ordinal, name, mime, data, path)
+				VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (conversation_id, turn_ordinal, ordinal) DO NOTHING
+			`, chat.ID, turnIndex, index, attachment.Name, attachment.MIME, attachment.Data, attachment.Path); err != nil {
 				return err
 			}
 		}
@@ -263,7 +263,7 @@ func (store *localStore) loadAttachments(h history) error {
 		chats[chat.ID] = chat
 	}
 	rows, err := store.Query(`
-		SELECT conversation_id, turn_ordinal, name, mime, data
+		SELECT conversation_id, turn_ordinal, name, mime, data, path
 		FROM turn_images ORDER BY conversation_id, turn_ordinal, ordinal
 	`)
 	if err != nil {
@@ -274,7 +274,7 @@ func (store *localStore) loadAttachments(h history) error {
 		var id string
 		var index int
 		attachment := &attachment.File{}
-		if err := rows.Scan(&id, &index, &attachment.Name, &attachment.MIME, &attachment.Data); err != nil {
+		if err := rows.Scan(&id, &index, &attachment.Name, &attachment.MIME, &attachment.Data, &attachment.Path); err != nil {
 			return err
 		}
 		chat := chats[id]

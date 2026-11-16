@@ -82,6 +82,8 @@ CGO_ENABLED=0 go test ./pkg/a2ui ./pkg/a2uiagent ./pkg/a2uimygo -run TestOfficia
 
 推送 `vX.Y.Z` tag 后，三个系统的测试通过才会打包并发布到对应的 GitHub Release。MyGo CLI 版本来自 `go.mod`，安装包内部版本来自 tag。Go 测试和打包统一设置 `CGO_ENABLED=0`。发布文件从 `dist/` 顶层上传。详见 [GitHub Actions workflow](../.github/workflows/ci.yml)。
 
+设置页的「关于」可以检查 GitHub Release 并打开安装包下载页。启用应用内安装更新时，用 `mygo keygen` 创建更新签名密钥。将公钥放在 GitHub Actions 仓库变量 `MYGO_UPDATER_PUBLIC_KEY`，将对应私钥放在仓库 Secret `MYGO_UPDATER_PRIVATE_KEY`。配置这两个值后，标签构建会随安装包发布签名归档和更新清单。支持应用内更新的安装版本会使用 MyGo 的原生更新窗口。
+
 | 平台 | 架构 | 发布文件 |
 | --- | --- | --- |
 | macOS | Universal（Apple Silicon 和 Intel） | `microlight-vX.Y.Z-darwin-universal.dmg` |

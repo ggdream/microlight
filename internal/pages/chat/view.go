@@ -20,7 +20,9 @@ func (app *chatApp) view(c *ui.Context) {
 	if runtime.GOOS == "darwin" {
 		shortcut = "⌘ K"
 	}
-	c.OnWindowShortcut(ui.Cmd, ui.KeyK, func() { app.selectChat("") })
+	if !app.shortcutRecording {
+		c.OnWindowShortcut(ui.Cmd, ui.KeyK, func() { app.selectChat("") })
+	}
 	selected := app.selected()
 	if app.sidebarWidth == 0 {
 		app.sidebarWidth = defaultSidebarWidth

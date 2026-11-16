@@ -252,6 +252,7 @@
       }
     }
   },
+  "detachFile": "Remove attachment",
   "removeAttachment": "Remove {name}",
   "@removeAttachment": {
     "placeholders": {
@@ -426,5 +427,28 @@
   "chooseDefaultModel": "Use {model} as the default model",
   "addProviderModel": "Add Model",
   "removeProviderModel": "Remove Model",
-  "modelIDDuplicate": "Model IDs must be unique within a provider."
+  "modelIDDuplicate": "Model IDs must be unique within a provider.",
+  "desktopShortcut": "Global shortcut",
+  "recordDesktopShortcut": "Record shortcut",
+  "pressShortcutKeys": "Press shortcut keys…",
+  "cancelShortcutHint": "Esc to cancel",
+  "clearDesktopShortcut": "Clear shortcut",
+  "desktopShortcutFailed": "Could not register this shortcut. Try a different combination.",
+  "desktopShortcutUnbound": "The desktop has not assigned keys.",
+  "desktopNotifications": "Desktop notifications",
+  "notifyAllReplies": "All reply activity",
+  "notifyActionOnly": "Questions, approvals, and errors",
+  "notifyOff": "Off",
+  "notifyShowPreview": "Show a preview in notifications",
+  "openNotificationConversation": "Open the conversation to see details.",
+  "quickLookFile": "Quick Look",
+  "openWithDefaultApp": "Open with default app",
+  "appUpdates": "Software updates",
+  "checkForUpdates": "Check for updates",
+  "checkingForUpdates": "Checking…",
+  "viewRelease": "View release and downloads",
+  "updateCheckFailed": "Could not check for updates. Try again later.",
+  "appUpToDate": "You’re up to date.",
+  "latestRelease": "Latest release · {version}",
+  "updateAvailable": "Version {version} is available."
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo"
 	"github.com/ggdream/microlight/assets/locales"
 	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/internal/localtools"
@@ -104,6 +105,8 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 	temporaryBackend := backend != app.backend
 	go func() {
 		defer cancel()
+		release := mygo.Power.KeepRunning(locales.Generating())
+		defer release()
 		if temporaryBackend && backend.network != nil {
 			defer backend.network.CloseIdleConnections()
 		}

@@ -61,8 +61,12 @@ func (app *chatApp) notifyReply(chatID string, reply *turn) {
 	}
 	app.unreadReplies++
 	mygo.App.SetBadgeCount(app.unreadReplies)
-	if !mygo.NotificationsSupported() {
+	mode := clampNotificationMode(app.desktop.Notification)
+	if mode == notifyOff || mode == notifyAction && reply.State == "done" || !mygo.NotificationsSupported() {
 		return
+	}
+	if app.desktop.HidePreview {
+		body = locales.OpenNotificationConversation()
 	}
 	n := mygo.NewNotification(mygo.NotificationOptions{
 		Title: title,

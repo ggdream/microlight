@@ -83,11 +83,15 @@ jobs:
         env:
           RELEASE_PLATFORM: ${{ matrix.platform }}
           RELEASE_ARCH: ${{ matrix.arch }}
+          MYGO_UPDATER_PUBLIC_KEY: ${{ vars.MYGO_UPDATER_PUBLIC_KEY }}
+          MYGO_UPDATER_PRIVATE_KEY: ${{ secrets.MYGO_UPDATER_PRIVATE_KEY }}
         run: bash .github/scripts/package-release.sh
       - uses: actions/upload-artifact@v7
         with:
           name: microlight-${{ matrix.platform }}-${{ matrix.arch }}
-          path: dist/microlight-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}.*
+          path: |
+            dist/microlight-*-${{ matrix.platform }}-${{ matrix.arch }}.*
+            dist/update-${{ matrix.platform }}-${{ matrix.arch }}.json
           if-no-files-found: error
 
   release:
@@ -107,5 +111,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/microlight-"$GITHUB_REF_NAME"-* --repo "$GITHUB_REPOSITORY" \
+          shopt -s nullglob
+          assets=(dist/microlight-"$GITHUB_REF_NAME"-* dist/update-*.json dist/microlight-"${GITHUB_REF_NAME#v}"-*.tar.gz)
+          gh release create "$GITHUB_REF_NAME" "${assets[@]}" --repo "$GITHUB_REPOSITORY" \
             --verify-tag --generate-notes --title "Microlight $GITHUB_REF_NAME"

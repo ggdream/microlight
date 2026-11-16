@@ -8,8 +8,10 @@ import (
 
 	"github.com/ggdream/microlight/assets/locales"
 	timeline "github.com/ggdream/microlight/internal/activity"
+	"github.com/ggdream/microlight/internal/desktop"
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/pages/chat/preview"
+	"github.com/ggdream/microlight/internal/theme"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown"
@@ -238,16 +240,24 @@ func (app *chatApp) toolActivityRow(c *ui.Context, entry *turn, index int) {
 								link.DottedUnderline()
 							}
 						}).OnClick(func() { app.openToolPreview(entry, index) })
-						button.PopoverMenu(func(menu *ui.Menu) {
-							if menu.Item(locales.OpenPreview()).Icon(icons.Menu("panel_left_expand")).Chosen() {
+						items := []theme.PopupItem{
+							{Label: locales.OpenPreview(), Icon: icons.Menu("panel_left_expand"), OnSelect: func() {
 								app.openToolPreview(entry, index)
+							}},
+						}
+						if path != "" && activity.Tool != localtools.List {
+							quickLook := func() { app.showPreviewError(desktop.PreviewFile(path)) }
+							if button.Shortcut(0, ui.KeySpace) {
+								quickLook()
 							}
-							if full := activity.DisplayTarget(); full != "" {
-								if menu.Item(locales.CopyTarget()).Icon(icons.Menu("copy")).Chosen() {
-									c.WriteClipboard(full)
-								}
-							}
-						})
+							items = append(items, theme.PopupItem{Label: desktop.PreviewLabel(), Icon: icons.Menu("open"), OnSelect: quickLook})
+						}
+						if full := activity.DisplayTarget(); full != "" {
+							items = append(items, theme.PopupItem{Label: locales.CopyTarget(), Icon: icons.Menu("copy"), OnSelect: func() {
+								c.WriteClipboard(full)
+							}})
+						}
+						theme.PopupContextMenu(button, items...)
 					})
 				}
 			})

@@ -289,6 +289,7 @@ func (app *chatApp) editProvider(id string) {
 
 func (app *chatApp) closeSettings() {
 	app.clearConnectionTest()
+	app.shortcutRecording = false
 	app.settingsOpen = false
 	app.form = settingsForm{}
 }

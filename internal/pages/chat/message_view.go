@@ -17,7 +17,7 @@ func (app *chatApp) userMessage(c *ui.Context, chat *conversation, index int, en
 		if len(entry.Attachments) > 0 {
 			ui.Row(c).Wrap().Justify(ui.End).Gap(6).Children(func() {
 				for _, attachment := range entry.Attachments {
-					attachmentTile(c, attachment, 76, nil)
+					app.attachmentTile(c, attachment, 76, nil)
 				}
 			})
 		}

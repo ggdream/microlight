@@ -8,6 +8,7 @@ import (
 	"github.com/ggdream/microlight/assets/locales"
 	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/internal/attachment"
+	"github.com/ggdream/microlight/internal/desktop"
 	"github.com/ggdream/microlight/internal/localtools"
 	previewui "github.com/ggdream/microlight/internal/pages/chat/preview"
 	"github.com/ggdream/microlight/internal/theme"
@@ -132,7 +133,9 @@ func (app *chatApp) toolPreviewPane(c *ui.Context, width float32, workspace stri
 			if active != nil && active.entry == round {
 				selected = active.index
 			}
-			tree.View(c.Key("changes"), round, icons, selected, func(index int) { app.openToolPreview(round, index) })
+			tree.View(c.Key("changes"), round, icons, selected,
+				func(index int) { app.openToolPreview(round, index) },
+				func(path string) { app.showPreviewError(desktop.PreviewFile(path)) })
 		}
 		previewContent := func() {
 			activity := active.entry.Activity[active.index]

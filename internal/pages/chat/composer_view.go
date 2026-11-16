@@ -6,6 +6,7 @@ import (
 
 	"github.com/ggdream/microlight/assets/locales"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/pkg/elastic"
 )
@@ -34,6 +35,7 @@ func (app *chatApp) composer(c *ui.Context, selected *conversation) {
 			Border(1, border).Radius(17).Shadow(0, 4, 14, 0, ui.RGBA(29, 49, 38, .06)).
 			Padding(11, 12, 9).Gap(5).Children(func() {
 			if selected.waitingReply() != nil {
+				app.focusComposer = false
 				if app.skillPicker.open {
 					app.resetComposerSkills()
 				}
@@ -48,7 +50,7 @@ func (app *chatApp) composer(c *ui.Context, selected *conversation) {
 				scroll.FillWidth().Height(77).Children(func() {
 					offset.Apply(ui.Row(c)).Gap(8).Children(func() {
 						for i, attachment := range app.draftAttachments {
-							attachmentTile(c.Key(attachment), attachment, 62, func() {
+							app.attachmentTile(c.Key(attachment), attachment, 62, func() {
 								app.draftAttachments = slices.Delete(app.draftAttachments, i, i+1)
 								app.attachmentError = ""
 							})
@@ -69,6 +71,10 @@ func (app *chatApp) composer(c *ui.Context, selected *conversation) {
 			draftHeight := float32(min(135, 20+19*app.draft.Document.Text().ParagraphCount()))
 			editor := app.draft.View(c.Key("draft"), locales.Message(), placeholder, draftHeight, app.md).
 				Padding(3, 3, 0).FocusRing(false)
+			if app.focusComposer && app.win != nil && app.win.IsFocused() && mygo.App.IsActive() {
+				editor.Focus()
+				app.focusComposer = false
+			}
 			services := c.Services()
 			editor.ObserveInput(func(ev ui.InputEvent) { app.pasteAttachments(services, ev) })
 			workspace := app.draftWorkspace

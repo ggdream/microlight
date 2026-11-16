@@ -19,7 +19,17 @@ esac
 backup=$(mktemp)
 cp mygo.json "$backup"
 trap 'cp "$backup" mygo.json && rm -f "$backup"' EXIT
-jq --arg version "${tag#v}" '.version = $version' "$backup" > mygo.json
+public_key=${MYGO_UPDATER_PUBLIC_KEY:-}
+if [[ -n "$public_key" || -n "${MYGO_UPDATER_PRIVATE_KEY:-}" ]]; then
+  if [[ -z "$public_key" || -z "${MYGO_UPDATER_PRIVATE_KEY:-}" ]]; then
+    printf 'Signed updates require both updater keys\n' >&2
+    exit 1
+  fi
+fi
+jq --arg version "${tag#v}" --arg key "$public_key" '
+  .version = $version |
+  if $key != "" then .updates = {publicKey: $key, github: "ggdream/microlight", deltas: 0} else . end
+' "$backup" > mygo.json
 
 bash scripts/build.sh \
   -platform "$RELEASE_PLATFORM/$RELEASE_ARCH" -o dist
@@ -39,3 +49,9 @@ for extension in "${extensions[@]}"; do
   cp "${matches[0]}" "$asset"
   printf '%s\n' "$asset"
 done
+
+if [[ -n "$public_key" ]]; then
+  manifest="update-$target.json"
+  archive="microlight-${tag#v}-$target.tar.gz"
+  cp "dist/$target/$manifest" "dist/$target/$archive" dist/
+fi

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/desktop"
 	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/internal/theme"
 	"github.com/ggdream/microlight/pkg/diff"
@@ -80,7 +81,7 @@ func BuildTree(files []Change, workspace string) *Tree {
 	return root
 }
 
-func (tree *Tree) View(c *ui.Context, roundKey any, icons asseticon.Set, selected int, open func(int)) {
+func (tree *Tree) View(c *ui.Context, roundKey any, icons asseticon.Set, selected int, open func(int), quickLook func(string)) {
 	ui.Column(c).Fill().MinWidth(0).MinHeight(0).Children(func() {
 		ui.Text(c, locales.RoundChanges()).FontSize(12).FontWeight(650).TextColor(theme.Muted).Padding(9, 10, 5)
 		if len(tree.children) == 0 {
@@ -89,12 +90,14 @@ func (tree *Tree) View(c *ui.Context, roundKey any, icons asseticon.Set, selecte
 		}
 		scroll, offset := elastic.Scroll(c.Key(roundKey))
 		scroll.Grow(1).MinHeight(0).Children(func() {
-			offset.Apply(ui.Column(c).FillWidth()).Children(func() { rows(c, icons, tree.children, 0, selected, open) })
+			offset.Apply(ui.Themed(c, theme.MenuTheme).Background(ui.Transparent).FillWidth()).Children(func() {
+				rows(c, icons, tree.children, 0, selected, open, quickLook)
+			})
 		})
 	})
 }
 
-func rows(c *ui.Context, icons asseticon.Set, nodes []*Tree, depth, selected int, open func(int)) {
+func rows(c *ui.Context, icons asseticon.Set, nodes []*Tree, depth, selected int, open func(int), quickLook func(string)) {
 	for _, node := range nodes {
 		rowContext := c.Key(node.key)
 		inset := 8 + float32(min(depth, 8))*12
@@ -117,7 +120,7 @@ func rows(c *ui.Context, icons asseticon.Set, nodes []*Tree, depth, selected int
 				ui.Text(c, node.name).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(12)
 			}).OnClick(func() { *closed = !*closed })
 			if !*closed {
-				rows(c, icons, node.children, depth+1, selected, open)
+				rows(c, icons, node.children, depth+1, selected, open, quickLook)
 			}
 			continue
 		}
@@ -135,6 +138,13 @@ func rows(c *ui.Context, icons asseticon.Set, nodes []*Tree, depth, selected int
 				DiffCounts(c.Key("tree-counts"), node.file.Diff)
 			}
 		}).OnClick(func() { open(node.file.Index) })
+		if filepath.IsAbs(node.file.Path) {
+			preview := func() { quickLook(node.file.Path) }
+			if file.Shortcut(0, ui.KeySpace) {
+				preview()
+			}
+			theme.PopupContextMenu(file, theme.PopupItem{Label: desktop.PreviewLabel(), Icon: icons.Menu("open"), OnSelect: preview})
+		}
 	}
 }
 func DiffCounts(c *ui.Context, diff *diff.Lines) {

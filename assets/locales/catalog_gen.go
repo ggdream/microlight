@@ -2336,6 +2336,16 @@ func (msgs Messages) AttachmentLabel(name string) string {
 	return Catalog.Format(msgs.locale, "attachmentLabel", map[string]any{"name": name})
 }
 
+// DetachFile says "Remove attachment"
+// in the language the app shows.
+func DetachFile() string { return In(i18n.Locale()).DetachFile() }
+
+// DetachFile says "Remove attachment"
+// in the language of msgs.
+func (msgs Messages) DetachFile() string {
+	return Catalog.Format(msgs.locale, "detachFile", nil)
+}
+
 // RemoveAttachment says "Remove {name}"
 // in the language the app shows.
 func RemoveAttachment(name string) string { return In(i18n.Locale()).RemoveAttachment(name) }
@@ -3264,4 +3274,234 @@ func ModelIDDuplicate() string { return In(i18n.Locale()).ModelIDDuplicate() }
 // in the language of msgs.
 func (msgs Messages) ModelIDDuplicate() string {
 	return Catalog.Format(msgs.locale, "modelIDDuplicate", nil)
+}
+
+// DesktopShortcut says "Global shortcut"
+// in the language the app shows.
+func DesktopShortcut() string { return In(i18n.Locale()).DesktopShortcut() }
+
+// DesktopShortcut says "Global shortcut"
+// in the language of msgs.
+func (msgs Messages) DesktopShortcut() string {
+	return Catalog.Format(msgs.locale, "desktopShortcut", nil)
+}
+
+// RecordDesktopShortcut says "Record shortcut"
+// in the language the app shows.
+func RecordDesktopShortcut() string { return In(i18n.Locale()).RecordDesktopShortcut() }
+
+// RecordDesktopShortcut says "Record shortcut"
+// in the language of msgs.
+func (msgs Messages) RecordDesktopShortcut() string {
+	return Catalog.Format(msgs.locale, "recordDesktopShortcut", nil)
+}
+
+// PressShortcutKeys says "Press shortcut keys…"
+// in the language the app shows.
+func PressShortcutKeys() string { return In(i18n.Locale()).PressShortcutKeys() }
+
+// PressShortcutKeys says "Press shortcut keys…"
+// in the language of msgs.
+func (msgs Messages) PressShortcutKeys() string {
+	return Catalog.Format(msgs.locale, "pressShortcutKeys", nil)
+}
+
+// CancelShortcutHint says "Esc to cancel"
+// in the language the app shows.
+func CancelShortcutHint() string { return In(i18n.Locale()).CancelShortcutHint() }
+
+// CancelShortcutHint says "Esc to cancel"
+// in the language of msgs.
+func (msgs Messages) CancelShortcutHint() string {
+	return Catalog.Format(msgs.locale, "cancelShortcutHint", nil)
+}
+
+// ClearDesktopShortcut says "Clear shortcut"
+// in the language the app shows.
+func ClearDesktopShortcut() string { return In(i18n.Locale()).ClearDesktopShortcut() }
+
+// ClearDesktopShortcut says "Clear shortcut"
+// in the language of msgs.
+func (msgs Messages) ClearDesktopShortcut() string {
+	return Catalog.Format(msgs.locale, "clearDesktopShortcut", nil)
+}
+
+// DesktopShortcutFailed says "Could not register this shortcut. Try a different combination."
+// in the language the app shows.
+func DesktopShortcutFailed() string { return In(i18n.Locale()).DesktopShortcutFailed() }
+
+// DesktopShortcutFailed says "Could not register this shortcut. Try a different combination."
+// in the language of msgs.
+func (msgs Messages) DesktopShortcutFailed() string {
+	return Catalog.Format(msgs.locale, "desktopShortcutFailed", nil)
+}
+
+// DesktopShortcutUnbound says "The desktop has not assigned keys."
+// in the language the app shows.
+func DesktopShortcutUnbound() string { return In(i18n.Locale()).DesktopShortcutUnbound() }
+
+// DesktopShortcutUnbound says "The desktop has not assigned keys."
+// in the language of msgs.
+func (msgs Messages) DesktopShortcutUnbound() string {
+	return Catalog.Format(msgs.locale, "desktopShortcutUnbound", nil)
+}
+
+// DesktopNotifications says "Desktop notifications"
+// in the language the app shows.
+func DesktopNotifications() string { return In(i18n.Locale()).DesktopNotifications() }
+
+// DesktopNotifications says "Desktop notifications"
+// in the language of msgs.
+func (msgs Messages) DesktopNotifications() string {
+	return Catalog.Format(msgs.locale, "desktopNotifications", nil)
+}
+
+// NotifyAllReplies says "All reply activity"
+// in the language the app shows.
+func NotifyAllReplies() string { return In(i18n.Locale()).NotifyAllReplies() }
+
+// NotifyAllReplies says "All reply activity"
+// in the language of msgs.
+func (msgs Messages) NotifyAllReplies() string {
+	return Catalog.Format(msgs.locale, "notifyAllReplies", nil)
+}
+
+// NotifyActionOnly says "Questions, approvals, and errors"
+// in the language the app shows.
+func NotifyActionOnly() string { return In(i18n.Locale()).NotifyActionOnly() }
+
+// NotifyActionOnly says "Questions, approvals, and errors"
+// in the language of msgs.
+func (msgs Messages) NotifyActionOnly() string {
+	return Catalog.Format(msgs.locale, "notifyActionOnly", nil)
+}
+
+// NotifyOff says "Off"
+// in the language the app shows.
+func NotifyOff() string { return In(i18n.Locale()).NotifyOff() }
+
+// NotifyOff says "Off"
+// in the language of msgs.
+func (msgs Messages) NotifyOff() string {
+	return Catalog.Format(msgs.locale, "notifyOff", nil)
+}
+
+// NotifyShowPreview says "Show a preview in notifications"
+// in the language the app shows.
+func NotifyShowPreview() string { return In(i18n.Locale()).NotifyShowPreview() }
+
+// NotifyShowPreview says "Show a preview in notifications"
+// in the language of msgs.
+func (msgs Messages) NotifyShowPreview() string {
+	return Catalog.Format(msgs.locale, "notifyShowPreview", nil)
+}
+
+// OpenNotificationConversation says "Open the conversation to see details."
+// in the language the app shows.
+func OpenNotificationConversation() string { return In(i18n.Locale()).OpenNotificationConversation() }
+
+// OpenNotificationConversation says "Open the conversation to see details."
+// in the language of msgs.
+func (msgs Messages) OpenNotificationConversation() string {
+	return Catalog.Format(msgs.locale, "openNotificationConversation", nil)
+}
+
+// QuickLookFile says "Quick Look"
+// in the language the app shows.
+func QuickLookFile() string { return In(i18n.Locale()).QuickLookFile() }
+
+// QuickLookFile says "Quick Look"
+// in the language of msgs.
+func (msgs Messages) QuickLookFile() string {
+	return Catalog.Format(msgs.locale, "quickLookFile", nil)
+}
+
+// OpenWithDefaultApp says "Open with default app"
+// in the language the app shows.
+func OpenWithDefaultApp() string { return In(i18n.Locale()).OpenWithDefaultApp() }
+
+// OpenWithDefaultApp says "Open with default app"
+// in the language of msgs.
+func (msgs Messages) OpenWithDefaultApp() string {
+	return Catalog.Format(msgs.locale, "openWithDefaultApp", nil)
+}
+
+// AppUpdates says "Software updates"
+// in the language the app shows.
+func AppUpdates() string { return In(i18n.Locale()).AppUpdates() }
+
+// AppUpdates says "Software updates"
+// in the language of msgs.
+func (msgs Messages) AppUpdates() string {
+	return Catalog.Format(msgs.locale, "appUpdates", nil)
+}
+
+// CheckForUpdates says "Check for updates"
+// in the language the app shows.
+func CheckForUpdates() string { return In(i18n.Locale()).CheckForUpdates() }
+
+// CheckForUpdates says "Check for updates"
+// in the language of msgs.
+func (msgs Messages) CheckForUpdates() string {
+	return Catalog.Format(msgs.locale, "checkForUpdates", nil)
+}
+
+// CheckingForUpdates says "Checking…"
+// in the language the app shows.
+func CheckingForUpdates() string { return In(i18n.Locale()).CheckingForUpdates() }
+
+// CheckingForUpdates says "Checking…"
+// in the language of msgs.
+func (msgs Messages) CheckingForUpdates() string {
+	return Catalog.Format(msgs.locale, "checkingForUpdates", nil)
+}
+
+// ViewRelease says "View release and downloads"
+// in the language the app shows.
+func ViewRelease() string { return In(i18n.Locale()).ViewRelease() }
+
+// ViewRelease says "View release and downloads"
+// in the language of msgs.
+func (msgs Messages) ViewRelease() string {
+	return Catalog.Format(msgs.locale, "viewRelease", nil)
+}
+
+// UpdateCheckFailed says "Could not check for updates. Try again later."
+// in the language the app shows.
+func UpdateCheckFailed() string { return In(i18n.Locale()).UpdateCheckFailed() }
+
+// UpdateCheckFailed says "Could not check for updates. Try again later."
+// in the language of msgs.
+func (msgs Messages) UpdateCheckFailed() string {
+	return Catalog.Format(msgs.locale, "updateCheckFailed", nil)
+}
+
+// AppUpToDate says "You’re up to date."
+// in the language the app shows.
+func AppUpToDate() string { return In(i18n.Locale()).AppUpToDate() }
+
+// AppUpToDate says "You’re up to date."
+// in the language of msgs.
+func (msgs Messages) AppUpToDate() string {
+	return Catalog.Format(msgs.locale, "appUpToDate", nil)
+}
+
+// LatestRelease says "Latest release · {version}"
+// in the language the app shows.
+func LatestRelease(version string) string { return In(i18n.Locale()).LatestRelease(version) }
+
+// LatestRelease says "Latest release · {version}"
+// in the language of msgs.
+func (msgs Messages) LatestRelease(version string) string {
+	return Catalog.Format(msgs.locale, "latestRelease", map[string]any{"version": version})
+}
+
+// UpdateAvailable says "Version {version} is available."
+// in the language the app shows.
+func UpdateAvailable(version string) string { return In(i18n.Locale()).UpdateAvailable(version) }
+
+// UpdateAvailable says "Version {version} is available."
+// in the language of msgs.
+func (msgs Messages) UpdateAvailable(version string) string {
+	return Catalog.Format(msgs.locale, "updateAvailable", map[string]any{"version": version})
 }

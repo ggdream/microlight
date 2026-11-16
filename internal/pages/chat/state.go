@@ -78,6 +78,14 @@ type chatApp struct {
 	busySend           busySendMode
 	queueEdit          *queuedMessageEdit
 	win                *mygo.Window
+	desktop            desktopPreferences
+	shortcutRecording  bool
+	registeredShortcut string
+	actualShortcut     string
+	shortcutError      bool
+	focusComposer      bool
+	previewDirectory   string
+	updateCheck        updateCheck
 	sidebarWidth       float32
 	toolPanel          toolPreviewPanel
 	history            history

@@ -27,7 +27,7 @@ func (app *chatApp) settingsPage(c *ui.Context) {
 		case settings.Archive:
 			app.archiveSettings(c.Key("archive-content"))
 		case settings.About:
-			settings.AboutPanel(c.Key("about-content"), icons, buildinfo.Version())
+			settings.AboutPanel(c.Key("about-content"), icons, buildinfo.Version(), app.updateSettings)
 		default:
 			app.generalSettings(c.Key("general-content"))
 		}
@@ -42,6 +42,7 @@ func (app *chatApp) selectSettingsTab(tab settings.Tab) {
 	if tab == settings.Skills {
 		app.refreshSkills()
 	}
+	app.shortcutRecording = false
 	app.settingsTab = tab
 }
 
@@ -95,6 +96,7 @@ func (app *chatApp) generalSettings(c *ui.Context) {
 	settings.Section(c, locales.SettingsGeneral(), locales.SettingsDescription(), func() {
 		app.languageSettings(c)
 		app.busySendSettings(c.Key("busy-send"))
+		app.desktopSettings(c.Key("desktop"))
 		settings.Proxy(c, icons, &app.form.proxy, app.form.proxyError, app.saveProxySettings, app.openProxySettingsControl)
 		if app.form.generalStatus.failed {
 			ui.Text(c, app.form.generalStatus.message).FontSize(12).TextColor(theme.ErrorFG)

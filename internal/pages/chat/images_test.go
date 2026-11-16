@@ -74,6 +74,9 @@ func TestImagesStayInConversationAfterReopen(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		if attachment.Path != path {
+			t.Fatalf("attachment source = %q, want %q", attachment.Path, path)
+		}
 		attachments = append(attachments, attachment)
 	}
 	chat := &conversation{ID: "pictures", Title: "Pictures", Turns: []*turn{
@@ -106,7 +109,8 @@ func TestImagesStayInConversationAfterReopen(t *testing.T) {
 		t.Fatal("turns or attachments were not restored")
 	}
 	for i, attachment := range turns[0].Attachments {
-		if attachment.Name != attachments[i].Name || !bytes.Equal(attachment.Data, attachments[i].Data) {
+		if attachment.Name != attachments[i].Name || attachment.Path != attachments[i].Path ||
+			!bytes.Equal(attachment.Data, attachments[i].Data) {
 			t.Fatalf("attachment %d changed after reopening", i)
 		}
 	}

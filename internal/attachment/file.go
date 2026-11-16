@@ -34,6 +34,7 @@ type File struct {
 	Name     string
 	MIME     string
 	Data     []byte
+	Path     string `json:"path,omitempty"`
 	thumb    *ui.Bitmap
 	textOnce sync.Once
 	textFile bool
@@ -56,7 +57,12 @@ func Load(path string) (*File, error) {
 	if err != nil {
 		return nil, errors.New(locales.ReadFileFailed())
 	}
-	return New(filepath.Base(path), data)
+	attachment, err := New(filepath.Base(path), data)
+	if err != nil {
+		return nil, err
+	}
+	attachment.Path, _ = filepath.Abs(path)
+	return attachment, nil
 }
 
 func New(name string, data []byte) (*File, error) {

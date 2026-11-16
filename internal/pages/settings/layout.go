@@ -82,11 +82,12 @@ func Version(c *ui.Context, version string) {
 	})
 }
 
-func AboutPanel(c *ui.Context, icons asseticon.Set, version string) {
+func AboutPanel(c *ui.Context, icons asseticon.Set, version string, updates func(*ui.Context)) {
 	section(c, func() {
 		ui.Text(c, locales.AppAbout()).FontSize(29).FontWeight(680)
 	}, func() {
 		Version(c.Key("version"), version)
+		updates(c.Key("updates"))
 		repository(c.Key("repository"), icons)
 	})
 }

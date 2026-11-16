@@ -1,23 +1,35 @@
 package chat
 
 import (
+	"path/filepath"
 	"strings"
 
-	"github.com/ggdream/microlight/internal/attachment"
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/attachment"
+	"github.com/ggdream/microlight/internal/desktop"
+	"github.com/ggdream/microlight/internal/theme"
 
 	"github.com/egoist/mygo/ui"
 )
 
-func attachmentTile(c *ui.Context, attachment *attachment.File, size float32, remove func()) {
+func (app *chatApp) attachmentTile(c *ui.Context, attachment *attachment.File, size float32, remove func()) {
+	ui.Themed(c, theme.MenuTheme).Background(ui.Transparent).Size(size, size).Shrink(0).
+		Children(func() { app.attachmentCard(c.Key("file"), attachment, size, remove) })
+}
+
+func (app *chatApp) attachmentCard(c *ui.Context, attachment *attachment.File, size float32, remove func()) {
 	isImage := attachment.IsImage()
 	isText := !isImage && attachment.IsText()
-	tooltip := attachment.Name
-	if !isImage && !isText {
-		tooltip += "\n" + locales.AttachmentNameOnly()
-	}
 	tile := ui.Column(c).Size(size, size).Shrink(0).Radius(7).Clip().Background(side).
-		AlignItems(ui.Center).Justify(ui.Center).Tooltip(tooltip)
+		AlignItems(ui.Center).Justify(ui.Center).
+		Focusable().Label(locales.AttachmentLabel(attachment.Name)).FocusRingColor(accent)
+	if filepath.IsAbs(attachment.Path) {
+		tile.Tooltip(attachment.Path)
+	}
+	preview := func() { app.showPreviewError(app.quickLookAttachment(attachment)) }
+	if tile.Focused() && tile.Shortcut(0, ui.KeySpace) {
+		preview()
+	}
 	if !isImage {
 		tile.Background(white).Border(1, border)
 	}
@@ -25,7 +37,6 @@ func attachmentTile(c *ui.Context, attachment *attachment.File, size float32, re
 	showRemove := false
 	if remove != nil {
 		fit = ui.Cover
-		tile.Focusable().Label(locales.AttachmentLabel(attachment.Name)).FocusRingColor(accent)
 		showRemove = tile.Hovered() || tile.FocusWithin()
 	}
 	tile.Children(func() {
@@ -68,4 +79,9 @@ func attachmentTile(c *ui.Context, attachment *attachment.File, size float32, re
 			button.OnClick(remove)
 		}
 	})
+	items := []theme.PopupItem{{Label: desktop.PreviewLabel(), Icon: icons.Menu("open"), OnSelect: preview}}
+	if remove != nil {
+		items = append(items, theme.PopupItem{Label: locales.DetachFile(), Icon: icons.Menu("close"), OnSelect: remove})
+	}
+	theme.PopupContextMenu(tile, items...)
 }
