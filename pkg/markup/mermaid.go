@@ -3,6 +3,7 @@ package markup
 import (
 	"errors"
 	"math"
+	"slices"
 	"strings"
 	"sync"
 
@@ -86,10 +87,23 @@ func renderMermaid(source string) (image diagramImage, err error) {
 	image.box = box
 	image.stylePaths(drawing.Items, scene.Identity)
 	image.labels = diagramLabels(drawing.Items, scene.Identity, 1, nil)
-	// MyGo's SVG renderer draws the geometry. Its text engine draws the
-	// labels with system font fallback, including Chinese and other scripts.
+	// Keep labels in the native text pass for system font fallback. MyGo's
+	// SVG renderer also supports text, so strip it from the geometry pass.
+	drawing.Items = diagramGeometry(drawing.Items)
 	image.shapes, err = ui.ParseSVG([]byte(drawing.SVG()))
 	return image, err
+}
+
+func diagramGeometry(items []scene.Item) []scene.Item {
+	return slices.DeleteFunc(items, func(item scene.Item) bool {
+		switch item := item.(type) {
+		case *scene.Text:
+			return true
+		case *scene.Group:
+			item.Items = diagramGeometry(item.Items)
+		}
+		return false
+	})
 }
 
 func (image *diagramImage) stylePaths(items []scene.Item, transform scene.Matrix) {
