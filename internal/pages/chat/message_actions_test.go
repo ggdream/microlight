@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ggdream/microlight/internal/attachment"
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/attachment"
 
 	"github.com/egoist/mygo/ui"
 )
@@ -164,9 +164,10 @@ func TestSteerKeepsOriginalPromptAndStopsOldRequest(t *testing.T) {
 	chat := &conversation{Turns: []*turn{user, reply}}
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	app := &chatApp{active: chat, running: reply, cancel: cancel}
+	app := &chatApp{}
+	chat.run = &replyRun{reply: reply, cancel: cancel}
 	if !app.endReply(chat, reply, "steered") || ctx.Err() == nil || reply.State != "steered" ||
-		reply.FinishedAt.IsZero() || app.running != nil || app.active != nil {
+		reply.FinishedAt.IsZero() || chat.isRunning() {
 		t.Fatal("steering did not end the old request")
 	}
 	chat.Turns = append(chat.Turns, followup)

@@ -2,7 +2,6 @@ package chat
 
 import (
 	"log/slog"
-	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/linkpreview"
+	"github.com/ggdream/microlight/internal/storage"
 )
 
 func imageFilename(source, format string) string {
@@ -44,7 +44,7 @@ func (app *chatApp) downloadImage(image *markdownImage) {
 			Filters:           []mygo.FileFilter{{Name: locales.ImageFilter(), Extensions: []string{strings.TrimPrefix(filepath.Ext(image.filename), ".")}}},
 		})
 		if err == nil && output != "" {
-			err = saveImageFile(output, image.original)
+			err = storage.WritePrivateFile(output, image.original)
 		}
 		if err != nil {
 			slog.Error("save chat image", "error", err)
@@ -53,21 +53,4 @@ func (app *chatApp) downloadImage(image *markdownImage) {
 			})
 		}
 	}()
-}
-
-func saveImageFile(output string, original []byte) error {
-	file, err := os.CreateTemp(filepath.Dir(output), ".microlight-image-*")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(file.Name())
-	_, writeErr := file.Write(original)
-	closeErr := file.Close()
-	if writeErr != nil {
-		return writeErr
-	}
-	if closeErr != nil {
-		return closeErr
-	}
-	return os.Rename(file.Name(), output)
 }

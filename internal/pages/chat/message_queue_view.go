@@ -70,7 +70,7 @@ func (app *chatApp) messageQueue(c *ui.Context, chat *conversation) {
 				}
 			})
 		})
-		if app.active == nil && chat.waitingReply() == nil {
+		if !chat.isRunning() && chat.waitingReply() == nil {
 			disabled := app.queueEdit != nil && app.queueEdit.id == chat.queue[0].ID
 			label := locales.ResumeQueue()
 			button := pointerButton(c.Key("resume-queue"), disabled).Label(label).AlignSelf(ui.End).
@@ -102,7 +102,7 @@ func (app *chatApp) queueMessageRow(c *ui.Context, chat *conversation, entry que
 		icon(c, "queue_item", muted, 15)
 		ui.Text(c, label).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").Clip().
 			FontSize(13).TextColor(ink).Tooltip(label)
-		if app.active == chat {
+		if chat.isRunning() {
 			steerLabel := locales.Steer()
 			steer := pointerButton(c.Key("steer"), false).Label(steerLabel).
 				Tooltip(steerLabel).Shrink(0).Gap(4).Padding(3, 5).Radius(6).AlignItems(ui.Center)

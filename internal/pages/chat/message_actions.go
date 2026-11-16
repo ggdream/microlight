@@ -24,9 +24,9 @@ func (app *chatApp) endReply(chat *conversation, reply *turn, state string) bool
 		return false
 	}
 	switch {
-	case app.active == chat && app.running == reply:
-		app.cancel()
-		app.active, app.running, app.cancel, app.runningAccess = nil, nil, nil, nil
+	case chat.isRunning() && chat.run.reply == reply:
+		chat.run.cancel()
+		chat.run = nil
 		reply.FinishedAt = time.Now()
 	case state == "stopped" && chat.waitingReply() == reply:
 		now := time.Now()
@@ -58,8 +58,7 @@ func (app *chatApp) stopReply(chat *conversation, reply *turn) {
 }
 
 func (app *chatApp) canEditMessage(chat *conversation, index int) bool {
-	return app.backend.configErr == nil && (app.active == nil ||
-		(app.active == chat && index+2 == len(chat.Turns)))
+	return app.backend.configErr == nil && (!chat.isRunning() || index+2 == len(chat.Turns))
 }
 
 func (app *chatApp) resendMessage(chat *conversation, index int, edit *messageEdit, text string) bool {
@@ -89,9 +88,9 @@ func (app *chatApp) forkReply(chat *conversation, forkIndex int, prefix []*turn,
 	if original.id == "" {
 		original.id = chat.ID
 	}
-	if app.active == chat {
+	if chat.isRunning() {
 		// The previous run is canceled after the branch is safely saved.
-		stopped := *app.running
+		stopped := *chat.run.reply
 		stopped.Activity = slices.Clone(stopped.Activity)
 		stopped.keepProcessPreview()
 		stopped.State, stopped.FinishedAt = "stopped", now
@@ -105,8 +104,8 @@ func (app *chatApp) forkReply(chat *conversation, forkIndex int, prefix []*turn,
 	if app.store != nil && !app.historyChange(app.store.saveForkedHistory(app.history.Selected, &edited, original, forkIndex)) {
 		return false
 	}
-	if app.active == chat {
-		app.endReply(chat, app.running, "stopped")
+	if chat.isRunning() {
+		app.endReply(chat, chat.run.reply, "stopped")
 	}
 	chat.branchID, chat.sessionID, chat.Turns = edited.branchID, edited.sessionID, edited.Turns
 	chat.projectedInterface = nil

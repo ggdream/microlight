@@ -28,14 +28,7 @@
   "fullAccessTitle": "开启完全访问权限？",
   "fullAccessBody": "在当前会话中，Agent 可在系统允许的范围内读写文件、访问网页和运行命令，无需逐次批准。",
   "confirmFullAccess": "确认开启",
-  "confirmFullAccessCountdown": "确认开启（{seconds} 秒）",
-  "@confirmFullAccessCountdown": {
-    "placeholders": {
-      "seconds": {
-        "type": "int"
-      }
-    }
-  },
+  "fullAccessAcknowledgement": "我了解并同意开启完全访问权限。",
   "newChat": "新建对话",
   "chatHistory": "历史会话",
   "collapseSidebar": "收起侧栏",
@@ -100,7 +93,6 @@
   "attachmentsTooLarge": "每条消息的附件总大小不能超过 32 MiB",
   "filePickerFailed": "无法打开文件选择器",
   "addImages": "添加图片",
-  "otherChatGenerating": "另一条对话正在生成",
   "steer": "引导当前回复",
   "busySendSetting": "执行中发送消息",
   "queueMessage": "加入等待队列",
@@ -145,6 +137,16 @@
   "imagesTooLarge": "每条消息的图片总大小不能超过 32 MiB",
   "backToChat": "返回对话",
   "settingsDescription": "配置界面、对话行为和网络。",
+  "settingsTransfer": "配置迁移",
+  "settingsTransferHint": "将设置迁移到其他设备。导出的 JSON 文件含未加密的密钥，请妥善保管。",
+  "settingsFileFilter": "微光助手配置",
+  "importSettings": "导入配置",
+  "exportSettings": "导出配置",
+  "confirmSettingsImport": "用此文件替换已保存的设置？会话、草稿和附件将保留。",
+  "settingsImported": "配置已导入。",
+  "settingsExported": "配置已导出。",
+  "importSettingsFailed": "无法导入配置，请确认文件是兼容的微光助手配置。",
+  "exportSettingsFailed": "无法导出配置。",
   "systemPrompt": "自定义指令",
   "systemPromptDescription": "告诉微光助手你希望它如何回复或协作。这些指令会补充微光助手的内置指令，从下一次请求起应用于所有对话。",
   "systemPromptPlaceholder": "例如，先给出结论，需要操作时再分步骤说明。",

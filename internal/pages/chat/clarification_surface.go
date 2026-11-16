@@ -99,7 +99,7 @@ func (app *chatApp) clarificationForm(c *ui.Context, chat *conversation, reply *
 			Text: ink, Muted: muted, Border: border, Surface: white, Accent: accent, Tint: tint,
 			Caret: caretColor, ControlHeight: replyControlHeight,
 		},
-		Disabled:     app.active != nil,
+		Disabled:     chat.isRunning(),
 		CanActivate:  func(event a2ui.RendererMessage) bool { return answerOf(event) != "" },
 		OnAction:     func(event a2ui.RendererMessage) { app.answerClarification(chat, reply, answerOf(event)) },
 		EnterActions: map[string]string{"answer": "submit"},

@@ -3,36 +3,36 @@ package chat
 import (
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/localtools"
+	"github.com/ggdream/microlight/internal/theme"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
 
 type fullAccessRequest struct {
-	chat    *conversation
-	readyAt time.Time
+	chat         *conversation
+	acknowledged bool
 }
 
-func (app *chatApp) chooseAccess(chat *conversation, mode localtools.Mode, now time.Time) {
+func (app *chatApp) chooseAccess(chat *conversation, mode localtools.Mode) {
 	if app.selected() != chat {
 		return
 	}
 	mode = mode.Normalized()
 	app.fullAccess = nil
 	if mode == localtools.Full {
-		app.fullAccess = &fullAccessRequest{chat: chat, readyAt: now.Add(3 * time.Second)}
+		app.fullAccess = &fullAccessRequest{chat: chat}
 		return
 	}
 	app.applyAccess(chat, mode)
 }
 
-func (app *chatApp) confirmFullAccess(now time.Time) {
+func (app *chatApp) confirmFullAccess() {
 	request := app.fullAccess
-	if request == nil || now.Before(request.readyAt) {
+	if request == nil || !request.acknowledged {
 		return
 	}
 	app.fullAccess = nil
@@ -64,8 +64,8 @@ func (app *chatApp) applyAccess(chat *conversation, mode localtools.Mode) {
 		return
 	}
 	chat.accessMode = mode
-	if app.active == chat && app.runningAccess != nil {
-		app.runningAccess.SetMode(mode)
+	if chat.isRunning() {
+		chat.run.access.SetMode(mode)
 	}
 }
 
@@ -80,14 +80,6 @@ func (app *chatApp) fullAccessDialog(c *ui.Context) {
 	}
 	title := locales.FullAccessTitle()
 	label := locales.ConfirmFullAccess()
-	now := c.Now()
-	remaining := request.readyAt.Sub(now)
-	disabled := remaining > 0
-	if disabled {
-		seconds := int((remaining + time.Second - 1) / time.Second)
-		label = locales.ConfirmFullAccessCountdown(seconds)
-		c.After(remaining - time.Duration(seconds-1)*time.Second)
-	}
 	open := true
 	ui.DialogBase(c, &open, func(backdrop, panel ui.Element) {
 		backdrop.Background(ui.RGBA(0, 0, 0, .38))
@@ -98,6 +90,11 @@ func (app *chatApp) fullAccessDialog(c *ui.Context) {
 			ui.Text(c, title).FontSize(16).FontWeight(680).TextColor(ink)
 		})
 		ui.Text(c, locales.FullAccessBody()).FontSize(13).TextColor(muted)
+		ui.Themed(c, theme.MenuTheme).Background(ui.Transparent).Children(func() {
+			ui.Checkbox(c, &request.acknowledged, locales.FullAccessAcknowledgement()).
+				FillWidth().FontSize(13).Cursor(ui.CursorPointer).FocusRingColor(accent)
+		})
+		disabled := !request.acknowledged
 		ui.Row(c).Justify(ui.End).Gap(8).Margin(5, 0, 0).Children(func() {
 			cancel := pointerButton(c, false).Label(locales.Cancel()).AutoFocus().Height(34).PaddingX(13).
 				AlignItems(ui.Center).Radius(7).Background(side).Border(1, border)
@@ -111,7 +108,7 @@ func (app *chatApp) fullAccessDialog(c *ui.Context) {
 			if disabled {
 				bg, fg = side, muted
 			}
-			button := pointerButton(c, disabled).Label(label).MinWidth(138).Height(34).PaddingX(13).
+			button := pointerButton(c, disabled).Label(label).Height(34).PaddingX(13).
 				AlignItems(ui.Center).Justify(ui.Center).Radius(7).Background(bg)
 			if button.Hovered() && !disabled {
 				button.Background(ui.Hex("#833339"))
@@ -119,8 +116,8 @@ func (app *chatApp) fullAccessDialog(c *ui.Context) {
 			button.Children(func() {
 				ui.Text(c, label).FontSize(13).FontWeight(620).TextColor(fg)
 			}).OnClick(func() {
-				if open && !disabled && app.fullAccess == request {
-					app.confirmFullAccess(now)
+				if open && app.fullAccess == request {
+					app.confirmFullAccess()
 				}
 			})
 		})
@@ -147,7 +144,6 @@ func (app *chatApp) accessControl(c *ui.Context, chat *conversation) {
 		selected = chat.accessMode
 	}
 	title := locales.AgentPermissions()
-	now := c.Now()
 	dropdown := ui.SelectBase(c.Key("conversation-access"), &selected)
 	trigger := dropdown.Trigger.Label(title).Value(selected.Label()).Tooltip(title).
 		Height(30).PaddingX(8).Shrink(0).AlignItems(ui.Center).Gap(5).Radius(6).Cursor(ui.CursorPointer)
@@ -158,7 +154,7 @@ func (app *chatApp) accessControl(c *ui.Context, chat *conversation) {
 		accessModeIcon(c, selected)
 		ui.Text(c, selected.Label()).FontSize(11).TextColor(muted)
 		ui.Icon(c, icons.SVG("ios_chevron_right")).Size(12, 12).Shrink(0).Rotate(90).TextColor(muted)
-	}).OnChange(func() { app.chooseAccess(chat, selected, now) })
+	}).OnChange(func() { app.chooseAccess(chat, selected) })
 	dropdown.Popup(func(panel ui.Element) {
 		panel.Width(300).Padding(5).Gap(2).Background(white).Border(1, border).Radius(8)
 		for _, choice := range []struct {

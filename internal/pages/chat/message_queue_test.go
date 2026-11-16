@@ -19,13 +19,13 @@ func TestMessageQueueKeepsDraftsAndOrderAcrossReopen(t *testing.T) {
 	app.loadBusySendMode()
 	chat := app.newConversation("Queue", localtools.Ask, "")
 	app.save(chat)
-	app.active = chat
+	chat.run = &replyRun{}
 	app.draft.SetText("first")
 	app.draftAttachments = []*attachment.File{{Name: "note.txt", Data: []byte("draft attachment")}}
 	if !app.persistDraft() || !app.send(app.draft.Markdown(), false) || !app.send("second", false) || !app.send("remove me", false) {
 		t.Fatal("could not queue messages during an active reply")
 	}
-	if len(chat.Turns) != 0 || app.active != chat || app.draft.Markdown() != "" || len(app.draftAttachments) != 0 {
+	if len(chat.Turns) != 0 || !chat.isRunning() || app.draft.Markdown() != "" || len(app.draftAttachments) != 0 {
 		t.Fatal("queueing must clear the draft and leave the running reply and transcript intact")
 	}
 	edit := "edited second"

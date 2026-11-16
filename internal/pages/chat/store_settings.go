@@ -46,6 +46,18 @@ func (store *localStore) saveSettings(config modelSettings) error {
 }
 
 func (store *localStore) saveConfiguration(config modelSettings, catalog *providerCatalog) error {
+	tx, err := store.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := writeConfiguration(tx, config, catalog); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func writeConfiguration(tx storage.Writer, config modelSettings, catalog *providerCatalog) error {
 	data, err := json.Marshal(config)
 	if err != nil {
 		return err
@@ -55,11 +67,6 @@ func (store *localStore) saveConfiguration(config modelSettings, catalog *provid
 	if err != nil {
 		return err
 	}
-	tx, err := store.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
 	if err := storage.PutConfig(tx, "settings", string(data)); err != nil {
 		return err
 	}
@@ -75,5 +82,5 @@ func (store *localStore) saveConfiguration(config modelSettings, catalog *provid
 			return err
 		}
 	}
-	return tx.Commit()
+	return nil
 }

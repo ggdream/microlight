@@ -53,7 +53,7 @@ func (app *chatApp) renderInterfaceAnswer(c *ui.Context, chat *conversation, ent
 			continue
 		}
 		surface := view.state.Surface(row.id)
-		enabled := app.active == nil && chat.waitingReply() == nil && app.backend != nil && app.backend.configErr == nil
+		enabled := !chat.isRunning() && chat.waitingReply() == nil && app.backend != nil && app.backend.configErr == nil
 		var client *http.Client
 		if app.backend != nil && app.backend.network != nil {
 			client = &http.Client{

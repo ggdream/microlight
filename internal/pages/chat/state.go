@@ -55,6 +55,14 @@ type conversation struct {
 	archived           bool
 	menuOpen           bool
 	projectedInterface *interfaceProjection
+	run                *replyRun
+	runError           string
+}
+
+type replyRun struct {
+	reply  *turn
+	cancel context.CancelFunc
+	access *localtools.Access
 }
 
 type history struct {
@@ -75,6 +83,8 @@ type chatApp struct {
 	settingsOpen           bool
 	settingsTab            settings.Tab
 	extensionsForm         extensionsForm
+	transferBusy           bool
+	transferStatus         settingsStatus
 	language               settings.LanguagePreference
 	busySend               busySendMode
 	systemPrompt           string
@@ -106,13 +116,9 @@ type chatApp struct {
 	draftWorkspace         string
 	accessError            string
 	fullAccess             *fullAccessRequest
-	runningAccess          *localtools.Access
 	loadingAttachments     bool
 	pickingWorkspace       bool
 	attachmentError        string
-	active                 *conversation
-	running                *turn
-	cancel                 context.CancelFunc
 	edit                   *messageEdit
 	retryReply             *turn
 	unreadReplies          int

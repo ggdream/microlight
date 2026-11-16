@@ -15,7 +15,7 @@ import (
 )
 
 func (app *chatApp) generate(chat *conversation, index int) {
-	if app.active != nil || app.backend.configErr != nil {
+	if chat.run != nil || app.backend.configErr != nil {
 		return
 	}
 	reply := &turn{message: message{Role: "assistant"}, State: "pending", StartedAt: time.Now()}
@@ -25,6 +25,10 @@ func (app *chatApp) generate(chat *conversation, index int) {
 	}
 	chat.Turns = append(chat.Turns[:index], reply)
 	app.runReply(chat, reply, index, "", app.backend, app.currentModelChoice())
+}
+
+func (chat *conversation) isRunning() bool {
+	return chat != nil && chat.run != nil
 }
 
 func (chat *conversation) waitingReply() *turn {
@@ -43,7 +47,7 @@ func (entry *turn) canResume() bool {
 
 func (app *chatApp) answerClarification(chat *conversation, reply *turn, answer string) {
 	answer = strings.TrimSpace(answer)
-	if answer == "" || app.active != nil || chat.waitingReply() != reply {
+	if answer == "" || chat.isRunning() || chat.waitingReply() != reply {
 		return
 	}
 	question := &reply.Clarifications[len(reply.Clarifications)-1]
@@ -53,14 +57,14 @@ func (app *chatApp) answerClarification(chat *conversation, reply *turn, answer 
 	choice := question.Model
 	backend, err := app.backendFor(choice)
 	if err != nil {
-		app.providerError = err.Error()
+		chat.runError = err.Error()
 		return
 	}
 	if choice.ProviderID == "" {
 		choice = app.currentModelChoice()
 	}
 	if chat.sessionModel != backend.sessionModelKey(choice) {
-		app.providerError = locales.ChangedModelForResume()
+		chat.runError = locales.ChangedModelForResume()
 		return
 	}
 	reply.excludeWaitingTime(time.Now())
@@ -76,6 +80,11 @@ func (app *chatApp) answerClarification(chat *conversation, reply *turn, answer 
 }
 
 func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer string, backend *Chat, choice modelChoice) {
+	release := mygo.Power.KeepRunning(locales.Generating())
+	app.startReply(chat, reply, index, answer, backend, choice, app.win.Update, release)
+}
+
+func (app *chatApp) startReply(chat *conversation, reply *turn, index int, answer string, backend *Chat, choice modelChoice, update func(func()), release func()) {
 	var input []*turn
 	var resume *clarification
 	sessionModel := backend.sessionModelKey(choice)
@@ -99,14 +108,17 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 	access := localtools.NewAccess(chat.workspace, chat.accessMode)
 	ctx = localtools.WithAccess(ctx, access)
 	ctx = context.WithValue(ctx, interfaceContextKey{}, chat.interfaceRequest())
-	app.active, app.running, app.cancel, app.runningAccess = chat, reply, cancel, access
+	run := &replyRun{reply: reply, cancel: cancel, access: access}
+	chat.run = run
+	chat.runError = ""
 	app.save(chat)
 
-	app.providerError = ""
+	if app.selected() == chat {
+		app.providerError = ""
+	}
 	temporaryBackend := backend != app.backend
 	go func() {
 		defer cancel()
-		release := mygo.Power.KeepRunning(locales.Generating())
 		defer release()
 		if temporaryBackend && backend.network != nil {
 			defer backend.network.CloseIdleConnections()
@@ -115,8 +127,8 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			app.win.Update(func() {
-				if parent.Err() == nil && app.running == reply {
+			update(func() {
+				if parent.Err() == nil && chat.run == run {
 					reply.appendDelta(part)
 					if len(part.interfaceUpdates) != 0 {
 						chat.commitInterface(reply, len(reply.Content)-len(part.text), part.interfaceUpdates)
@@ -128,8 +140,8 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 		}
 		question, err := backend.runSession(ctx, store, sessionID, input, resume, answer, emit)
 		finishedAt := time.Now()
-		app.win.Update(func() {
-			if parent.Err() != nil || app.running != reply {
+		update(func() {
+			if parent.Err() != nil || chat.run != run {
 				return
 			}
 			reply.FinishedAt = finishedAt
@@ -161,7 +173,7 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 			default:
 				reply.State = "done"
 			}
-			app.active, app.running, app.cancel, app.runningAccess = nil, nil, nil, nil
+			chat.run = nil
 			app.save(chat)
 			app.notifyReply(chat.ID, reply)
 			if reply.State == "done" {

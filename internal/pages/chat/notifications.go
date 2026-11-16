@@ -89,7 +89,7 @@ func (app *chatApp) sendTestNotification() {
 
 func (app *chatApp) notifyReply(chatID string, reply *turn) {
 	title, body := replyNotification(reply)
-	if title == "" || app.win.IsDestroyed() || app.chatInForeground() {
+	if title == "" || app.win == nil || app.win.IsDestroyed() || app.chatInForeground() {
 		return
 	}
 	app.unreadReplies++

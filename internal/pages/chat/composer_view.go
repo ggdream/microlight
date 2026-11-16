@@ -22,13 +22,20 @@ func (app *chatApp) composer(c *ui.Context, selected *conversation) {
 		if app.providerError != "" {
 			ui.Text(c, app.providerError).FontSize(11).TextColor(errorFG)
 		}
+		if selected != nil && selected.runError != "" {
+			ui.Text(c, selected.runError).FontSize(11).TextColor(errorFG)
+		}
 		if app.historyErr != "" {
 			ui.Text(c, app.historyErr).FontSize(11).TextColor(errorFG)
 		}
 		if app.backend.configErr != nil {
 			ui.Text(c, app.backend.configErr.Error()).FontSize(11).TextColor(errorFG)
 		}
-		runningHere := app.active != nil && app.active == selected
+		var run *replyRun
+		if selected != nil {
+			run = selected.run
+		}
+		runningHere := run != nil
 		queueDraft := app.shouldQueue(selected)
 		app.messageQueue(c.Key("message-queue"), selected)
 		ui.Column(c).FillWidth().MaxWidth(conversationWidth).Background(white).
@@ -83,7 +90,7 @@ func (app *chatApp) composer(c *ui.Context, selected *conversation) {
 			}
 			pickingSkill := app.composerSkills(c.Key("skill-picker"), editor, workspace)
 			if !pickingSkill && runningHere && editor.Shortcut(0, ui.KeyEscape) {
-				app.stopReply(selected, app.running)
+				app.stopReply(selected, run.reply)
 			}
 			if editor.Shortcut(ui.Shift, ui.KeyEnter) {
 				app.draft.Document.InsertText("\n")
@@ -103,23 +110,18 @@ func (app *chatApp) composer(c *ui.Context, selected *conversation) {
 				} else if runningHere {
 					sendLabel, sendIcon = locales.Steer(), "queue_steer"
 				}
-				if app.active != nil && !runningHere {
-					label := locales.OtherChatGenerating()
-					ui.Text(c, label).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").Tooltip(label).FontSize(10).TextColor(muted)
-				} else {
-					ui.Box(c).Grow(1)
-				}
+				ui.Box(c).Grow(1)
 				app.chatModelSelect(c.Key("model"))
 				canSend := !app.loadingAttachments && app.backend.configErr == nil &&
 					(strings.TrimSpace(app.draft.Document.Text().String()) != "" || len(app.draftAttachments) != 0)
 				if runningHere {
-					reply := app.running
+					reply := run.reply
 					stopButton(c).OnClick(func() { app.stopReply(selected, reply) })
 					if canSend {
 						actionButton(c, sendLabel, sendIcon, false).OnClick(func() { app.send(app.draft.Markdown(), false) })
 					}
 				} else {
-					actionButton(c, sendLabel, sendIcon, !canSend || app.active != nil).OnClick(func() { app.send(app.draft.Markdown(), false) })
+					actionButton(c, sendLabel, sendIcon, !canSend).OnClick(func() { app.send(app.draft.Markdown(), false) })
 				}
 			})
 		})

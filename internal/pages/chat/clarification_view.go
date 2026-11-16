@@ -18,9 +18,6 @@ func (app *chatApp) clarificationCards(c *ui.Context, chat *conversation, reply 
 			waiting := reply.State == "waiting" && index == len(reply.Clarifications)-1
 			if waiting && question.Approval == nil {
 				app.clarificationForm(c, chat, reply, question)
-				if app.active != nil {
-					ui.Text(c, locales.OtherChatGenerating()).FontSize(11).TextColor(muted)
-				}
 				return
 			}
 			ui.Text(c, question.displayTitle()).FontSize(14).FontWeight(620).Selectable()
@@ -42,7 +39,7 @@ func (app *chatApp) approvalControls(c *ui.Context, chat *conversation, reply *t
 			offset.Apply(ui.Text(c, approval.Preview)).FontSize(12).TextColor(ink).FillWidth().Selectable()
 		})
 	}
-	disabled := app.active != nil
+	disabled := chat.isRunning()
 	ui.Row(c).FillWidth().Justify(ui.End).AlignItems(ui.Center).Gap(8).Children(func() {
 		rejectLabel := locales.RejectOperation()
 		reject := pointerButton(c, disabled).Label(rejectLabel).Height(replyControlHeight).

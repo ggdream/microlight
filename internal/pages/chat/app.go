@@ -91,8 +91,10 @@ func Run(assets fs.FS) {
 		app.win.OnClosed(func() {
 			app.persistDraft()
 			app.clearConnectionTest()
-			if app.running != nil {
-				app.stopReply(app.active, app.running)
+			for _, chat := range app.history.Chats {
+				if chat.run != nil {
+					app.stopReply(chat, chat.run.reply)
+				}
 			}
 		})
 		app.win.OnShow(app.win.Invalidate)

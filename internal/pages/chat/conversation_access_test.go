@@ -2,7 +2,6 @@ package chat
 
 import (
 	"testing"
-	"time"
 
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/localtools"
@@ -10,7 +9,7 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-func TestFullAccessDialogCountdown(t *testing.T) {
+func TestFullAccessDialogRequiresAcknowledgement(t *testing.T) {
 	app := &chatApp{draftAccess: localtools.Ask}
 	surface := ui.NewTester(func(c *ui.Context) {
 		ui.Row(c).Children(func() { app.accessControl(c, nil) })
@@ -31,28 +30,31 @@ func TestFullAccessDialogCountdown(t *testing.T) {
 		}
 	}
 	open()
-	click(locales.ConfirmFullAccessCountdown(3))
+	click(locales.ConfirmFullAccess())
 	if app.draftAccess != localtools.Ask || app.fullAccess == nil {
-		t.Fatal("the countdown button must not grant full access")
+		t.Fatal("the unchecked dialog must not grant full access")
 	}
-	for seconds := 2; seconds >= 1; seconds-- {
-		surface.Advance(time.Second)
-		if _, shown := surface.Find(locales.ConfirmFullAccessCountdown(seconds)); !shown {
-			t.Fatalf("the dialog did not show %d seconds remaining", seconds)
-		}
+	click(locales.FullAccessAcknowledgement())
+	click(locales.FullAccessAcknowledgement())
+	click(locales.ConfirmFullAccess())
+	if app.draftAccess != localtools.Ask || app.fullAccess == nil {
+		t.Fatal("clearing the checkbox must disable confirmation again")
 	}
-	surface.Advance(time.Second)
+	click(locales.FullAccessAcknowledgement())
 	click(locales.Cancel())
 	if app.draftAccess != localtools.Ask || app.fullAccess != nil {
 		t.Fatal("cancelling must leave permissions unchanged")
 	}
 	open()
-	surface.Advance(3 * time.Second)
+	if app.fullAccess.acknowledged {
+		t.Fatal("reopening must clear the checkbox")
+	}
+	click(locales.FullAccessAcknowledgement())
 	if app.draftAccess != localtools.Ask {
-		t.Fatal("the countdown must not grant access on its own")
+		t.Fatal("checking the box must not grant access on its own")
 	}
 	click(locales.ConfirmFullAccess())
 	if app.draftAccess != localtools.Full || app.fullAccess != nil {
-		t.Fatal("confirmation after the countdown must grant full access and dismiss the dialog")
+		t.Fatal("confirming after checking the box must grant full access and dismiss the dialog")
 	}
 }

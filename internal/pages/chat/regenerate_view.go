@@ -18,7 +18,7 @@ func (app *chatApp) regenerateDialog(c *ui.Context, chat *conversation) {
 		return
 	}
 	app.retryReply = nil
-	if !confirmed || chat == nil || len(chat.Turns) < 2 || app.active != nil || app.backend.configErr != nil {
+	if !confirmed || chat == nil || len(chat.Turns) < 2 || chat.isRunning() || app.backend.configErr != nil {
 		return
 	}
 	index := len(chat.Turns) - 1

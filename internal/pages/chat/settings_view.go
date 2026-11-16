@@ -98,6 +98,7 @@ func (app *chatApp) generalSettings(c *ui.Context) {
 		app.desktopSettings(c.Key("desktop"))
 		settings.Proxy(c, icons, &app.form.proxy, app.form.proxyError, app.saveProxySettings, app.openProxySettingsControl)
 		app.systemPromptSettings(c.Key("system-prompt"))
+		app.settingsTransfer(c.Key("transfer"))
 		if app.form.generalStatus.failed {
 			ui.Text(c, app.form.generalStatus.message).FontSize(12).TextColor(theme.ErrorFG)
 		}

@@ -43,7 +43,7 @@ func (app *chatApp) sidebarChat(c *ui.Context, chat *conversation, selected bool
 		}).OnClick(func() { app.selectChat(chat.ID) })
 
 		indicator := ui.Box(c.Key("activity")).Size(14, 14).Margin(0, 2).Shrink(0)
-		if app.active == chat {
+		if chat.isRunning() {
 			indicator.Role(ui.RoleProgress).Label(locales.Thinking()).Draw(drawActivityRing)
 		}
 		if hovered || chat.menuOpen || button.FocusVisible() {
@@ -79,7 +79,7 @@ func (app *chatApp) conversationMenu(m *ui.Menu, chat *conversation) {
 		app.setChatArchived(chat, true)
 	}
 	if m.Item(locales.DeleteChat()).Icon(icons.Menu("delete")).Danger().
-		Disabled(disabled || app.active == chat).Chosen() {
+		Disabled(disabled || chat.isRunning()).Chosen() {
 		app.chatAction = &conversationAction{chat: chat, deleting: true}
 	}
 }

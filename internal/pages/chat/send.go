@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ggdream/microlight/internal/attachment"
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/attachment"
 )
 
 func (app *chatApp) clearDraft() {
@@ -24,7 +24,7 @@ func (app *chatApp) send(text string, steer bool) bool {
 		return false
 	}
 	chat := app.selected()
-	if steer && (chat == nil || app.active != chat || !app.shouldQueue(chat)) {
+	if steer && (!chat.isRunning() || !app.shouldQueue(chat)) {
 		return false
 	}
 	if chat.waitingReply() != nil {
@@ -39,10 +39,8 @@ func (app *chatApp) send(text string, steer bool) bool {
 	if !steer && app.shouldQueue(chat) {
 		return app.enqueueDraft(chat, text)
 	}
-	if app.active != nil {
-		if app.active != chat || !app.endReply(chat, app.running, "steered") {
-			return false
-		}
+	if chat.isRunning() && !app.endReply(chat, chat.run.reply, "steered") {
+		return false
 	}
 	draftID := app.history.Selected
 	if chat == nil {

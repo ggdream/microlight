@@ -28,14 +28,7 @@
   "fullAccessTitle": "Enable Full Access?",
   "fullAccessBody": "In this chat, the agent can read or write files, access websites, and run shell commands without asking for approval, within the access allowed by your system.",
   "confirmFullAccess": "Enable Full Access",
-  "confirmFullAccessCountdown": "Enable Full Access ({seconds}s)",
-  "@confirmFullAccessCountdown": {
-    "placeholders": {
-      "seconds": {
-        "type": "int"
-      }
-    }
-  },
+  "fullAccessAcknowledgement": "I understand and agree to enable Full Access.",
   "newChat": "New Chat",
   "chatHistory": "History",
   "collapseSidebar": "Collapse Sidebar",
@@ -100,7 +93,6 @@
   "attachmentsTooLarge": "Attachments in one message cannot exceed 32 MiB in total.",
   "filePickerFailed": "Could not open the file picker.",
   "addImages": "Add Images",
-  "otherChatGenerating": "Another chat is generating a reply",
   "steer": "Guide Current Reply",
   "busySendSetting": "Send While Running",
   "queueMessage": "Add to Queue",
@@ -145,6 +137,16 @@
   "imagesTooLarge": "Images in one message cannot exceed 32 MiB in total.",
   "backToChat": "Back to Chat",
   "settingsDescription": "Configure the interface, chat behavior, and network.",
+  "settingsTransfer": "Settings Transfer",
+  "settingsTransferHint": "Move your settings to another installation. Exported JSON includes unencrypted credentials. Keep the file private.",
+  "settingsFileFilter": "Microlight settings",
+  "importSettings": "Import Settings",
+  "exportSettings": "Export Settings",
+  "confirmSettingsImport": "Replace the saved settings with those from this file? Chats, drafts, and attachments are kept.",
+  "settingsImported": "Settings imported.",
+  "settingsExported": "Settings exported.",
+  "importSettingsFailed": "Could not import settings. Verify the file is a compatible Microlight settings export.",
+  "exportSettingsFailed": "Could not export settings.",
   "systemPrompt": "Custom Instructions",
   "systemPromptDescription": "Tell Microlight how you’d like it to respond or work with you. These instructions supplement Microlight’s built-in instructions in all chats, starting with the next request.",
   "systemPromptPlaceholder": "For example, lead with the conclusion and list the steps when needed.",

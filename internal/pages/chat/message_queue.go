@@ -64,8 +64,13 @@ func (app *chatApp) chooseBusySendMode(mode busySendMode) {
 }
 
 func (app *chatApp) shouldQueue(chat *conversation) bool {
-	return chat != nil && (app.active == chat && app.busySend != busySendSteer ||
-		app.active == nil && len(chat.queue) != 0)
+	if chat == nil {
+		return false
+	}
+	if chat.isRunning() {
+		return app.busySend != busySendSteer
+	}
+	return len(chat.queue) != 0
 }
 
 func (app *chatApp) enqueueDraft(chat *conversation, text string) bool {
@@ -116,10 +121,10 @@ func (app *chatApp) startQueuedMessage(chat *conversation, id string, steer bool
 		return
 	}
 	if steer {
-		if app.active != chat || app.running == nil {
+		if !chat.isRunning() {
 			return
 		}
-	} else if app.active != nil || chat.waitingReply() != nil || len(chat.queue) == 0 || chat.queue[0].ID != id {
+	} else if chat.isRunning() || chat.waitingReply() != nil || len(chat.queue) == 0 || chat.queue[0].ID != id {
 		return
 	}
 	index := slices.IndexFunc(chat.queue, func(entry queuedMessage) bool { return entry.ID == id })
@@ -130,7 +135,7 @@ func (app *chatApp) startQueuedMessage(chat *conversation, id string, steer bool
 	choice := entry.Model
 	backend, err := app.backendFor(choice)
 	if err != nil {
-		app.providerError = err.Error()
+		chat.runError = err.Error()
 		return
 	}
 	if choice.ProviderID == "" {
@@ -144,7 +149,7 @@ func (app *chatApp) startQueuedMessage(chat *conversation, id string, steer bool
 	next.Turns = append(slices.Clone(chat.Turns), user, reply)
 	if steer {
 		// Save the interrupted transcript before canceling the running request.
-		previous := *app.running
+		previous := *chat.run.reply
 		previous.Activity = slices.Clone(previous.Activity)
 		previous.Clarifications = slices.Clone(previous.Clarifications)
 		previous.FinishedAt = now
@@ -156,7 +161,7 @@ func (app *chatApp) startQueuedMessage(chat *conversation, id string, steer bool
 		return
 	}
 	if steer {
-		app.endReply(chat, app.running, "steered")
+		app.endReply(chat, chat.run.reply, "steered")
 		next.Turns[len(chat.Turns)-1] = chat.Turns[len(chat.Turns)-1]
 	}
 	chat.queue, chat.Turns = queue, next.Turns

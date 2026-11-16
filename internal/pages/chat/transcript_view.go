@@ -57,7 +57,7 @@ func (app *chatApp) transcript(c *ui.Context, chat *conversation) {
 								copyMessageIcon(c, entry, locales.Copy(), locales.Copied())
 							}
 							if i == len(chat.Turns)-1 {
-								messageIcon(c, locales.Retry(), "retry", app.active != nil, func() { app.retryReply = entry })
+								messageIcon(c, locales.Retry(), "retry", chat.isRunning(), func() { app.retryReply = entry })
 							}
 							if showActions {
 								messageTimestamp(c, entry.FinishedAt)

@@ -93,7 +93,7 @@ func (store *localStore) archiveChat(id string, archived, clearSelection bool) e
 }
 
 func (app *chatApp) deleteChat(chat *conversation) bool {
-	if app.store == nil || app.active == chat {
+	if app.store == nil || chat.isRunning() {
 		return false
 	}
 	selected := app.history.Selected == chat.ID

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/localtools"
@@ -108,23 +107,24 @@ func TestConfigMigrationKeepsModelSettingsAndStoresLanguage(t *testing.T) {
 	app := &chatApp{store: store, history: h}
 	other := app.newConversation("Other", localtools.Ask, otherWorkspace)
 	app.save(other)
-	app.chooseAccess(other, localtools.Full, time.Now())
+	app.chooseAccess(other, localtools.Full)
 	if app.fullAccess == nil || other.accessMode != localtools.Ask {
 		t.Fatal("selecting full access must request confirmation without changing the mode")
 	}
-	readyAt := app.fullAccess.readyAt
-	app.confirmFullAccess(readyAt.Add(-time.Millisecond))
+	app.confirmFullAccess()
 	if app.fullAccess == nil || other.accessMode != localtools.Ask {
-		t.Fatal("confirmation must wait for the countdown")
+		t.Fatal("confirmation requires acknowledgement")
 	}
+	app.fullAccess.acknowledged = true
 	app.selectChat("chat-1")
-	app.confirmFullAccess(readyAt)
+	app.confirmFullAccess()
 	if app.fullAccess != nil || other.accessMode != localtools.Ask || h.Chats[0].accessMode != localtools.Smart {
 		t.Fatal("switching conversations must cancel confirmation")
 	}
 	app.selectChat(other.ID)
-	app.chooseAccess(other, localtools.Full, time.Now())
-	app.confirmFullAccess(app.fullAccess.readyAt)
+	app.chooseAccess(other, localtools.Full)
+	app.fullAccess.acknowledged = true
+	app.confirmFullAccess()
 	if err := storage.PutConfig(store.DB, "language", string(settings.English)); err != nil {
 		t.Fatal(err)
 	}

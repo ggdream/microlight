@@ -154,7 +154,7 @@ func interfaceGuidance(ctx context.Context, input []*schema.AgenticMessage) []*s
 }
 
 func (app *chatApp) sendInterfaceAction(chat *conversation, event a2ui.RendererMessage) {
-	if app.selected() != chat || app.active != nil || chat.waitingReply() != nil || app.backend == nil || app.backend.configErr != nil || event.Action == nil {
+	if app.selected() != chat || chat.isRunning() || chat.waitingReply() != nil || app.backend == nil || app.backend.configErr != nil || event.Action == nil {
 		return
 	}
 	view := chat.interfaceView()

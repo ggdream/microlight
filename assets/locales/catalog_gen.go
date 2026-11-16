@@ -314,16 +314,14 @@ func (msgs Messages) ConfirmFullAccess() string {
 	return Catalog.Format(msgs.locale, "confirmFullAccess", nil)
 }
 
-// ConfirmFullAccessCountdown says "Enable Full Access ({seconds}s)"
+// FullAccessAcknowledgement says "I understand and agree to enable Full Access."
 // in the language the app shows.
-func ConfirmFullAccessCountdown(seconds int) string {
-	return In(i18n.Locale()).ConfirmFullAccessCountdown(seconds)
-}
+func FullAccessAcknowledgement() string { return In(i18n.Locale()).FullAccessAcknowledgement() }
 
-// ConfirmFullAccessCountdown says "Enable Full Access ({seconds}s)"
+// FullAccessAcknowledgement says "I understand and agree to enable Full Access."
 // in the language of msgs.
-func (msgs Messages) ConfirmFullAccessCountdown(seconds int) string {
-	return Catalog.Format(msgs.locale, "confirmFullAccessCountdown", map[string]any{"seconds": seconds})
+func (msgs Messages) FullAccessAcknowledgement() string {
+	return Catalog.Format(msgs.locale, "fullAccessAcknowledgement", nil)
 }
 
 // NewChat says "New Chat"
@@ -956,16 +954,6 @@ func (msgs Messages) AddImages() string {
 	return Catalog.Format(msgs.locale, "addImages", nil)
 }
 
-// OtherChatGenerating says "Another chat is generating a reply"
-// in the language the app shows.
-func OtherChatGenerating() string { return In(i18n.Locale()).OtherChatGenerating() }
-
-// OtherChatGenerating says "Another chat is generating a reply"
-// in the language of msgs.
-func (msgs Messages) OtherChatGenerating() string {
-	return Catalog.Format(msgs.locale, "otherChatGenerating", nil)
-}
-
 // Steer says "Guide Current Reply"
 // in the language the app shows.
 func Steer() string { return In(i18n.Locale()).Steer() }
@@ -1404,6 +1392,106 @@ func SettingsDescription() string { return In(i18n.Locale()).SettingsDescription
 // in the language of msgs.
 func (msgs Messages) SettingsDescription() string {
 	return Catalog.Format(msgs.locale, "settingsDescription", nil)
+}
+
+// SettingsTransfer says "Settings Transfer"
+// in the language the app shows.
+func SettingsTransfer() string { return In(i18n.Locale()).SettingsTransfer() }
+
+// SettingsTransfer says "Settings Transfer"
+// in the language of msgs.
+func (msgs Messages) SettingsTransfer() string {
+	return Catalog.Format(msgs.locale, "settingsTransfer", nil)
+}
+
+// SettingsTransferHint says "Move your settings to another installation. Exported JSON includes unencrypted credentials. Keep the file private."
+// in the language the app shows.
+func SettingsTransferHint() string { return In(i18n.Locale()).SettingsTransferHint() }
+
+// SettingsTransferHint says "Move your settings to another installation. Exported JSON includes unencrypted credentials. Keep the file private."
+// in the language of msgs.
+func (msgs Messages) SettingsTransferHint() string {
+	return Catalog.Format(msgs.locale, "settingsTransferHint", nil)
+}
+
+// SettingsFileFilter says "Microlight settings"
+// in the language the app shows.
+func SettingsFileFilter() string { return In(i18n.Locale()).SettingsFileFilter() }
+
+// SettingsFileFilter says "Microlight settings"
+// in the language of msgs.
+func (msgs Messages) SettingsFileFilter() string {
+	return Catalog.Format(msgs.locale, "settingsFileFilter", nil)
+}
+
+// ImportSettings says "Import Settings"
+// in the language the app shows.
+func ImportSettings() string { return In(i18n.Locale()).ImportSettings() }
+
+// ImportSettings says "Import Settings"
+// in the language of msgs.
+func (msgs Messages) ImportSettings() string {
+	return Catalog.Format(msgs.locale, "importSettings", nil)
+}
+
+// ExportSettings says "Export Settings"
+// in the language the app shows.
+func ExportSettings() string { return In(i18n.Locale()).ExportSettings() }
+
+// ExportSettings says "Export Settings"
+// in the language of msgs.
+func (msgs Messages) ExportSettings() string {
+	return Catalog.Format(msgs.locale, "exportSettings", nil)
+}
+
+// ConfirmSettingsImport says "Replace the saved settings with those from this file? Chats, drafts, and attachments are kept."
+// in the language the app shows.
+func ConfirmSettingsImport() string { return In(i18n.Locale()).ConfirmSettingsImport() }
+
+// ConfirmSettingsImport says "Replace the saved settings with those from this file? Chats, drafts, and attachments are kept."
+// in the language of msgs.
+func (msgs Messages) ConfirmSettingsImport() string {
+	return Catalog.Format(msgs.locale, "confirmSettingsImport", nil)
+}
+
+// SettingsImported says "Settings imported."
+// in the language the app shows.
+func SettingsImported() string { return In(i18n.Locale()).SettingsImported() }
+
+// SettingsImported says "Settings imported."
+// in the language of msgs.
+func (msgs Messages) SettingsImported() string {
+	return Catalog.Format(msgs.locale, "settingsImported", nil)
+}
+
+// SettingsExported says "Settings exported."
+// in the language the app shows.
+func SettingsExported() string { return In(i18n.Locale()).SettingsExported() }
+
+// SettingsExported says "Settings exported."
+// in the language of msgs.
+func (msgs Messages) SettingsExported() string {
+	return Catalog.Format(msgs.locale, "settingsExported", nil)
+}
+
+// ImportSettingsFailed says "Could not import settings. Verify the file is a compatible Microlight settings export."
+// in the language the app shows.
+func ImportSettingsFailed() string { return In(i18n.Locale()).ImportSettingsFailed() }
+
+// ImportSettingsFailed says "Could not import settings. Verify the file is a compatible Microlight settings export."
+// in the language of msgs.
+func (msgs Messages) ImportSettingsFailed() string {
+	return Catalog.Format(msgs.locale, "importSettingsFailed", nil)
+}
+
+// ExportSettingsFailed says "Could not export settings."
+// in the language the app shows.
+func ExportSettingsFailed() string { return In(i18n.Locale()).ExportSettingsFailed() }
+
+// ExportSettingsFailed says "Could not export settings."
+// in the language of msgs.
+func (msgs Messages) ExportSettingsFailed() string {
+	return Catalog.Format(msgs.locale, "exportSettingsFailed", nil)
 }
 
 // SystemPrompt says "Custom Instructions"

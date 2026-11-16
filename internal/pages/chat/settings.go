@@ -449,6 +449,11 @@ func (app *chatApp) commitSettings(config modelSettings, catalog *providerCatalo
 	if app.store == nil || app.store.saveConfiguration(config, catalog) != nil {
 		return errors.New(locales.SettingsSaveFailed())
 	}
+	app.installConfiguration(config, backend, catalog)
+	return nil
+}
+
+func (app *chatApp) installConfiguration(config modelSettings, backend *Chat, catalog *providerCatalog) {
 	backend.skillsHome = app.skillsHome
 	providers := app.providers.Providers
 	if catalog != nil {
@@ -461,7 +466,6 @@ func (app *chatApp) commitSettings(config modelSettings, catalog *providerCatalo
 		app.backend.network.CloseIdleConnections()
 	}
 	app.settings, app.backend, app.settingsLoadErr = config, backend, ""
-	return nil
 }
 
 func (app *chatApp) clearConnectionTest() {
