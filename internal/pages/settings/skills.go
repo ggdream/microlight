@@ -3,8 +3,8 @@ package settings
 import (
 	"strings"
 
-	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/assets/locales"
+	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/internal/skills"
 	"github.com/ggdream/microlight/internal/theme"
 
@@ -16,9 +16,8 @@ func SkillList(c *ui.Context, icons asseticon.Set, catalog *skills.Catalog, root
 	Section(c, locales.SettingsSkills(), locales.SkillsSettingsHint(), func() {
 		ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
 			label := locales.SearchSkills()
-			theme.TextInput(c.Key("skill-search"), query).Label(label).Placeholder(label).
-				Grow(1).MinWidth(0).Height(35).PaddingX(10).FontSize(13).
-				Background(theme.White).Border(1, theme.Border).Radius(7).FocusRingColor(theme.Accent)
+			TextField(c.Key("skill-search"), label, label, query).
+				Grow(1).MinWidth(0).Background(theme.White)
 			ActionButton(c.Key("rescan"), icons, locales.RefreshSkills(), "retry", loading).OnClick(refresh)
 		})
 		if loading {

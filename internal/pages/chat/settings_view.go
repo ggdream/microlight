@@ -4,7 +4,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/ggdream/microlight/assets/locales"
-	"github.com/ggdream/microlight/internal/buildinfo"
 	"github.com/ggdream/microlight/internal/pages/settings"
 	"github.com/ggdream/microlight/internal/theme"
 
@@ -27,7 +26,7 @@ func (app *chatApp) settingsPage(c *ui.Context) {
 		case settings.Archive:
 			app.archiveSettings(c.Key("archive-content"))
 		case settings.About:
-			settings.AboutPanel(c.Key("about-content"), icons, buildinfo.Version(), app.updateSettings)
+			settings.AboutPanel(c.Key("about-content"), icons, app.versionSettings)
 		default:
 			app.generalSettings(c.Key("general-content"))
 		}
@@ -98,6 +97,7 @@ func (app *chatApp) generalSettings(c *ui.Context) {
 		app.busySendSettings(c.Key("busy-send"))
 		app.desktopSettings(c.Key("desktop"))
 		settings.Proxy(c, icons, &app.form.proxy, app.form.proxyError, app.saveProxySettings, app.openProxySettingsControl)
+		app.systemPromptSettings(c.Key("system-prompt"))
 		if app.form.generalStatus.failed {
 			ui.Text(c, app.form.generalStatus.message).FontSize(12).TextColor(theme.ErrorFG)
 		}

@@ -69,25 +69,21 @@ func Field(c *ui.Context, label, placeholder string, value *string) ui.Element {
 }
 
 func TextField(c *ui.Context, label, placeholder string, value *string) ui.Element {
-	return theme.TextInput(c, value).Label(label).Placeholder(placeholder).
-		Height(35).PaddingX(10).FontSize(13).
-		Background(theme.Canvas).Border(1, theme.Border).Radius(7).FocusRingColor(theme.Accent)
+	return theme.InputFrame(theme.TextInput(c, value), 10, 7, theme.Border).
+		Label(label).Placeholder(placeholder).Height(35).FontSize(13).
+		Background(theme.Canvas).FocusRingColor(theme.Accent)
 }
 
-func Version(c *ui.Context, version string) {
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).
-		Background(theme.White).Radius(13).Border(1, theme.Border).Padding(12, 16).Children(func() {
-		ui.Text(c, locales.AppVersion()).Grow(1).MinWidth(0).FontSize(15).FontWeight(660)
-		ui.Text(c, version).Font("monospace").FontSize(13).TextColor(theme.Muted).Selectable()
-	})
+func AboutRow(row ui.Element) ui.Element {
+	return row.FillWidth().MinHeight(44).AlignItems(ui.Center).Gap(12).
+		Background(theme.White).Radius(13).Border(1, theme.Border).PaddingX(16)
 }
 
-func AboutPanel(c *ui.Context, icons asseticon.Set, version string, updates func(*ui.Context)) {
+func AboutPanel(c *ui.Context, icons asseticon.Set, version func(*ui.Context)) {
 	section(c, func() {
 		ui.Text(c, locales.AppAbout()).FontSize(29).FontWeight(680)
 	}, func() {
-		Version(c.Key("version"), version)
-		updates(c.Key("updates"))
+		version(c.Key("version"))
 		repository(c.Key("repository"), icons)
 	})
 }
@@ -95,10 +91,7 @@ func AboutPanel(c *ui.Context, icons asseticon.Set, version string, updates func
 func repository(c *ui.Context, icons asseticon.Set) {
 	const repositoryPath = "ggdream/microlight"
 	label := locales.RepositoryAddress()
-	button := theme.PointerButton(c, false).Label(label).
-		FillWidth().AlignItems(ui.Center).Gap(12).
-		Background(theme.White).Radius(13).Border(1, theme.Border).Padding(12, 16).
-		FocusRingColor(theme.Accent)
+	button := AboutRow(theme.PointerButton(c, false).Label(label)).FocusRingColor(theme.Accent)
 	if button.Hovered() {
 		button.Background(theme.Hover)
 	}

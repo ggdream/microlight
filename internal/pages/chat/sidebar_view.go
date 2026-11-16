@@ -65,7 +65,7 @@ func (app *chatApp) sidebar(c *ui.Context, selected *conversation, shortcut stri
 	ui.Themed(c, conversationMenuTheme).Fill().Children(func() {
 		ui.Column(c).Fill().Padding(20, 0, 18, sidebarInset).Background(side).Children(func() {
 			ui.Row(c).AlignItems(ui.Center).Gap(8).Padding(0, 0, 0, 4).Margin(0, sidebarInset, 24, 0).Children(func() {
-				ui.Box(c).Size(31, 31).Shrink(0).Radius(9).Background(accent).Draw(drawSpark(white))
+				ui.Image(c, app.brandIcon).Size(36, 36).Shrink(0).Fit(ui.Contain)
 				ui.Text(c, locales.AppName()).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(16).FontWeight(660)
 				app.sidebarToggle(c, false)
 			})

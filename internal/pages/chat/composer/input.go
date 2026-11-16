@@ -61,7 +61,7 @@ func (input *Input) View(c *ui.Context, label, placeholder string, height float3
 				span.BaselineShift = -font.Metrics().Descent
 			}
 		},
-	}).FillWidth().Height(height).AutoFocus().FocusRingColor(theme.Accent).FocusRingOffset(3)
+	}).FillWidth().MinWidth(0).Height(height).AutoFocus().FocusRingColor(theme.Accent).FocusRingOffset(3)
 
 	version := input.Document.Version()
 	if editor.Shortcut(ui.Alt, ui.KeyEnter) || editor.DoubleClicked() {

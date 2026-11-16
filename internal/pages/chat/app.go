@@ -53,6 +53,14 @@ func Run(assets fs.FS) {
 		return
 	}
 	icons = loadedIcons
+	brandImage, iconErr := fs.ReadFile(assets, "assets/icon.png")
+	if iconErr == nil {
+		app.brandIcon, iconErr = ui.DecodeBitmap(brandImage)
+	}
+	if iconErr != nil {
+		slog.Error("读取应用图标失败", "error", iconErr)
+		return
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	app.ctx = ctx
 	defer cancel()
@@ -62,10 +70,9 @@ func Run(assets fs.FS) {
 	app.md.Preview = app.links.offer
 	app.loadLanguage()
 	app.loadBusySendMode()
+	app.loadSystemPrompt()
 	app.loadDesktopPreferences()
-	if dir != "" {
-		mygo.App.SetName(locales.AppName())
-	}
+	mygo.App.SetName(locales.AppName())
 	if err != nil {
 		slog.Error("打开本地数据库失败", "error", err)
 		app.historyErr = locales.HistoryOpenFailed()

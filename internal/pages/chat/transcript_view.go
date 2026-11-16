@@ -21,7 +21,7 @@ func (app *chatApp) transcript(c *ui.Context, chat *conversation) {
 				return
 			}
 			row.Children(func() {
-				ui.Box(c).Width(28).Height(28).Radius(8).Background(accent).Draw(drawSpark(white))
+				ui.Image(c, app.brandIcon).Size(34, 34).Shrink(0).Fit(ui.Contain)
 				response := ui.Column(c.Key(entry)).Grow(1).MinWidth(0).Gap(5).Padding(3, 0, 0)
 				showActions := response.Hovered() || response.FocusWithin()
 				response.Children(func() {

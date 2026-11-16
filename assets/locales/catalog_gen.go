@@ -234,6 +234,16 @@ func (msgs Messages) AppName() string {
 	return Catalog.Format(msgs.locale, "appName", nil)
 }
 
+// AppSubtitle says "Desktop AI Agent"
+// in the language the app shows.
+func AppSubtitle() string { return In(i18n.Locale()).AppSubtitle() }
+
+// AppSubtitle says "Desktop AI Agent"
+// in the language of msgs.
+func (msgs Messages) AppSubtitle() string {
+	return Catalog.Format(msgs.locale, "appSubtitle", nil)
+}
+
 // RetryTitle says "Regenerate this reply?"
 // in the language the app shows.
 func RetryTitle() string { return In(i18n.Locale()).RetryTitle() }
@@ -416,84 +426,124 @@ func (msgs Messages) BackToLatest() string {
 	return Catalog.Format(msgs.locale, "backToLatest", nil)
 }
 
-// Welcome says "What would you like to talk about?"
+// WeightSuggestion says "Healthy Weight Loss"
 // in the language the app shows.
-func Welcome() string { return In(i18n.Locale()).Welcome() }
+func WeightSuggestion() string { return In(i18n.Locale()).WeightSuggestion() }
 
-// Welcome says "What would you like to talk about?"
+// WeightSuggestion says "Healthy Weight Loss"
 // in the language of msgs.
-func (msgs Messages) Welcome() string {
-	return Catalog.Format(msgs.locale, "welcome", nil)
+func (msgs Messages) WeightSuggestion() string {
+	return Catalog.Format(msgs.locale, "weightSuggestion", nil)
 }
 
-// WelcomeHint says "Ask a question or start with an idea."
+// WeightSuggestionHint says "Start with food and movement"
 // in the language the app shows.
-func WelcomeHint() string { return In(i18n.Locale()).WelcomeHint() }
+func WeightSuggestionHint() string { return In(i18n.Locale()).WeightSuggestionHint() }
 
-// WelcomeHint says "Ask a question or start with an idea."
+// WeightSuggestionHint says "Start with food and movement"
 // in the language of msgs.
-func (msgs Messages) WelcomeHint() string {
-	return Catalog.Format(msgs.locale, "welcomeHint", nil)
+func (msgs Messages) WeightSuggestionHint() string {
+	return Catalog.Format(msgs.locale, "weightSuggestionHint", nil)
 }
 
-// CodeSuggestion says "Explain Some Code"
+// WeightSuggestionPrompt says "I want to lose weight in a healthy way. I sit a lot and don't exercise much. How can I start with food and everyday m…"
 // in the language the app shows.
-func CodeSuggestion() string { return In(i18n.Locale()).CodeSuggestion() }
+func WeightSuggestionPrompt() string { return In(i18n.Locale()).WeightSuggestionPrompt() }
 
-// CodeSuggestion says "Explain Some Code"
+// WeightSuggestionPrompt says "I want to lose weight in a healthy way. I sit a lot and don't exercise much. How can I start with food and everyday m…"
 // in the language of msgs.
-func (msgs Messages) CodeSuggestion() string {
-	return Catalog.Format(msgs.locale, "codeSuggestion", nil)
+func (msgs Messages) WeightSuggestionPrompt() string {
+	return Catalog.Format(msgs.locale, "weightSuggestionPrompt", nil)
 }
 
-// CodeSuggestionHint says "Explain Go channels with an example"
+// OutfitSuggestion says "What Should I Wear?"
 // in the language the app shows.
-func CodeSuggestionHint() string { return In(i18n.Locale()).CodeSuggestionHint() }
+func OutfitSuggestion() string { return In(i18n.Locale()).OutfitSuggestion() }
 
-// CodeSuggestionHint says "Explain Go channels with an example"
+// OutfitSuggestion says "What Should I Wear?"
 // in the language of msgs.
-func (msgs Messages) CodeSuggestionHint() string {
-	return Catalog.Format(msgs.locale, "codeSuggestionHint", nil)
+func (msgs Messages) OutfitSuggestion() string {
+	return Catalog.Format(msgs.locale, "outfitSuggestion", nil)
 }
 
-// CodeSuggestionPrompt says "Explain Go channels using an everyday example, then show me a minimal runnable example."
+// OutfitSuggestionHint says "Find a comfortable work outfit"
 // in the language the app shows.
-func CodeSuggestionPrompt() string { return In(i18n.Locale()).CodeSuggestionPrompt() }
+func OutfitSuggestionHint() string { return In(i18n.Locale()).OutfitSuggestionHint() }
 
-// CodeSuggestionPrompt says "Explain Go channels using an everyday example, then show me a minimal runnable example."
+// OutfitSuggestionHint says "Find a comfortable work outfit"
 // in the language of msgs.
-func (msgs Messages) CodeSuggestionPrompt() string {
-	return Catalog.Format(msgs.locale, "codeSuggestionPrompt", nil)
+func (msgs Messages) OutfitSuggestionHint() string {
+	return Catalog.Format(msgs.locale, "outfitSuggestionHint", nil)
 }
 
-// OutlineSuggestion says "Outline an Idea"
+// OutfitSuggestionPrompt says "I'm heading to work and meeting friends for dinner afterward. Put together a comfortable, polished outfit using every…"
 // in the language the app shows.
-func OutlineSuggestion() string { return In(i18n.Locale()).OutlineSuggestion() }
+func OutfitSuggestionPrompt() string { return In(i18n.Locale()).OutfitSuggestionPrompt() }
 
-// OutlineSuggestion says "Outline an Idea"
+// OutfitSuggestionPrompt says "I'm heading to work and meeting friends for dinner afterward. Put together a comfortable, polished outfit using every…"
 // in the language of msgs.
-func (msgs Messages) OutlineSuggestion() string {
-	return Catalog.Format(msgs.locale, "outlineSuggestion", nil)
+func (msgs Messages) OutfitSuggestionPrompt() string {
+	return Catalog.Format(msgs.locale, "outfitSuggestionPrompt", nil)
 }
 
-// OutlineSuggestionHint says "Turn a topic into an article outline"
+// TravelSuggestion says "Plan a Weekend Trip"
 // in the language the app shows.
-func OutlineSuggestionHint() string { return In(i18n.Locale()).OutlineSuggestionHint() }
+func TravelSuggestion() string { return In(i18n.Locale()).TravelSuggestion() }
 
-// OutlineSuggestionHint says "Turn a topic into an article outline"
+// TravelSuggestion says "Plan a Weekend Trip"
 // in the language of msgs.
-func (msgs Messages) OutlineSuggestionHint() string {
-	return Catalog.Format(msgs.locale, "outlineSuggestionHint", nil)
+func (msgs Messages) TravelSuggestion() string {
+	return Catalog.Format(msgs.locale, "travelSuggestion", nil)
 }
 
-// OutlineSuggestionPrompt says "Help me outline a technical article. Start by asking me for the topic and intended audience."
+// TravelSuggestionHint says "Put together a relaxed overnight trip"
 // in the language the app shows.
-func OutlineSuggestionPrompt() string { return In(i18n.Locale()).OutlineSuggestionPrompt() }
+func TravelSuggestionHint() string { return In(i18n.Locale()).TravelSuggestionHint() }
 
-// OutlineSuggestionPrompt says "Help me outline a technical article. Start by asking me for the topic and intended audience."
+// TravelSuggestionHint says "Put together a relaxed overnight trip"
 // in the language of msgs.
-func (msgs Messages) OutlineSuggestionPrompt() string {
-	return Catalog.Format(msgs.locale, "outlineSuggestionPrompt", nil)
+func (msgs Messages) TravelSuggestionHint() string {
+	return Catalog.Format(msgs.locale, "travelSuggestionHint", nil)
+}
+
+// TravelSuggestionPrompt says "I'd like a relaxed two-day, one-night trip this weekend. Ask where I'm starting from and what my budget is, then sugg…"
+// in the language the app shows.
+func TravelSuggestionPrompt() string { return In(i18n.Locale()).TravelSuggestionPrompt() }
+
+// TravelSuggestionPrompt says "I'd like a relaxed two-day, one-night trip this weekend. Ask where I'm starting from and what my budget is, then sugg…"
+// in the language of msgs.
+func (msgs Messages) TravelSuggestionPrompt() string {
+	return Catalog.Format(msgs.locale, "travelSuggestionPrompt", nil)
+}
+
+// RouteSuggestion says "Find the Best Route"
+// in the language the app shows.
+func RouteSuggestion() string { return In(i18n.Locale()).RouteSuggestion() }
+
+// RouteSuggestion says "Find the Best Route"
+// in the language of msgs.
+func (msgs Messages) RouteSuggestion() string {
+	return Catalog.Format(msgs.locale, "routeSuggestion", nil)
+}
+
+// RouteSuggestionHint says "Compare transit and a taxi"
+// in the language the app shows.
+func RouteSuggestionHint() string { return In(i18n.Locale()).RouteSuggestionHint() }
+
+// RouteSuggestionHint says "Compare transit and a taxi"
+// in the language of msgs.
+func (msgs Messages) RouteSuggestionHint() string {
+	return Catalog.Format(msgs.locale, "routeSuggestionHint", nil)
+}
+
+// RouteSuggestionPrompt says "I'm going somewhere new this weekend. Ask me for my starting point, destination, and departure time. Then compare the…"
+// in the language the app shows.
+func RouteSuggestionPrompt() string { return In(i18n.Locale()).RouteSuggestionPrompt() }
+
+// RouteSuggestionPrompt says "I'm going somewhere new this weekend. Ask me for my starting point, destination, and departure time. Then compare the…"
+// in the language of msgs.
+func (msgs Messages) RouteSuggestionPrompt() string {
+	return Catalog.Format(msgs.locale, "routeSuggestionPrompt", nil)
 }
 
 // Copy says "Copy"
@@ -1346,14 +1396,44 @@ func (msgs Messages) BackToChat() string {
 	return Catalog.Format(msgs.locale, "backToChat", nil)
 }
 
-// SettingsDescription says "Configure the interface, message sending, and network."
+// SettingsDescription says "Configure the interface, chat behavior, and network."
 // in the language the app shows.
 func SettingsDescription() string { return In(i18n.Locale()).SettingsDescription() }
 
-// SettingsDescription says "Configure the interface, message sending, and network."
+// SettingsDescription says "Configure the interface, chat behavior, and network."
 // in the language of msgs.
 func (msgs Messages) SettingsDescription() string {
 	return Catalog.Format(msgs.locale, "settingsDescription", nil)
+}
+
+// SystemPrompt says "Custom Instructions"
+// in the language the app shows.
+func SystemPrompt() string { return In(i18n.Locale()).SystemPrompt() }
+
+// SystemPrompt says "Custom Instructions"
+// in the language of msgs.
+func (msgs Messages) SystemPrompt() string {
+	return Catalog.Format(msgs.locale, "systemPrompt", nil)
+}
+
+// SystemPromptDescription says "Tell Microlight how you’d like it to respond or work with you. These instructions supplement Microlight’s built-i…"
+// in the language the app shows.
+func SystemPromptDescription() string { return In(i18n.Locale()).SystemPromptDescription() }
+
+// SystemPromptDescription says "Tell Microlight how you’d like it to respond or work with you. These instructions supplement Microlight’s built-i…"
+// in the language of msgs.
+func (msgs Messages) SystemPromptDescription() string {
+	return Catalog.Format(msgs.locale, "systemPromptDescription", nil)
+}
+
+// SystemPromptPlaceholder says "For example, lead with the conclusion and list the steps when needed."
+// in the language the app shows.
+func SystemPromptPlaceholder() string { return In(i18n.Locale()).SystemPromptPlaceholder() }
+
+// SystemPromptPlaceholder says "For example, lead with the conclusion and list the steps when needed."
+// in the language of msgs.
+func (msgs Messages) SystemPromptPlaceholder() string {
+	return Catalog.Format(msgs.locale, "systemPromptPlaceholder", nil)
 }
 
 // SettingsModel says "Model"
@@ -3486,24 +3566,74 @@ func (msgs Messages) NotifyOff() string {
 	return Catalog.Format(msgs.locale, "notifyOff", nil)
 }
 
-// NotifyShowPreview says "Show a preview in notifications"
+// SendTestNotification says "Send Test Notification"
 // in the language the app shows.
-func NotifyShowPreview() string { return In(i18n.Locale()).NotifyShowPreview() }
+func SendTestNotification() string { return In(i18n.Locale()).SendTestNotification() }
 
-// NotifyShowPreview says "Show a preview in notifications"
+// SendTestNotification says "Send Test Notification"
 // in the language of msgs.
-func (msgs Messages) NotifyShowPreview() string {
-	return Catalog.Format(msgs.locale, "notifyShowPreview", nil)
+func (msgs Messages) SendTestNotification() string {
+	return Catalog.Format(msgs.locale, "sendTestNotification", nil)
 }
 
-// OpenNotificationConversation says "Open the conversation to see details."
+// TestNotificationTitle says "Microlight Test Notification"
 // in the language the app shows.
-func OpenNotificationConversation() string { return In(i18n.Locale()).OpenNotificationConversation() }
+func TestNotificationTitle() string { return In(i18n.Locale()).TestNotificationTitle() }
 
-// OpenNotificationConversation says "Open the conversation to see details."
+// TestNotificationTitle says "Microlight Test Notification"
 // in the language of msgs.
-func (msgs Messages) OpenNotificationConversation() string {
-	return Catalog.Format(msgs.locale, "openNotificationConversation", nil)
+func (msgs Messages) TestNotificationTitle() string {
+	return Catalog.Format(msgs.locale, "testNotificationTitle", nil)
+}
+
+// TestNotificationBody says "This is a test notification from Microlight Settings."
+// in the language the app shows.
+func TestNotificationBody() string { return In(i18n.Locale()).TestNotificationBody() }
+
+// TestNotificationBody says "This is a test notification from Microlight Settings."
+// in the language of msgs.
+func (msgs Messages) TestNotificationBody() string {
+	return Catalog.Format(msgs.locale, "testNotificationBody", nil)
+}
+
+// TestNotificationSent says "Sent to the system. Check Notification Center if needed."
+// in the language the app shows.
+func TestNotificationSent() string { return In(i18n.Locale()).TestNotificationSent() }
+
+// TestNotificationSent says "Sent to the system. Check Notification Center if needed."
+// in the language of msgs.
+func (msgs Messages) TestNotificationSent() string {
+	return Catalog.Format(msgs.locale, "testNotificationSent", nil)
+}
+
+// TestNotificationDenied says "Microlight needs notification permission. Allow notifications for Microlight in System Settings."
+// in the language the app shows.
+func TestNotificationDenied() string { return In(i18n.Locale()).TestNotificationDenied() }
+
+// TestNotificationDenied says "Microlight needs notification permission. Allow notifications for Microlight in System Settings."
+// in the language of msgs.
+func (msgs Messages) TestNotificationDenied() string {
+	return Catalog.Format(msgs.locale, "testNotificationDenied", nil)
+}
+
+// TestNotificationUnavailable says "Desktop notifications are unavailable in this environment."
+// in the language the app shows.
+func TestNotificationUnavailable() string { return In(i18n.Locale()).TestNotificationUnavailable() }
+
+// TestNotificationUnavailable says "Desktop notifications are unavailable in this environment."
+// in the language of msgs.
+func (msgs Messages) TestNotificationUnavailable() string {
+	return Catalog.Format(msgs.locale, "testNotificationUnavailable", nil)
+}
+
+// TestNotificationFailed says "Could not send the test notification."
+// in the language the app shows.
+func TestNotificationFailed() string { return In(i18n.Locale()).TestNotificationFailed() }
+
+// TestNotificationFailed says "Could not send the test notification."
+// in the language of msgs.
+func (msgs Messages) TestNotificationFailed() string {
+	return Catalog.Format(msgs.locale, "testNotificationFailed", nil)
 }
 
 // QuickLookFile says "Quick Look"

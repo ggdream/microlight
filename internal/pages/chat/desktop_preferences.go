@@ -9,6 +9,7 @@ import (
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/pages/settings"
 	"github.com/ggdream/microlight/internal/storage"
+	"github.com/ggdream/microlight/internal/theme"
 )
 
 const desktopConfigKey = "desktop_preferences"
@@ -16,7 +17,6 @@ const desktopConfigKey = "desktop_preferences"
 type desktopPreferences struct {
 	Shortcut     string `json:"shortcut"`
 	Notification int    `json:"notification"`
-	HidePreview  bool   `json:"hide_preview"`
 }
 
 const (
@@ -157,11 +157,16 @@ func (app *chatApp) desktopSettings(c *ui.Context) {
 				}
 			}
 		})
-		preview := !preferences.HidePreview
-		ui.Toggle(c.Key("preview"), &preview, locales.NotifyShowPreview()).
-			Disabled(preferences.Notification == notifyOff).OnChange(func() {
-			preferences.HidePreview = !preview
-			app.saveNotificationSettings(preferences)
+		ui.Row(c.Key("test")).FillWidth().Wrap().AlignItems(ui.Center).Gap(8).Children(func() {
+			settings.ActionButton(c.Key("send"), icons, locales.SendTestNotification(), "bell", app.testingNotification).
+				OnClick(app.sendTestNotification)
+			if status := app.notificationTestStatus; status.message != "" {
+				color := theme.Muted
+				if status.failed {
+					color = theme.ErrorFG
+				}
+				ui.Text(c, status.message).Grow(1).MinWidth(0).FontSize(12).TextColor(color)
+			}
 		})
 	})
 }

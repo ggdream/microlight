@@ -7,6 +7,8 @@ if [[ ! "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
   printf 'Expected a release tag in the form vx.x.x, got %s\n' "$tag" >&2
   exit 1
 fi
+# Capture the release tag before generating the packaging configuration.
+version=$(git describe --tags --exact-match --match "$tag" HEAD)
 
 target="$RELEASE_PLATFORM-$RELEASE_ARCH"
 case "$target" in
@@ -31,7 +33,7 @@ jq --arg version "${tag#v}" --arg key "$public_key" '
   if $key != "" then .updates = {publicKey: $key, github: "ggdream/microlight", deltas: 0} else . end
 ' "$backup" > mygo.json
 
-bash scripts/build.sh \
+MICROLIGHT_BUILD_VERSION="$version" bash scripts/build.sh \
   -platform "$RELEASE_PLATFORM/$RELEASE_ARCH" -o dist
 
 shopt -s nullglob

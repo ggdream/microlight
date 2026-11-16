@@ -54,6 +54,39 @@ func notificationText(body string) string {
 	return body
 }
 
+func (app *chatApp) sendTestNotification() {
+	if app.testingNotification || app.win == nil || app.win.IsDestroyed() {
+		return
+	}
+	if !mygo.NotificationsSupported() {
+		app.notificationTestStatus = settingsStatus{message: locales.TestNotificationUnavailable(), failed: true}
+		return
+	}
+	app.testingNotification = true
+	app.notificationTestStatus = settingsStatus{}
+	ctx, win := app.appContext(), app.win
+	n := mygo.NewNotification(mygo.NotificationOptions{
+		Title: locales.TestNotificationTitle(),
+		Body:  locales.TestNotificationBody(),
+	})
+	n.OnClick(n.Close)
+	go func() {
+		err := n.ShowContext(ctx)
+		win.Update(func() {
+			app.testingNotification = false
+			switch {
+			case err == nil:
+				app.notificationTestStatus = settingsStatus{message: locales.TestNotificationSent()}
+			case errors.Is(err, mygo.ErrNotificationsDenied):
+				app.notificationTestStatus = settingsStatus{message: locales.TestNotificationDenied(), failed: true}
+			case !errors.Is(err, context.Canceled):
+				slog.Error("send test notification", "error", err)
+				app.notificationTestStatus = settingsStatus{message: locales.TestNotificationFailed(), failed: true}
+			}
+		})
+	}()
+}
+
 func (app *chatApp) notifyReply(chatID string, reply *turn) {
 	title, body := replyNotification(reply)
 	if title == "" || app.win.IsDestroyed() || app.chatInForeground() {
@@ -64,9 +97,6 @@ func (app *chatApp) notifyReply(chatID string, reply *turn) {
 	mode := clampNotificationMode(app.desktop.Notification)
 	if mode == notifyOff || mode == notifyAction && reply.State == "done" || !mygo.NotificationsSupported() {
 		return
-	}
-	if app.desktop.HidePreview {
-		body = locales.OpenNotificationConversation()
 	}
 	n := mygo.NewNotification(mygo.NotificationOptions{
 		Title: title,

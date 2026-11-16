@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ggdream/microlight/internal/theme"
 	"github.com/ggdream/microlight/pkg/a2ui"
 
 	"github.com/egoist/mygo/ui"
@@ -214,8 +215,9 @@ func (r renderer) textField(c *ui.Context, node a2ui.Component, scope string) {
 	default:
 		input = ui.TextInputBase(c, &value).Height(r.Style.ControlHeight)
 	}
-	r.decorate(c, node, scope, input.Label(label), label).Invalid(!r.surface.IsValid(node, scope)).Placeholder(placeholder).Grow(1).MinWidth(0).PaddingX(9).
-		Border(1, r.Style.Border).Radius(6).CaretColor(r.Style.Caret).Disabled(r.Disabled).
+	input = theme.InputFrame(input, 9, 6, r.Style.Border)
+	r.decorate(c, node, scope, input.Label(label), label).Invalid(!r.surface.IsValid(node, scope)).Placeholder(placeholder).Grow(1).MinWidth(0).
+		CaretColor(r.Style.Caret).Disabled(r.Disabled).
 		ReadOnly(!bound).OnChange(func() {
 		if r.surface.String(node.Props["variant"], scope) == "number" && value != "" {
 			if number, err := strconv.ParseFloat(value, 64); err == nil {
@@ -334,7 +336,8 @@ func (r renderer) choicePicker(c *ui.Context, node a2ui.Component, scope string)
 			ui.Text(c, label).TextColor(r.Style.Text)
 		}
 		if a2ui.Boolean(r.property(node, scope, "filterable")) {
-			ui.TextInputBase(c.Key("filter"), query).Label("Filter").Placeholder("Filter")
+			theme.InputFrame(ui.TextInputBase(c.Key("filter"), query), 9, 6, r.Style.Border).
+				Label("Filter").Placeholder("Filter").MinWidth(0).Height(r.Style.ControlHeight).CaretColor(r.Style.Caret)
 			search = strings.ToLower(*query)
 		}
 		for _, choice := range choices {

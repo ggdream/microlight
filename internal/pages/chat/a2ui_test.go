@@ -29,10 +29,14 @@ func TestChatA2UIStreamActionAndRestore(t *testing.T) {
 		if !strings.Contains(first, "Prefer Express") {
 			t.Error("A2UI instructions missing")
 		}
+		if !strings.Contains(first, "use a Button with action=Event(...)") ||
+			!strings.Contains(first, "A literal ChoicePicker value is read-only.") {
+			t.Error("A2UI instructions must distinguish immediate actions from form selections")
+		}
 		chunks := []string{"Before\n\n<a2", "ui>\nsurface(\"demo\", sendDataModel=true)\n" +
 			"root = Column([field, submit])\n$/name = \"Original\"\n" +
 			"field = TextField(label=\"Name\", value=$/name)\nlabel = Text(\"Confirm\")\n" +
-			"submit = Button(child=label, action=Event(\"confirm\", {name: $/name}))\n</a2ui>",
+			"submit = Button(child=label, action=Event(\"confirm\", {name: $/name}, userMessage=\"Confirm the selection\"))\n</a2ui>",
 			"\n\n<a2ui-json>broken</a2ui-json>\n\nAfter",
 		}
 		if calls.Add(1) > 1 {
@@ -103,7 +107,7 @@ func TestChatA2UIStreamActionAndRestore(t *testing.T) {
 	if err := tester.Click("Confirm"); err != nil {
 		t.Fatal(err)
 	}
-	if event.Action == nil || event.Action.Context["name"] != "Ada" {
+	if event.Action == nil || event.Action.Context["name"] != "Ada" || event.Action.UserMessage != "Confirm the selection" {
 		t.Fatalf("incorrect renderer event: %+v", event.Action)
 	}
 	h := history{Selected: chat.ID, Chats: []*conversation{chat}}

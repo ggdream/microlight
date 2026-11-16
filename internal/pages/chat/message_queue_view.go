@@ -141,8 +141,11 @@ func (app *chatApp) queueMessageRow(c *ui.Context, chat *conversation, entry que
 
 func (app *chatApp) queueMessageEditor(c *ui.Context, chat *conversation, entry queuedMessage, edit *queuedMessageEdit) {
 	ui.Column(c).FillWidth().Gap(4).Padding(4, 6).Children(func() {
-		editor := edit.input.View(c.Key("text"), locales.EditMessageBody(), "", 52, app.md).Padding(4).
-			Background(canvas).Border(1, border).Radius(6)
+		var editor ui.Element
+		ui.Column(c.Key("editor")).FillWidth().Padding(4).ClipX().
+			Background(canvas).Border(1, border).Radius(6).Children(func() {
+			editor = edit.input.View(c.Key("text"), locales.EditMessageBody(), "", 52, app.md)
+		})
 		if editor.Shortcut(0, ui.KeyEscape) {
 			app.queueEdit = nil
 		}

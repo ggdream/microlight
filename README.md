@@ -2,9 +2,9 @@
   <img src="assets/icon.png" width="96" height="96" alt="Microlight icon">
 </p>
 
-<h1 align="center">Microlight</h1>
+<h1 align="center">Microlight · 微光助手</h1>
 
-<p align="center">A native desktop app for AI chat and workspace agents, built in pure Go.</p>
+<p align="center">桌面 AI 智能体 · Desktop AI Agent</p>
 
 <p align="center"><strong>Zero cgo · Native UI · Cross-compilable</strong></p>
 

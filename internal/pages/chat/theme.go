@@ -14,6 +14,5 @@ var (
 	tint          = theme.Tint
 	hover         = theme.Hover
 	errorFG       = theme.ErrorFG
-	textInput     = theme.TextInput
 	pointerButton = theme.PointerButton
 )

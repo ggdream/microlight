@@ -20,6 +20,13 @@ func TextInput(c *ui.Context, value *string) ui.Element {
 	return ui.TextInputBase(c, value).CaretColor(CaretColor)
 }
 
+// InputFrame keeps the horizontal inset clear even when the editor scrolls.
+func InputFrame(input ui.Element, inset, radius float32, border ui.Color) ui.Element {
+	// MyGo clips editor ink at the border, so reserve the inset there and draw the visible outline separately.
+	return input.BorderWidth(1, inset+1).BorderColor(ui.Color{}).Radius(radius).
+		Draw(func(p *ui.Painter, box ui.Rect) { p.Stroke(box, border, radius, 1) })
+}
+
 func PointerButton(c *ui.Context, disabled bool) ui.Element {
 	button := ui.ButtonBase(c).Disabled(disabled)
 	if !disabled {

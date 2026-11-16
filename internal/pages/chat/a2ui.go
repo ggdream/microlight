@@ -138,6 +138,7 @@ func interfaceGuidance(ctx context.Context, input []*schema.AgenticMessage) []*s
 		return input
 	}
 	guidance += "\nUse a surface for forms, interactive choices, and media playback when it helps. For ordinary replies, use Markdown. Use ask_user when a tool run must pause for clarification, and always use the normal approval flow for tool permissions. Treat renderer events as structured user input and only open links in response to user activation. A native video needs an HTTP(S) URL for a direct media file, such as an MP4, rather than a page URL. Use a unique surface ID when creating a new interface.\n"
+	guidance += "\nWhen a click should send an action to the agent, use a Button with action=Event(...). Put the relevant values in the event context and describe the action in userMessage using the user's language. For an editable ChoicePicker, bind its value to a data-model path and initialize that path. To submit the selection to the agent, use a separate Button whose event context reads the bound value. A literal ChoicePicker value is read-only.\n"
 	if len(request.ids) != 0 {
 		ids, _ := json.Marshal(request.ids)
 		guidance += "\nActive surface IDs in this branch: " + string(ids)

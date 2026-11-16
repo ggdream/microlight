@@ -95,6 +95,7 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 	chat.list.ScrollToEnd()
 	parent := app.appContext()
 	ctx, cancel := context.WithCancel(parent)
+	ctx = context.WithValue(ctx, systemPromptKey{}, strings.TrimSpace(app.systemPrompt))
 	access := localtools.NewAccess(chat.workspace, chat.accessMode)
 	ctx = localtools.WithAccess(ctx, access)
 	ctx = context.WithValue(ctx, interfaceContextKey{}, chat.interfaceRequest())

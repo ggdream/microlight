@@ -27,19 +27,47 @@ type updateCheck struct {
 	failed   bool
 }
 
-func (app *chatApp) updateSettings(c *ui.Context) {
+func (app *chatApp) versionSettings(c *ui.Context) {
 	check := app.updateCheck
-	ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(12).
-		Background(white).Radius(13).Border(1, border).Padding(12, 16).Children(func() {
-		ui.Column(c).Grow(1).MinWidth(140).Gap(4).Children(func() {
-			ui.Text(c, locales.AppUpdates()).FontSize(15).FontWeight(660)
+	version := buildinfo.Version()
+	row := settings.AboutRow(ui.Column(c)).AlignItems(ui.Stretch).Gap(4).PaddingY(5)
+	if check.failed || check.version != "" {
+		row.PaddingY(12)
+	}
+	row.Children(func() {
+		ui.Row(c).Wrap().AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(12).Children(func() {
+			ui.Text(c, locales.AppVersion()).FontSize(15).FontWeight(660)
+			ui.Row(c).AlignItems(ui.Center).Gap(12).Shrink(0).Children(func() {
+				ui.Text(c, version).FontSize(13).TextColor(muted).Selectable()
+				label := locales.CheckForUpdates()
+				color := accent
+				if check.checking {
+					label = locales.CheckingForUpdates()
+					color = muted
+				}
+				button := pointerButton(c.Key("check"), check.checking).Label(label).
+					Height(33).PaddingX(6).Radius(6).AlignItems(ui.Center).Gap(5).
+					FocusRingColor(accent)
+				if !check.checking && button.Hovered() {
+					button.Background(tint)
+				}
+				button.Children(func() {
+					icon(c, "retry", color, 14)
+					ui.Text(c, label).FontSize(13).TextColor(color)
+				}).OnClick(app.checkForUpdates)
+			})
+		})
+		if !check.failed && check.version == "" {
+			return
+		}
+		ui.Row(c).Wrap().AlignItems(ui.Center).Justify(ui.End).Gap(8).Children(func() {
 			switch {
 			case check.failed:
 				ui.Text(c, locales.UpdateCheckFailed()).FontSize(12).TextColor(errorFG)
 			case check.version != "":
 				label := locales.AppUpToDate()
 				color := muted
-				if current, latest := releaseParts(buildinfo.Version()), releaseParts(check.version); current == nil {
+				if current, latest := releaseParts(version), releaseParts(check.version); current == nil {
 					label = locales.LatestRelease(check.version)
 				} else if slices.Compare(latest[:], current[:]) > 0 {
 					label = locales.UpdateAvailable(check.version)
@@ -48,7 +76,7 @@ func (app *chatApp) updateSettings(c *ui.Context) {
 				ui.Text(c, label).FontSize(12).TextColor(color)
 
 				release := pointerButton(c.Key("release"), false).Label(locales.ViewRelease()).
-					AlignSelf(ui.Start).AlignItems(ui.Center).Gap(5).Height(24).Radius(4).
+					AlignItems(ui.Center).Gap(5).Height(24).Radius(4).
 					FocusRingColor(accent)
 				color = muted
 				if release.Hovered() {
@@ -60,12 +88,6 @@ func (app *chatApp) updateSettings(c *ui.Context) {
 				}).OnClick(func() { c.OpenURL(releasePage + "/tag/" + check.version) })
 			}
 		})
-		label := locales.CheckForUpdates()
-		if check.checking {
-			label = locales.CheckingForUpdates()
-		}
-		settings.ActionButton(c.Key("check"), icons, label, "retry", check.checking).
-			FocusRingColor(accent).OnClick(app.checkForUpdates)
 	})
 }
 
@@ -115,13 +137,14 @@ func latestRelease(ctx context.Context, config proxy.Config) (string, error) {
 		return "", errors.New("unexpected release response")
 	}
 	version := path.Base(location.Path)
-	if releaseParts(version) == nil || strings.Contains(version, "-") {
+	if releaseParts(version) == nil || strings.ContainsAny(version, "-+") {
 		return "", errors.New("unexpected release tag")
 	}
 	return version, nil
 }
 
 func releaseParts(version string) *[3]int {
+	version = strings.TrimSuffix(version, "+dirty")
 	version, _, _ = strings.Cut(version, "-")
 	if !strings.HasPrefix(version, "v") {
 		return nil

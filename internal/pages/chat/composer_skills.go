@@ -11,6 +11,7 @@ import (
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/pages/chat/composer"
 	"github.com/ggdream/microlight/internal/skills"
+	"github.com/ggdream/microlight/internal/theme"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
@@ -147,8 +148,8 @@ func (app *chatApp) composerSkills(c *ui.Context, editor ui.Element, workspace s
 			Shadow(0, 5, 18, 0, ui.RGBA(29, 49, 38, .12)).Label(locales.ChooseSkill())
 		if picker.manual {
 			label := locales.SearchSkills()
-			textInput(c.Key("search"), &picker.search).Label(label).Placeholder(label).
-				FillWidth().Height(32).PaddingX(8).Border(1, border).Radius(6).AutoFocus().
+			theme.InputFrame(theme.TextInput(c.Key("search"), &picker.search), 8, 6, border).
+				Label(label).Placeholder(label).FillWidth().Height(32).AutoFocus().
 				OnTextKey(func(key ui.TextKey) bool {
 					if key.Mods != 0 {
 						return false

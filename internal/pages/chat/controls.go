@@ -39,16 +39,3 @@ func stopButton(c *ui.Context) ui.Element {
 		icon(c, "stop", errorFG, 16)
 	})
 }
-
-func drawSpark(color ui.Color) func(*ui.Painter, ui.Rect) {
-	return func(p *ui.Painter, r ui.Rect) {
-		x, y := r.X+r.W/2, r.Y+r.H/2
-		a := min(r.W, r.H) * .24
-		var star ui.Path
-		star.MoveTo(x, y-a).QuadTo(x+a*.16, y-a*.16, x+a, y).
-			QuadTo(x+a*.16, y+a*.16, x, y+a).
-			QuadTo(x-a*.16, y+a*.16, x-a, y).
-			QuadTo(x-a*.16, y-a*.16, x, y-a).Close()
-		p.FillPath(&star, color)
-	}
-}
