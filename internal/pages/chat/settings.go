@@ -430,6 +430,7 @@ func (app *chatApp) saveProxySettings() {
 		app.form.proxyError = err.Error()
 		return
 	}
+	app.setMarkdownImageLoader(config.Proxy)
 	app.clearConnectionTest()
 }
 

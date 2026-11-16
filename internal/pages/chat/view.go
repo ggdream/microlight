@@ -62,6 +62,7 @@ func (app *chatApp) view(c *ui.Context) {
 		})
 	})
 	app.linkPreview(c, root)
+	app.renderImagePreview(c.Key("image-preview"))
 	app.regenerateDialog(c.Key("regenerate-dialog"), selected)
 	app.fullAccessDialog(c.Key("full-access-dialog"))
 	app.conversationActionDialog(c.Key("conversation-action"))

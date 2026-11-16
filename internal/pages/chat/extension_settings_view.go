@@ -18,5 +18,9 @@ func (app *chatApp) mcpSettings(c *ui.Context) {
 		config := app.settings
 		config.MCPServers = servers
 		return app.applySettings(config)
+	}, func(next func()) {
+		if !app.deferSettingsLeave(next) {
+			next()
+		}
 	})
 }

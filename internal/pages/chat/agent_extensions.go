@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -68,8 +69,12 @@ func (ext *agentExtensions) loadMCP(ctx context.Context, server mcptools.Server,
 		return err
 	}
 	ext.sessions = append(ext.sessions, session)
+	var toolSession officialmcp.ClientSession = session
+	if server.TimeoutSeconds != 0 {
+		toolSession = timedMCPClient{ClientSession: session, timeout: time.Duration(server.TimeoutSeconds) * time.Second}
+	}
 	tools, err := officialmcp.GetTools(connectCtx, &officialmcp.Config{
-		Cli:        session,
+		Cli:        toolSession,
 		ServerName: server.Name,
 		ToolNameMapper: func(_ context.Context, info officialmcp.ToolNameMapperInput) (officialmcp.ToolNameMapperOutput, error) {
 			name := mcptools.ToolName(server.Name, info.Tool.Name)
@@ -82,4 +87,21 @@ func (ext *agentExtensions) loadMCP(ctx context.Context, server mcptools.Server,
 	}
 	ext.tools = append(ext.tools, tools...)
 	return nil
+}
+
+var errMCPToolTimeout = errors.New("MCP tool call exceeded its configured timeout")
+
+type timedMCPClient struct {
+	officialmcp.ClientSession
+	timeout time.Duration
+}
+
+func (s timedMCPClient) CallTool(ctx context.Context, params *mcp.CallToolParams) (*mcp.CallToolResult, error) {
+	ctx, cancel := context.WithTimeoutCause(ctx, s.timeout, errMCPToolTimeout)
+	defer cancel()
+	result, err := s.ClientSession.CallTool(ctx, params)
+	if err != nil && errors.Is(context.Cause(ctx), errMCPToolTimeout) {
+		return nil, errMCPToolTimeout
+	}
+	return result, err
 }

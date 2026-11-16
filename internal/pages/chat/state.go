@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	timeline "github.com/ggdream/microlight/internal/activity"
@@ -113,5 +114,7 @@ type chatApp struct {
 	retryReply         *turn
 	unreadReplies      int
 	md                 *markdown.Options
+	imagePreview       chatImagePreview
+	savingImage        atomic.Bool
 	links              linkPreviews
 }

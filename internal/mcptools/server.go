@@ -31,12 +31,13 @@ const (
 )
 
 type Server struct {
-	Name      string    `json:"name"`
-	Transport Transport `json:"transport,omitempty"`
-	URL       string    `json:"url,omitempty"`
-	Command   string    `json:"command,omitempty"`
-	Args      []string  `json:"args,omitempty"`
-	Headers   []Header  `json:"headers,omitempty"`
+	Name           string    `json:"name"`
+	Transport      Transport `json:"transport,omitempty"`
+	URL            string    `json:"url,omitempty"`
+	Command        string    `json:"command,omitempty"`
+	Args           []string  `json:"args,omitempty"`
+	Headers        []Header  `json:"headers,omitempty"`
+	TimeoutSeconds uint32    `json:"timeout_seconds,omitempty"`
 }
 
 type Header struct {
@@ -132,7 +133,6 @@ func (s Server) ConnectTransport(ctx context.Context, network http.RoundTripper)
 	}
 	client := &http.Client{
 		Transport:     network,
-		Timeout:       30 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
 	target := localtools.MCPTarget{Label: s.URL}

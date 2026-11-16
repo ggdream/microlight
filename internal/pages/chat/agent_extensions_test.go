@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/mcptools"
@@ -21,6 +23,54 @@ import (
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+func TestMCPToolCallTimeoutIsPerServer(t *testing.T) {
+	server := mcp.NewServer(&mcp.Implementation{Name: "timeout-test", Version: "1"}, nil)
+	mcp.AddTool(server, &mcp.Tool{Name: "wait"}, func(ctx context.Context, _ *mcp.CallToolRequest, _ map[string]any) (*mcp.CallToolResult, any, error) {
+		select {
+		case <-ctx.Done():
+			return nil, nil, ctx.Err()
+		case <-time.After(1500 * time.Millisecond):
+			return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "finished"}}}, nil, nil
+		}
+	})
+	endpoint := httptest.NewServer(mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, nil))
+	defer endpoint.Close()
+
+	store, err := openLocalStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	config := modelSettings{BaseURL: defaultBaseURL, Model: defaultModel, MCPServers: []mcptools.Server{
+		{Name: "limited", URL: endpoint.URL, TimeoutSeconds: 1},
+		{Name: "unlimited", URL: endpoint.URL},
+	}}
+	if err := store.saveSettings(config); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := store.loadSettings()
+	if err != nil || saved == nil || !reflect.DeepEqual(saved.MCPServers, config.MCPServers) {
+		t.Fatalf("MCP timeout settings did not round trip: %v", err)
+	}
+	var ext agentExtensions
+	defer ext.close()
+	if err := ext.load(t.Context(), *saved, &skills.Catalog{}, http.DefaultTransport); err != nil {
+		t.Fatal(err)
+	}
+	if len(ext.tools) != 2 {
+		t.Fatalf("expected two MCP tools, got %d", len(ext.tools))
+	}
+	if _, err := ext.tools[0].(tool.InvokableTool).InvokableRun(t.Context(), "{}"); !errors.Is(err, errMCPToolTimeout) {
+		t.Fatalf("expected configured tool call timeout, got %v", err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	result, err := ext.tools[1].(tool.InvokableTool).InvokableRun(ctx, "{}")
+	if err != nil || !strings.Contains(result, "finished") {
+		t.Fatalf("the unlimited server should finish: %q, %v", result, err)
+	}
+}
 
 func TestAgentUsesConfiguredSkillsAndMCPWithApproval(t *testing.T) {
 	dir := t.TempDir()

@@ -144,7 +144,9 @@ func (app *chatApp) runReply(chat *conversation, reply *turn, index int, answer 
 				slog.Error("对话执行失败", "error_type", fmt.Sprintf("%T", err))
 				reply.State, reply.Error = "error", replyRequestFailed
 				var integration *extensionError
-				if errors.As(err, &integration) {
+				if errors.Is(err, errMCPToolTimeout) {
+					reply.Error = locales.McpToolTimedOut()
+				} else if errors.As(err, &integration) {
 					reply.Error = locales.SkillsReadFailed()
 					if integration.server != "" {
 						reply.Error = locales.McpConnectFailed() + " · " + integration.server

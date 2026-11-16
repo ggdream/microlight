@@ -746,6 +746,46 @@ func (msgs Messages) ClosePreview() string {
 	return Catalog.Format(msgs.locale, "closePreview", nil)
 }
 
+// ImagePreview says "Image Preview"
+// in the language the app shows.
+func ImagePreview() string { return In(i18n.Locale()).ImagePreview() }
+
+// ImagePreview says "Image Preview"
+// in the language of msgs.
+func (msgs Messages) ImagePreview() string {
+	return Catalog.Format(msgs.locale, "imagePreview", nil)
+}
+
+// ImagePreviewLoading says "Loading image…"
+// in the language the app shows.
+func ImagePreviewLoading() string { return In(i18n.Locale()).ImagePreviewLoading() }
+
+// ImagePreviewLoading says "Loading image…"
+// in the language of msgs.
+func (msgs Messages) ImagePreviewLoading() string {
+	return Catalog.Format(msgs.locale, "imagePreviewLoading", nil)
+}
+
+// DownloadImage says "Download Image"
+// in the language the app shows.
+func DownloadImage() string { return In(i18n.Locale()).DownloadImage() }
+
+// DownloadImage says "Download Image"
+// in the language of msgs.
+func (msgs Messages) DownloadImage() string {
+	return Catalog.Format(msgs.locale, "downloadImage", nil)
+}
+
+// DownloadImageFailed says "Could not save the image."
+// in the language the app shows.
+func DownloadImageFailed() string { return In(i18n.Locale()).DownloadImageFailed() }
+
+// DownloadImageFailed says "Could not save the image."
+// in the language of msgs.
+func (msgs Messages) DownloadImageFailed() string {
+	return Catalog.Format(msgs.locale, "downloadImageFailed", nil)
+}
+
 // PreviewUnavailable says "Preview unavailable"
 // in the language the app shows.
 func PreviewUnavailable() string { return In(i18n.Locale()).PreviewUnavailable() }
@@ -2694,6 +2734,66 @@ func McpTransport() string { return In(i18n.Locale()).McpTransport() }
 // in the language of msgs.
 func (msgs Messages) McpTransport() string {
 	return Catalog.Format(msgs.locale, "mcpTransport", nil)
+}
+
+// McpNoServers says "No MCP servers added yet."
+// in the language the app shows.
+func McpNoServers() string { return In(i18n.Locale()).McpNoServers() }
+
+// McpNoServers says "No MCP servers added yet."
+// in the language of msgs.
+func (msgs Messages) McpNoServers() string {
+	return Catalog.Format(msgs.locale, "mcpNoServers", nil)
+}
+
+// McpServerActions says "Server actions"
+// in the language the app shows.
+func McpServerActions() string { return In(i18n.Locale()).McpServerActions() }
+
+// McpServerActions says "Server actions"
+// in the language of msgs.
+func (msgs Messages) McpServerActions() string {
+	return Catalog.Format(msgs.locale, "mcpServerActions", nil)
+}
+
+// McpToolTimeout says "Timeout"
+// in the language the app shows.
+func McpToolTimeout() string { return In(i18n.Locale()).McpToolTimeout() }
+
+// McpToolTimeout says "Timeout"
+// in the language of msgs.
+func (msgs Messages) McpToolTimeout() string {
+	return Catalog.Format(msgs.locale, "mcpToolTimeout", nil)
+}
+
+// McpNoTimeout says "No limit"
+// in the language the app shows.
+func McpNoTimeout() string { return In(i18n.Locale()).McpNoTimeout() }
+
+// McpNoTimeout says "No limit"
+// in the language of msgs.
+func (msgs Messages) McpNoTimeout() string {
+	return Catalog.Format(msgs.locale, "mcpNoTimeout", nil)
+}
+
+// McpTimeoutMinutes says "{minutes} min"
+// in the language the app shows.
+func McpTimeoutMinutes(minutes int) string { return In(i18n.Locale()).McpTimeoutMinutes(minutes) }
+
+// McpTimeoutMinutes says "{minutes} min"
+// in the language of msgs.
+func (msgs Messages) McpTimeoutMinutes(minutes int) string {
+	return Catalog.Format(msgs.locale, "mcpTimeoutMinutes", map[string]any{"minutes": minutes})
+}
+
+// McpToolTimedOut says "The MCP tool exceeded the configured timeout."
+// in the language the app shows.
+func McpToolTimedOut() string { return In(i18n.Locale()).McpToolTimedOut() }
+
+// McpToolTimedOut says "The MCP tool exceeded the configured timeout."
+// in the language of msgs.
+func (msgs Messages) McpToolTimedOut() string {
+	return Catalog.Format(msgs.locale, "mcpToolTimedOut", nil)
 }
 
 // McpCommand says "Command"

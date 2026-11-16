@@ -74,6 +74,7 @@ func Run(assets fs.FS) {
 	app.loadHistory()
 	app.restoreDraft(app.history.Selected)
 	app.loadSettings()
+	app.setMarkdownImageLoader(app.settings.Proxy)
 	mygo.App.WhenReady(func() {
 		app.win = mygo.NewWindow(mygo.WindowOptions{
 			Title: locales.AppName(), Width: 1120, Height: 760,

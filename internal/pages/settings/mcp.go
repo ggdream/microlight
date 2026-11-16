@@ -17,6 +17,8 @@ type MCPForm struct {
 	name, endpoint, command, args string
 	transport                     mcptools.Transport
 	initialTransport              mcptools.Transport
+	timeoutSeconds                uint32
+	adding, revealEditor          bool
 	mcpError                      string
 	mcpEditing                    string
 	headers                       []*mcpHeaderDraft
@@ -38,44 +40,29 @@ func (form *MCPForm) HasChanges(servers []mcptools.Server) bool {
 	}
 	return form.name != saved.name || form.endpoint != saved.endpoint ||
 		form.command != saved.command || form.args != saved.args ||
+		form.timeoutSeconds != saved.timeoutSeconds ||
 		transport(form.transport) != transport(saved.transport) ||
 		!slices.EqualFunc(form.headers, saved.headers, func(a, b *mcpHeaderDraft) bool { return *a == *b })
 }
 
-func (form *MCPForm) View(c *ui.Context, icons asseticon.Set, servers []mcptools.Server, save func([]mcptools.Server) error) {
+func (form *MCPForm) View(c *ui.Context, icons asseticon.Set, servers []mcptools.Server, save func([]mcptools.Server) error, navigate func(func())) {
 	Section(c, "MCP", locales.McpSettingsHint(), func() {
-		if len(servers) > 0 {
-			Card(c, locales.McpServers(), func() {
-				for i, server := range servers {
-					ui.Row(c.Key(server.Name)).Gap(10).AlignItems(ui.Center).Children(func() {
-						ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
-							ui.Text(c, server.Name).FontSize(13).FontWeight(620)
-							target := server.URL
-							if server.Kind() == mcptools.Stdio {
-								target = server.Command
-							}
-							ui.Text(c, server.Kind().Label()+" · "+target).NoWrap().Ellipsis("…").FontSize(12).TextColor(theme.Muted)
-						})
-						ActionButton(c.Key("edit"), icons, locales.EditMcpServer(), "edit", false).OnClick(func() {
-							form.edit(server)
-						})
-						ActionButton(c, icons, locales.RemoveMCPServer(), "close", false).OnClick(func() {
-							if form.save(save, slices.Delete(slices.Clone(servers), i, i+1)) && form.mcpEditing == server.Name {
-								form.reset()
-							}
-						})
-					})
-				}
-			})
+		form.serverList(c.Key("servers"), icons, servers, save, navigate)
+		if form.mcpError != "" && !form.adding && form.mcpEditing == "" {
+			ui.Text(c, form.mcpError).FontSize(12).TextColor(theme.ErrorFG)
+		}
+		if !form.adding && form.mcpEditing == "" {
+			return
 		}
 		title, submit := locales.AddMCPServer(), locales.AddMCPServer()
 		glyph := "plus"
 		if form.mcpEditing != "" {
 			title, submit, glyph = locales.EditMcpServer(), locales.SaveSettings(), "check"
 		}
-		Card(c, title, func() {
+		editor := Card(c.Key("editor"), title, func() {
 			Field(c, locales.McpServerName(), "my-server", &form.name)
 			form.transportControl(c, icons)
+			form.timeoutControl(c, icons)
 			if form.transport == mcptools.Stdio {
 				Field(c, locales.McpCommand(), "/opt/homebrew/bin/uvx", &form.command)
 				Field(c, locales.McpArgs(), `["my-mcp-server"]`, &form.args)
@@ -85,14 +72,16 @@ func (form *MCPForm) View(c *ui.Context, icons asseticon.Set, servers []mcptools
 			}
 			ui.Row(c).Gap(8).Children(func() {
 				ActionButton(c.Key("submit"), icons, submit, glyph, false).OnClick(func() { form.submit(servers, save) })
-				if form.mcpEditing != "" {
-					ActionButton(c.Key("cancel"), icons, locales.Cancel(), "close", false).OnClick(form.reset)
-				}
+				ActionButton(c.Key("cancel"), icons, locales.Cancel(), "close", false).OnClick(form.reset)
 			})
 			if form.mcpError != "" {
 				ui.Text(c, form.mcpError).FontSize(12).TextColor(theme.ErrorFG)
 			}
 		})
+		if form.revealEditor {
+			editor.ScrollIntoView(ui.ScrollIntoViewOptions{Block: ui.ScrollStart})
+			form.revealEditor = false
+		}
 	})
 }
 
@@ -101,28 +90,54 @@ func (form *MCPForm) transportControl(c *ui.Context, icons asseticon.Set) {
 	if selected == "" {
 		selected = mcptools.HTTP
 	}
-	label := locales.McpTransport()
-	ui.Row(c).AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
+	mcpSelect(c.Key("mcp-transport"), icons, locales.McpTransport(), &selected,
+		[]mcptools.Transport{mcptools.HTTP, mcptools.Stdio}, mcptools.Transport.Label, func() {
+			form.transport, form.mcpError = selected, ""
+		})
+}
+
+func (form *MCPForm) timeoutControl(c *ui.Context, icons asseticon.Set) {
+	selected := form.timeoutSeconds
+	options := []uint32{0, 30, 60, 180, 300, 600}
+	if !slices.Contains(options, selected) {
+		options = append(options, selected)
+		slices.Sort(options)
+	}
+	mcpSelect(c.Key("mcp-timeout"), icons, locales.McpToolTimeout(), &selected,
+		options, mcpTimeoutLabel, func() { form.timeoutSeconds, form.mcpError = selected, "" })
+}
+
+func mcpTimeoutLabel(seconds uint32) string {
+	if seconds == 0 {
+		return locales.McpNoTimeout()
+	}
+	if seconds%60 == 0 {
+		return locales.McpTimeoutMinutes(int(seconds / 60))
+	}
+	return locales.DurationSeconds(int(seconds))
+}
+
+func mcpSelect[T comparable](c *ui.Context, icons asseticon.Set, label string, selected *T, options []T, optionLabel func(T) string, change func()) {
+	ui.Row(c).AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(10).Children(func() {
 		ui.Text(c, label).FontSize(12).FontWeight(610)
-		dropdown := ui.SelectBase(c.Key("mcp-transport"), &selected)
-		dropdown.Trigger.Label(label).Value(selected.Label()).Width(168).Height(35).PaddingX(10).
+		dropdown := ui.SelectBase(c.Key("select"), selected)
+		dropdown.Trigger.Label(label).Value(optionLabel(*selected)).Width(168).Height(35).PaddingX(10).
 			AlignItems(ui.Center).Justify(ui.SpaceBetween).Border(1, theme.Border).Radius(7).
 			Background(theme.Canvas).Cursor(ui.CursorPointer).FocusRingColor(theme.Accent).
 			Children(func() {
-				ui.Text(c, selected.Label()).FontSize(13)
+				ui.Text(c, optionLabel(*selected)).FontSize(13)
 				ui.Icon(c, icons.SVG("ios_chevron_right")).Size(14, 14).Rotate(90).TextColor(theme.Muted)
-			}).OnChange(func() {
-			form.transport, form.mcpError = selected, ""
-		})
+			}).OnChange(change)
 		dropdown.Popup(func(panel ui.Element) {
 			panel.Padding(4).Gap(2).Background(theme.White).Border(1, theme.Border).Radius(8)
-			for _, kind := range []mcptools.Transport{mcptools.HTTP, mcptools.Stdio} {
-				item := dropdown.Item(kind).Label(kind.Label()).Padding(6, 8).Radius(5).Cursor(ui.CursorPointer)
+			for _, option := range options {
+				value := optionLabel(option)
+				item := dropdown.Item(option).Label(value).Padding(6, 8).Radius(5).Cursor(ui.CursorPointer)
 				if item.Highlighted() {
 					item.Background(theme.Tint)
 				}
 				item.Children(func() {
-					ui.Text(c, kind.Label()).FontSize(13)
+					ui.Text(c, value).FontSize(13)
 				})
 			}
 		})
@@ -130,7 +145,7 @@ func (form *MCPForm) transportControl(c *ui.Context, icons asseticon.Set) {
 }
 
 func (form *MCPForm) submit(existing []mcptools.Server, save func([]mcptools.Server) error) {
-	server := mcptools.Server{Name: strings.TrimSpace(form.name), Transport: form.transport}
+	server := mcptools.Server{Name: strings.TrimSpace(form.name), Transport: form.transport, TimeoutSeconds: form.timeoutSeconds}
 	server.Transport = server.Kind()
 	if server.Transport == mcptools.Stdio {
 		server.Command = strings.TrimSpace(form.command)
@@ -166,6 +181,7 @@ func (form *MCPForm) edit(server mcptools.Server) {
 	form.reset()
 	form.mcpEditing, form.name = server.Name, server.Name
 	form.transport, form.endpoint, form.command = server.Kind(), server.URL, server.Command
+	form.timeoutSeconds = server.TimeoutSeconds
 	if len(server.Args) != 0 {
 		args, _ := json.Marshal(server.Args)
 		form.args = string(args)
@@ -179,6 +195,8 @@ func (form *MCPForm) reset() {
 	form.mcpEditing, form.mcpError = "", ""
 	form.name, form.endpoint, form.command, form.args = "", "", "", ""
 	form.headers = nil
+	form.timeoutSeconds = 0
+	form.adding, form.revealEditor = false, false
 	form.initialTransport = form.transport
 }
 
