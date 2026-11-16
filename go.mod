@@ -8,7 +8,7 @@ require (
 	github.com/cloudwego/eino-ext/components/model/agenticopenai v0.2.3
 	github.com/cloudwego/eino-ext/components/tool/mcp/officialmcp v0.1.2-0.20261019121619-eee37f63ff95
 	github.com/ebitengine/purego v0.11.1
-	github.com/egoist/mygo v0.9.0
+	github.com/egoist/mygo v0.9.1
 	github.com/f1sherb0y/mermaid-go v0.1.0
 	github.com/go-tex/math v0.50.0
 	github.com/google/jsonschema-go v0.4.3
