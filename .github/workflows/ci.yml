@@ -42,11 +42,13 @@ jobs:
         with:
           go-version-file: go.mod
           cache-dependency-path: go.sum
-      - name: Install Linux PAC test dependencies
+      - name: Install Linux test dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends dbus-daemon glib-networking gsettings-desktop-schemas libglib2.0-bin
+          sudo apt-get install -y --no-install-recommends \
+            dbus-daemon glib-networking gsettings-desktop-schemas libglib2.0-bin \
+            fonts-dejavu-core libpangocairo-1.0-0
       - name: Test
         if: runner.os != 'Linux'
         run: go test -mod=readonly -count=1 ./...
