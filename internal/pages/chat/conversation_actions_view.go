@@ -65,7 +65,7 @@ func (app *chatApp) sidebarChat(c *ui.Context, chat *conversation, selected bool
 	}).PopoverMenu(menu)
 }
 
-func sidebarTitle(c *ui.Context, title string, color ui.Color, hovered bool) {
+func sidebarTitle(c *ui.Context, title string, color ui.Color, hovered bool) ui.Element {
 	const fontSize, gap = 12, 24
 	viewport := ui.Row(c).Grow(1).MinWidth(0).AlignItems(ui.Center).Clip().AccessHidden(true)
 	width := viewport.LayoutBounds().W
@@ -101,8 +101,9 @@ func sidebarTitle(c *ui.Context, title string, color ui.Color, hovered bool) {
 	} else {
 		*started = time.Time{}
 	}
+	var track ui.Element
 	viewport.Children(func() {
-		track := ui.Row(c).Shrink(0).Gap(gap).AlignItems(ui.Center).Translate(-offset, 0)
+		track = ui.Row(c).Shrink(0).Gap(gap).AlignItems(ui.Center).Translate(-offset, 0)
 		track.Children(func() {
 			ui.Text(c, title).Width(textWidth).Shrink(0).SingleLine().FontSize(fontSize).TextColor(color)
 			if scrolling {
@@ -110,6 +111,7 @@ func sidebarTitle(c *ui.Context, title string, color ui.Color, hovered bool) {
 			}
 		})
 	})
+	return track
 }
 
 func (app *chatApp) conversationMenu(m *ui.Menu, chat *conversation) {

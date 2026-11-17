@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"bytes"
 	"testing"
 	"time"
 
@@ -187,31 +186,44 @@ func TestDeleteConversationRemovesOwnedData(t *testing.T) {
 }
 
 func TestClippedSidebarTitleScrollsOnlyOnHover(t *testing.T) {
+	const title = "A conversation title that is much longer than the available sidebar width"
 	hovered := false
+	var x, width float32
 	window := ui.NewTester(func(c *ui.Context) {
-		ui.Row(c).Width(125).Height(34).AlignItems(ui.Center).Background(white).Children(func() {
-			sidebarTitle(c, "这是一条会被截断的长标题 With several English words", ink, hovered)
+		ui.Row(c).Width(125).Height(34).AlignItems(ui.Center).Children(func() {
+			track := sidebarTitle(c.Key("title"), title, ink, hovered)
+			x, _ = track.LocalToWindow(0, 0)
+			width = track.LayoutBounds().W
 		})
 	}, 150, 45)
+	titlePosition := func() float32 {
+		t.Helper()
+		// Element geometry reflects the previous frame.
+		window.Frame()
+		if width <= 125 {
+			t.Fatalf("expected the title to overflow, got width %v", width)
+		}
+		return x
+	}
 	window.Advance(time.Millisecond)
-	idle := bytes.Clone(window.Image().Pix)
+	idle := titlePosition()
 	hovered = true
 	window.Frame()
 	window.Advance(time.Second)
-	if bytes.Equal(idle, window.Image().Pix) {
-		t.Fatal("the clipped title did not scroll on hover")
+	if position := titlePosition(); position >= idle {
+		t.Fatalf("the clipped title did not scroll on hover: start %v, now %v", idle, position)
 	}
 	hovered = false
 	window.Frame()
-	if !bytes.Equal(idle, window.Image().Pix) {
-		t.Fatal("the title did not return to its start after hover")
+	if position := titlePosition(); position != idle {
+		t.Fatalf("the title did not return to its start after hover: got %v, want %v", position, idle)
 	}
 	window.SetPreferences(ui.Preferences{ReduceMotion: true})
 	hovered = true
 	window.Frame()
 	window.Advance(time.Second)
-	if !bytes.Equal(idle, window.Image().Pix) {
-		t.Fatal("the title scrolled with reduced motion enabled")
+	if position := titlePosition(); position != idle {
+		t.Fatalf("the title scrolled with reduced motion enabled: got %v, want %v", position, idle)
 	}
 }
 

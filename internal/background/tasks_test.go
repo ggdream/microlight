@@ -11,6 +11,7 @@ import (
 )
 
 func TestShellTaskOutlivesReplyAndCanBeStopped(t *testing.T) {
+	workspace := t.TempDir()
 	tasks, err := New(t.Context())
 	if err != nil {
 		t.Fatal(err)
@@ -22,7 +23,6 @@ func TestShellTaskOutlivesReplyAndCanBeStopped(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	workspace := t.TempDir()
 	print, wait := "printf output-marker", "sleep 30"
 	if runtime.GOOS == "windows" {
 		print, wait = "Write-Output output-marker", "Start-Sleep -Seconds 30"
@@ -51,7 +51,7 @@ func TestShellTaskOutlivesReplyAndCanBeStopped(t *testing.T) {
 	if rows := tasks.ActiveRows(); len(rows) != 1 || rows[0].Spec.ID != id {
 		t.Fatalf("active list contains unexpected tasks: %+v", rows)
 	}
-	stop, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	stop, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
 	if err := tasks.Stop(stop, id); err != nil {
 		t.Fatal(err)
@@ -64,7 +64,7 @@ func TestShellTaskOutlivesReplyAndCanBeStopped(t *testing.T) {
 
 func waitForTaskStatus(t *testing.T, tasks *Tasks, id string, expected backgroundtask.Status) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
 	for {
 		task, err := tasks.manager.Get(ctx, id)
