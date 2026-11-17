@@ -48,7 +48,7 @@ else
         internal/pages/chat/local_agent_test.go|internal/pages/chat/locales_test.go)
           windows=true
           ;;
-        main.go|internal/app/*|internal/attachment/*|internal/desktop/*|internal/shell/*|internal/localtools/*|internal/workspace/*|pkg/proxy/*|pkg/a2uimygo/media.go|internal/pages/settings/proxy.go|internal/pages/chat/notifications.go|internal/pages/chat/conversation_access*|internal/pages/chat/proxy_settings*|internal/pages/chat/images*|internal/pages/chat/attachment_view.go|internal/pages/chat/composer/input.go|assets/tray.png)
+        main.go|internal/app/*|internal/attachment/*|internal/background/*|internal/desktop/*|internal/shell/*|internal/localtools/*|internal/workspace/*|pkg/proxy/*|pkg/a2uimygo/media.go|internal/pages/settings/proxy.go|internal/pages/chat/notifications.go|internal/pages/chat/conversation_access*|internal/pages/chat/proxy_settings*|internal/pages/chat/images*|internal/pages/chat/attachment_view.go|internal/pages/chat/composer/input.go|assets/tray.png)
           all=true
           break
           ;;
