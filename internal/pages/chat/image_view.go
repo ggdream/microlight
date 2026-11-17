@@ -24,8 +24,8 @@ func (app *chatApp) setMarkdownImageLoader(config proxy.Config) {
 	if app.md == nil {
 		return
 	}
-	ctx := app.appContext()
-	cache := make(map[string]*markdownImage)
+	app.markdownImageProxy = config
+	app.markdownImages = make(map[string]*markdownImage)
 	app.md.Block = func(c *ui.Context, doc *parser.Document, block int) bool {
 		if doc.Block(block).Kind != parser.Paragraph {
 			return false
@@ -46,35 +46,12 @@ func (app *chatApp) setMarkdownImageLoader(config proxy.Config) {
 					continue
 				}
 				item := ui.Box(c.Key(i)).MaxWidthPercent(100)
-				entry := ui.Local(item, struct {
-					Source string
-					Proxy  proxy.Config
-				}{node.Dest, config}, func() *markdownImage {
-					if cached := cache[node.Dest]; cached != nil {
-						return cached
-					}
-					if len(cache) >= 32 {
-						clear(cache)
-					}
-					image := &markdownImage{done: make(chan struct{})}
-					cache[node.Dest] = image
-					services := c.Services()
-					go func() {
-						if decoded, err := linkpreview.FetchImage(ctx, node.Dest, config); err == nil {
-							image.bitmap = ui.NewBitmap(decoded.Pixels)
-							image.original = decoded.Original
-							image.filename = imageFilename(node.Dest, decoded.Format)
-						}
-						close(image.done)
-						services.Invalidate()
-					}()
-					return image
-				})
+				entry := app.scopedMarkdownImage(c, item, node.Dest)
 				item.Children(func() {
 					select {
-					case <-(*entry).done:
-						if (*entry).bitmap != nil {
-							app.chatImage(c, *entry, alt)
+					case <-entry.done:
+						if entry.bitmap != nil {
+							app.chatImage(c, entry, alt)
 						} else {
 							imagePlaceholder(c, alt, true)
 						}
@@ -86,6 +63,39 @@ func (app *chatApp) setMarkdownImageLoader(config proxy.Config) {
 		})
 		return true
 	}
+}
+
+func (app *chatApp) scopedMarkdownImage(c *ui.Context, item ui.Element, source string) *markdownImage {
+	key := struct {
+		Source string
+		Proxy  proxy.Config
+	}{source, app.markdownImageProxy}
+	return *ui.Local(item, key, func() *markdownImage { return app.markdownImage(c, source) })
+}
+
+func (app *chatApp) markdownImage(c *ui.Context, source string) *markdownImage {
+	if app.markdownImages == nil {
+		app.markdownImages = make(map[string]*markdownImage)
+	}
+	if cached := app.markdownImages[source]; cached != nil {
+		return cached
+	}
+	if len(app.markdownImages) >= 32 {
+		clear(app.markdownImages)
+	}
+	image := &markdownImage{done: make(chan struct{})}
+	app.markdownImages[source] = image
+	services, ctx, config := c.Services(), app.appContext(), app.markdownImageProxy
+	go func() {
+		if decoded, err := linkpreview.FetchImage(ctx, source, config); err == nil {
+			image.bitmap = ui.NewBitmap(decoded.Pixels)
+			image.original = decoded.Original
+			image.filename = imageFilename(source, decoded.Format)
+		}
+		close(image.done)
+		services.Invalidate()
+	}()
+	return image
 }
 
 func isImageParagraph(inlines []parser.Inline) bool {

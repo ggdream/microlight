@@ -1,13 +1,11 @@
 package preview
 
 import (
-	"encoding/json"
 	"strconv"
 	"strings"
 
 	"github.com/ggdream/microlight/assets/locales"
 	timeline "github.com/ggdream/microlight/internal/activity"
-	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/theme"
 	"github.com/ggdream/microlight/pkg/diff"
 
@@ -35,12 +33,6 @@ func Content(c *ui.Context, state *ui.ListState, activity timeline.Entry, name s
 		details := activity.Details()
 		if content != nil {
 			details = *content
-			if activity.Tool == localtools.List {
-				var names []string
-				if json.Unmarshal([]byte(details), &names) == nil {
-					details = strings.Join(names, "\n")
-				}
-			}
 		}
 		if details == "" && content == nil {
 			details = locales.PreviewUnavailable()

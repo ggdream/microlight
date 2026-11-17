@@ -47,7 +47,6 @@ func (app *chatApp) composer(c *ui.Context, selected *conversation) {
 					app.resetComposerSkills()
 				}
 				ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
-					app.workspaceControl(c, selected)
 					app.accessControl(c, selected)
 				})
 				return

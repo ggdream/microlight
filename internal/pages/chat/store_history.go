@@ -54,9 +54,9 @@ func putConversation(tx *sql.Tx, chat *conversation, position int) error {
 			}
 		}
 		var interfaceData []byte
-		if len(entry.Interface) != 0 || entry.InterfaceAction != nil {
+		if len(entry.Interface) != 0 || entry.InterfaceAction != nil || entry.RecoveryOffset != nil || entry.RecoveryModel != nil {
 			var err error
-			interfaceData, err = json.Marshal(storedInterface{entry.Interface, entry.InterfaceAction})
+			interfaceData, err = json.Marshal(storedInterface{Updates: entry.Interface, Action: entry.InterfaceAction, RecoveryOffset: entry.RecoveryOffset, RecoveryModel: entry.RecoveryModel})
 			if err != nil {
 				return err
 			}
@@ -238,7 +238,8 @@ func (store *localStore) loadHistory() (history, error) {
 			if len(interfaceData) != 0 {
 				var saved storedInterface
 				if err := json.Unmarshal(interfaceData, &saved); err == nil {
-					entry.Interface, entry.InterfaceAction = saved.Updates, saved.Action
+					entry.Interface, entry.InterfaceAction, entry.RecoveryOffset = saved.Updates, saved.Action, saved.RecoveryOffset
+					entry.RecoveryModel = saved.RecoveryModel
 				}
 			}
 			chat.Turns = append(chat.Turns, entry)

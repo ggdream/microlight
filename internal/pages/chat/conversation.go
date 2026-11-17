@@ -74,6 +74,7 @@ func (app *chatApp) selectChat(id string) {
 		return
 	}
 	app.closeSettings()
+	app.backgroundOpen = false
 	app.fullAccess = nil
 	if id != app.history.Selected {
 		app.toolPanel = toolPreviewPanel{}

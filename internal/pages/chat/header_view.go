@@ -15,6 +15,11 @@ func (app *chatApp) topbar(c *ui.Context, selected *conversation) {
 		}
 		ui.Text(c, title).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").Clip().
 			FontSize(13).FontWeight(640)
+		if app.overlappingWorkspace(selected) {
+			ui.Box(c.Key("concurrent-workspace")).Tooltip(locales.WorkspaceConcurrent()).Label(locales.WorkspaceConcurrent()).Shrink(0).Children(func() {
+				icon(c, "shield_error", errorFG, 16)
+			})
+		}
 		if selected != nil && len(selected.Turns) > 0 && !selected.list.AtEnd() {
 			quietButton(c, locales.BackToLatest(), "down").OnClick(selected.list.ScrollToEnd)
 		}
@@ -22,12 +27,11 @@ func (app *chatApp) topbar(c *ui.Context, selected *conversation) {
 			round := selected.Turns[len(selected.Turns)-1]
 			if len(roundChangedFiles(round, selected.workspace)) > 0 {
 				messageIcon(c.Key("round-changes"), locales.RoundChanges(), "document_sync", false, func() {
-					app.toolPanel.visible, app.toolPanel.round = true, round
-					app.toolPanel.active, app.toolPanel.reveal = nil, nil
+					app.openRoundChanges(round)
 				})
 			}
 		}
-		app.chatProviderSelect(c.Key("provider"))
+		app.backgroundTaskIndicator(c.Key("background-tasks"))
 	})
 }
 

@@ -127,15 +127,23 @@ func (app *chatApp) fullAccessDialog(c *ui.Context) {
 	}
 }
 
-func accessModeIcon(c *ui.Context, mode localtools.Mode) {
+func accessModeGlyph(mode localtools.Mode) string {
 	switch mode {
 	case localtools.Smart:
-		icon(c, "shield_checkmark", muted, 15)
+		return "shield_checkmark"
 	case localtools.Full:
-		icon(c, "shield_error", ui.Hex("#B35B13"), 15)
+		return "shield_error"
 	default:
-		icon(c, "hand_left", muted, 15)
+		return "hand_left"
 	}
+}
+
+func accessModeIcon(c *ui.Context, mode localtools.Mode) {
+	color := muted
+	if mode == localtools.Full {
+		color = ui.Hex("#B35B13")
+	}
+	icon(c, accessModeGlyph(mode), color, 15)
 }
 
 func (app *chatApp) accessControl(c *ui.Context, chat *conversation) {
@@ -145,7 +153,7 @@ func (app *chatApp) accessControl(c *ui.Context, chat *conversation) {
 	}
 	title := locales.AgentPermissions()
 	dropdown := ui.SelectBase(c.Key("conversation-access"), &selected)
-	trigger := dropdown.Trigger.Label(title).Value(selected.Label()).Tooltip(title).
+	trigger := dropdown.Trigger.Label(title).Value(selected.Label()).Tooltip(locales.ModelDataHint()).
 		Height(30).PaddingX(8).Shrink(0).AlignItems(ui.Center).Gap(5).Radius(6).Cursor(ui.CursorPointer)
 	if trigger.Hovered() {
 		trigger.Background(side)
@@ -156,7 +164,8 @@ func (app *chatApp) accessControl(c *ui.Context, chat *conversation) {
 		ui.Icon(c, icons.SVG("ios_chevron_right")).Size(12, 12).Shrink(0).Rotate(90).TextColor(muted)
 	}).OnChange(func() { app.chooseAccess(chat, selected) })
 	dropdown.Popup(func(panel ui.Element) {
-		panel.Width(300).Padding(5).Gap(2).Background(white).Border(1, border).Radius(8)
+		width, _ := c.Size()
+		panel.Width(min(356, max(0, width-24))).Padding(5).Gap(2).Background(white).Border(1, border).Radius(10)
 		for _, choice := range []struct {
 			mode localtools.Mode
 			hint string
@@ -165,76 +174,59 @@ func (app *chatApp) accessControl(c *ui.Context, chat *conversation) {
 			{localtools.Smart, locales.ModeSmartHint()},
 			{localtools.Full, locales.ModeFullHint()},
 		} {
-			item := dropdown.Item(choice.mode).Label(choice.mode.Label()).Padding(7, 8).Gap(8).Radius(5).
-				AlignItems(ui.Start).Cursor(ui.CursorPointer)
-			if item.Highlighted() || choice.mode == selected {
-				item.Background(tint)
+			label := choice.mode.Label()
+			item := dropdown.Item(choice.mode).Label(label).Description(choice.hint).
+				Padding(8, 9).Gap(10).Radius(6).AlignItems(ui.Center).Cursor(ui.CursorPointer)
+			selectedMode := choice.mode == selected
+			checkColor := ui.Hex("#575B5E")
+			iconColor, titleColor, hintColor := checkColor, ui.Hex("#1B1F22"), ui.Hex("#707477")
+			if choice.mode == localtools.Full {
+				iconColor = ui.Hex("#AD6C52")
+				titleColor = ui.Hex("#96380F")
+				hintColor = titleColor
+			}
+			if item.Hovered() || (item.Highlighted() && !selectedMode) {
+				item.Background(ui.Hex("#F5F5F5"))
 			}
 			item.Children(func() {
-				accessModeIcon(c, choice.mode)
+				icon(c, accessModeGlyph(choice.mode), iconColor, 17)
 				ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
-					ui.Text(c, choice.mode.Label()).FontSize(12).FontWeight(620).TextColor(ink)
-					ui.Text(c, choice.hint).FontSize(11).TextColor(muted)
+					ui.Text(c, label).FontSize(13).FontWeight(620).TextColor(titleColor)
+					ui.Text(c, choice.hint).FillWidth().FontSize(12).TextColor(hintColor)
 				})
-				if choice.mode == selected {
-					icon(c, "check", accent, 13)
-				}
+				ui.Box(c).Size(15, 15).Shrink(0).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
+					if selectedMode {
+						icon(c, "check", checkColor, 14)
+					}
+				})
 			})
 		}
-		ui.Text(c, locales.ModelDataHint()).Padding(5, 8).FontSize(11).TextColor(muted)
 	})
 }
 
 func (app *chatApp) workspaceControl(c *ui.Context, chat *conversation) {
-	path := app.draftWorkspace
-	if chat != nil {
-		path = chat.workspace
-	}
-	label, tooltip := locales.NoWorkspace(), locales.Workspace()
-	if path != "" {
-		label, tooltip = filepath.Base(path), path
-	} else if chat != nil {
-		tooltip += "\n" + locales.WorkspaceLocked()
-	}
-	if chat != nil {
-		ui.Row(c).Gap(5).PaddingX(7).Shrink(0).AlignItems(ui.Center).Tooltip(tooltip).Children(func() {
-			icon(c, "folder", muted, 15)
-			ui.Text(c, label).MaxWidth(100).NoWrap().Ellipsis("…").FontSize(11).TextColor(muted)
-		})
+	if chat != nil || app.draftWorkspace != "" {
 		return
 	}
-	ui.Row(c).AlignItems(ui.Center).Gap(2).Shrink(0).Children(func() {
-		button := pointerButton(c.Key("conversation-workspace"), app.pickingWorkspace).Label(locales.Workspace()).
-			Tooltip(tooltip).Gap(5).AlignItems(ui.Center).Height(30).PaddingX(7).Radius(6).Shrink(0)
-		if button.Hovered() {
-			button.Background(side)
-		}
-		button.Children(func() {
-			icon(c, "folder", muted, 15)
-			ui.Text(c, label).MaxWidth(100).NoWrap().Ellipsis("…").FontSize(11).TextColor(muted)
-		}).OnClick(app.pickWorkspace)
-		if path != "" {
-			clearLabel := locales.ClearWorkspace()
-			clear := pointerButton(c.Key("clear-workspace"), app.pickingWorkspace).Label(clearLabel).Tooltip(clearLabel).
-				Size(22, 22).Radius(6).AlignItems(ui.Center).Justify(ui.Center)
-			if clear.Hovered() {
-				clear.Background(side)
-			}
-			clear.Children(func() {
-				icon(c, "close", muted, 12)
-			}).OnClick(func() { app.draftWorkspace, app.accessError = "", "" })
-		}
-	})
+	label := locales.Workspace()
+	button := pointerButton(c.Key("conversation-workspace"), app.pickingWorkspace).Label(label).
+		Tooltip(label).Gap(5).AlignItems(ui.Center).Height(30).PaddingX(7).Radius(6).Shrink(0)
+	if button.Hovered() {
+		button.Background(side)
+	}
+	button.Children(func() {
+		icon(c, "folder", muted, 15)
+		ui.Text(c, locales.NoWorkspace()).FontSize(11).TextColor(muted)
+	}).OnClick(app.pickWorkspace)
 }
 
 func (app *chatApp) pickWorkspace() {
 	app.pickingWorkspace = true
-	parent, current, draft := app.win, app.draftWorkspace, app.draftVersion
+	parent, draft := app.win, app.draftVersion
 	go func() {
 		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
 			Parent:            parent,
 			Title:             locales.ChooseWorkspace(),
-			DefaultPath:       current,
 			ButtonLabel:       locales.Choose(),
 			Directory:         true,
 			CreateDirectories: true,

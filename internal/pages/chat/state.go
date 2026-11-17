@@ -7,10 +7,12 @@ import (
 
 	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/internal/attachment"
+	"github.com/ggdream/microlight/internal/background"
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/pages/chat/composer"
 	"github.com/ggdream/microlight/internal/pages/settings"
 	"github.com/ggdream/microlight/pkg/a2ui"
+	"github.com/ggdream/microlight/pkg/proxy"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -31,12 +33,19 @@ type turn struct {
 	Interface       []interfaceUpdate     `json:"a2ui,omitempty"`
 	InterfaceAction *a2ui.RendererMessage `json:"a2ui_action,omitempty"`
 
+	RecoveryModel  *modelChoice `json:"recovery_model,omitempty"`
+	RecoveryOffset *int         `json:"recovery_offset,omitempty"`
+
+	activeTools          map[string]bool
 	reasoningOpen        *bool
 	interfacePreview     []interfaceUpdate
 	processPreview       string
 	compressing          bool
 	clarificationSurface *a2ui.Surface
 	copiedUntil          time.Time
+	artifactImageText    string
+	artifactImages       []imageDeliverable
+	browser              *localtools.BrowserSession
 }
 
 type conversation struct {
@@ -57,6 +66,7 @@ type conversation struct {
 	projectedInterface *interfaceProjection
 	run                *replyRun
 	runError           string
+	fileVersions       *localtools.FileVersions
 }
 
 type replyRun struct {
@@ -101,6 +111,11 @@ type chatApp struct {
 	previewDirectory       string
 	updateCheck            updateCheck
 	sidebarWidth           float32
+	tasks                  *background.Tasks
+	backgroundOpen         bool
+	backgroundError        string
+	backgroundRows         []background.Row
+	backgroundRefresh      time.Time
 	toolPanel              toolPreviewPanel
 	history                history
 	historyErr             string
@@ -125,6 +140,8 @@ type chatApp struct {
 	md                     *markdown.Options
 	brandIcon              *ui.Bitmap
 	imagePreview           chatImagePreview
+	markdownImages         map[string]*markdownImage
+	markdownImageProxy     proxy.Config
 	savingImage            atomic.Bool
 	links                  linkPreviews
 }

@@ -1,10 +1,12 @@
 package chat
 
 import (
+	"bytes"
 	"testing"
+	"time"
 
-	"github.com/ggdream/microlight/internal/attachment"
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/attachment"
 	"github.com/ggdream/microlight/internal/localtools"
 
 	"github.com/egoist/mygo/ui"
@@ -46,6 +48,32 @@ func TestConversationMenusAndArchiveRestore(t *testing.T) {
 		t.Fatal("the menu button should be hidden before hover")
 	}
 	row := find(first.Title)
+	first.run = &replyRun{}
+	window.Frame()
+	window.Move(row.X+row.W/2, row.Y+row.H/2)
+	find(locales.Thinking())
+	if _, visible := window.Find(locales.ChatActions()); visible {
+		t.Fatal("the running indicator should replace the menu button on hover")
+	}
+	rightClick(first.Title)
+	find(locales.RenameChat())
+	click(locales.ChatInfo())
+	find(locales.ChatTitle())
+	find(locales.ChatCreated())
+	find(locales.ChatLastActivity())
+	find(locales.ChatMessageCount())
+	find(locales.WorkspaceUnspecified())
+	click(locales.ChatTitleView())
+	find(locales.ChatTitleCollapse())
+	click(locales.ChatTitleCollapse())
+	find(locales.ChatTitleView())
+	click(locales.CloseChatInfo())
+	if app.chatAction != nil || app.selected() != second {
+		t.Fatal("viewing another conversation’s details changed the selection")
+	}
+
+	first.run = nil
+	window.Frame()
 	window.Move(row.X+row.W/2, row.Y+row.H/2)
 	click(locales.ChatActions())
 	for _, label := range []string{locales.RenameChat(), locales.PinChat(), locales.ArchiveChat(), locales.DeleteChat()} {
@@ -155,5 +183,57 @@ func TestDeleteConversationRemovesOwnedData(t *testing.T) {
 	h, err := store.loadHistory()
 	if err != nil || h.Selected != "" || len(h.Chats) != 1 || h.Chats[0].ID != other.ID {
 		t.Fatalf("unexpected remaining history: %+v, %v", h, err)
+	}
+}
+
+func TestClippedSidebarTitleScrollsOnlyOnHover(t *testing.T) {
+	hovered := false
+	window := ui.NewTester(func(c *ui.Context) {
+		ui.Row(c).Width(125).Height(34).AlignItems(ui.Center).Background(white).Children(func() {
+			sidebarTitle(c, "这是一条会被截断的长标题 With several English words", ink, hovered)
+		})
+	}, 150, 45)
+	window.Advance(time.Millisecond)
+	idle := bytes.Clone(window.Image().Pix)
+	hovered = true
+	window.Frame()
+	window.Advance(time.Second)
+	if bytes.Equal(idle, window.Image().Pix) {
+		t.Fatal("the clipped title did not scroll on hover")
+	}
+	hovered = false
+	window.Frame()
+	if !bytes.Equal(idle, window.Image().Pix) {
+		t.Fatal("the title did not return to its start after hover")
+	}
+	window.SetPreferences(ui.Preferences{ReduceMotion: true})
+	hovered = true
+	window.Frame()
+	window.Advance(time.Second)
+	if !bytes.Equal(idle, window.Image().Pix) {
+		t.Fatal("the title scrolled with reduced motion enabled")
+	}
+}
+
+func TestConversationTimes(t *testing.T) {
+	createdAt := time.UnixMilli(1700000000000)
+	first := createdAt.Add(time.Minute)
+	last := first.Add(time.Hour)
+	chat := &conversation{
+		ID: "018bcfe5-6800-7000-8000-000000000000",
+		Turns: []*turn{
+			{StartedAt: first},
+			{StartedAt: first.Add(time.Minute), FinishedAt: last},
+			{StartedAt: first.Add(2 * time.Minute)},
+		},
+	}
+	created, latest, known := conversationTimes(chat)
+	if !created.Equal(createdAt) || !latest.Equal(last) || !known {
+		t.Fatalf("unexpected UUIDv7 conversation timestamps: %v, %v, %v", created, latest, known)
+	}
+	chat.ID = "legacy-id"
+	created, latest, known = conversationTimes(chat)
+	if !created.Equal(first) || !latest.Equal(last) || known {
+		t.Fatalf("unexpected legacy conversation timestamps: %v, %v, %v", created, latest, known)
 	}
 }

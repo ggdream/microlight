@@ -23,19 +23,38 @@ import (
 )
 
 func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID string, input []*turn, resume *clarification, answer string, emit func(replyDelta) error) (*clarification, error) {
+	if chat.config.BrowserUse && !localtools.HasBrowserSession(ctx) {
+		session := localtools.NewBrowserSession(ctx, chat.config.Proxy)
+		defer session.Close()
+		ctx = localtools.WithBrowserSession(ctx, session)
+	}
 	if store == nil {
 		return nil, errors.New(locales.DatabaseRequired())
 	}
 	agent := chat.agent
 	workspace := localtools.Workspace(ctx, chat.config.Workspace)
 	ctx = project.WithInstructions(ctx, workspace)
+	var emitMu sync.Mutex
+	deliver := emit
+	emit = func(delta replyDelta) error {
+		emitMu.Lock()
+		defer emitMu.Unlock()
+		return deliver(delta)
+	}
+	ctx = localtools.WithToolStartReporter(ctx, func(callID string) error {
+		return emit(replyDelta{toolStarted: callID})
+	})
 	var toolResults sync.Map
 	ctx = localtools.WithResultReporter(ctx, func(result localtools.Result) {
 		toolResults.Store(result.CallID, result)
 	})
 	skills := skillset.Discover(ctx, skillset.Roots(chat.skillsHome, workspace))
 	if resume == nil && len(input) > 0 {
-		ctx = withRequestedSkills(ctx, skills, input[len(input)-1].Content)
+		prompt := input[len(input)-1].Content
+		if original, ok := ctx.Value(recoveryPromptKey{}).(string); ok {
+			prompt = original
+		}
+		ctx = withRequestedSkills(ctx, skills, prompt)
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -118,7 +137,11 @@ func sessionInput(turns []*turn) ([]*schema.AgenticMessage, error) {
 			if strings.TrimSpace(entry.Content) == "" && len(entry.Attachments) == 0 {
 				return nil, errors.New(locales.EmptyMessage())
 			}
-			messages = append(messages, entry.message.userMessage())
+			msg, err := entry.message.userMessage()
+			if err != nil {
+				return nil, err
+			}
+			messages = append(messages, msg)
 		case "assistant":
 			var content strings.Builder
 			content.WriteString(entry.Content)

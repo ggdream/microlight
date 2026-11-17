@@ -16,7 +16,7 @@ type modelOption struct {
 	id, label string
 }
 
-func modelSelect(c *ui.Context, label, value string, selected *string, options []modelOption, width float32, dot ui.Color, change func()) {
+func modelSelect(c *ui.Context, label, value string, selected *string, options []modelOption, width float32, change func()) {
 	selectModel := ui.SelectBase(c, selected)
 	trigger := selectModel.Trigger.Label(label).Value(value).Tooltip(value).
 		Height(29).MaxWidth(width).MinWidth(0).PaddingX(9).Radius(6).Gap(6).
@@ -25,26 +25,33 @@ func modelSelect(c *ui.Context, label, value string, selected *string, options [
 		trigger.Background(hover)
 	}
 	trigger.Children(func() {
-		if dot.A != 0 {
-			ui.Box(c).Size(6, 6).Shrink(0).Radius(3).Background(dot)
-		}
 		ui.Text(c, value).MinWidth(0).SingleLine().Ellipsis("…").FontSize(11).FontWeight(620).TextColor(ink)
 		ui.Icon(c, icons.SVG("ios_chevron_right")).Size(10, 10).Shrink(0).Rotate(90).TextColor(muted)
 	}).OnChange(change)
 	selectModel.Popup(func(panel ui.Element) {
 		panel.Width(240).MaxHeight(255).Padding(4).Gap(2).Background(white).Border(1, border).Radius(8)
-		for _, option := range options {
-			item := selectModel.Item(option.id).Label(option.label).Padding(6, 8).
-				AlignItems(ui.Center).Gap(8).Radius(5).Cursor(ui.CursorPointer)
-			if item.Highlighted() || option.id == *selected {
-				item.Background(tint)
-			}
-			item.Children(func() {
-				ui.Text(c, option.label).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(12)
-				if option.id == *selected {
-					icon(c, "check", accent, 13)
+		rows := func() {
+			for _, option := range options {
+				item := selectModel.Item(option.id).Label(option.label).Padding(6, 8).
+					AlignItems(ui.Center).Gap(8).Radius(5).Cursor(ui.CursorPointer)
+				if item.Highlighted() || option.id == *selected {
+					item.Background(tint)
 				}
+				item.Children(func() {
+					ui.Text(c, option.label).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(12)
+					if option.id == *selected {
+						icon(c, "check", accent, 13)
+					}
+				})
+			}
+		}
+		if len(options) > 7 {
+			scroll, offset := elastic.Scroll(c.Key("options"))
+			scroll.FillWidth().MaxHeight(230).Children(func() {
+				offset.Apply(ui.Column(c)).FillWidth().Gap(2).Children(rows)
 			})
+		} else {
+			rows()
 		}
 	})
 }
@@ -57,40 +64,112 @@ func (app *chatApp) providerOptions() []modelOption {
 	return options
 }
 
-func (app *chatApp) chatProviderSelect(c *ui.Context) {
-	id := app.providers.Selected.ProviderID
-	p := app.providers.provider(id)
-	if p == nil {
+func (app *chatApp) chatModelSelect(c *ui.Context) {
+	current := app.currentModelChoice()
+	provider := app.providers.provider(current.ProviderID)
+	if provider == nil {
 		return
 	}
-	dot := accent
-	if app.backend.configErr != nil {
-		dot = errorFG
+	value := provider.Name + " / " + current.Model
+	trigger := pointerButton(c.Key("choice"), false).Label(locales.ChooseChatModel()).Value(value).Tooltip(value).
+		Height(32).MaxWidth(172).MinWidth(0).Radius(8).PaddingX(12).Gap(8).
+		AlignItems(ui.Center).FocusRingColor(accent)
+	open := ui.Local(trigger, "open", func() bool { return false })
+	draftProvider := ui.Local(trigger, "provider", func() string { return current.ProviderID })
+	var fillOpacity float32 = .05
+	switch {
+	case *open:
+		fillOpacity = .12
+	case trigger.Hovered():
+		fillOpacity = .08
 	}
-	modelSelect(c, locales.ModelProvider(), p.Name, &id, app.providerOptions(), 160, dot, func() {
-		app.selectProvider(modelChoice{ProviderID: id})
+	trigger.Background(accent.Alpha(fillOpacity)).Expanded(*open).Children(func() {
+		ui.Text(c, current.Model).MinWidth(0).SingleLine().Ellipsis("…").
+			FontSize(12).FontWeight(550).TextColor(accent)
+		angle := float32(90)
+		if *open {
+			angle = -90
+		}
+		ui.Icon(c, icons.SVG("ios_chevron_right")).Size(10, 10).Shrink(0).Rotate(angle).TextColor(accent)
+	}).OnClick(func() {
+		if !*open {
+			*draftProvider = current.ProviderID
+		}
+		*open = !*open
+	})
+	ui.PopoverBase(c.Key("picker"), trigger, open, func(panel ui.Element) {
+		panel.AttachTo(trigger, ui.AnchorTopEnd, ui.AnchorBottomEnd).Width(286).Margin(0, 0, 6).
+			Padding(6).Gap(5).Background(white).Border(1, border).Radius(11).
+			Shadow(0, 6, 20, 0, ui.RGBA(25, 36, 30, .10))
+		app.chatModelProviderTabs(c.Key("providers"), draftProvider)
+		ui.Box(c).Height(1).FillWidth().Margin(0, 2).Background(border)
+		picked := app.providers.provider(*draftProvider)
+		if picked == nil {
+			*draftProvider = current.ProviderID
+			picked = provider
+		}
+		chatModelRows(c.Key(picked.ID), picked, current, func(name string) {
+			choice := modelChoice{ProviderID: picked.ID}
+			if name != picked.Model {
+				choice.Model = name
+			}
+			app.selectProvider(choice)
+			*open = false
+		})
 	})
 }
 
-func (app *chatApp) chatModelSelect(c *ui.Context) {
-	p := app.providers.provider(app.providers.Selected.ProviderID)
-	if p == nil {
+func (app *chatApp) chatModelProviderTabs(c *ui.Context, selected *string) {
+	scroll, offset := elastic.Horizontal(c)
+	scroll.FillWidth().Height(32).Children(func() {
+		group := ui.RadioGroup(c.Key("providers"), func() {
+			offset.Apply(ui.Row(c)).Gap(4).Padding(0, 2).AlignItems(ui.Center).Children(func() {
+				for _, provider := range app.providers.Providers {
+					tab := ui.RadioBase(c.Key(provider.ID), selected, provider.ID).
+						Label(provider.Name).Tooltip(provider.Name).Height(28).MaxWidth(150).Shrink(0).
+						PaddingX(9).Radius(6).AlignItems(ui.Center).Cursor(ui.CursorPointer).FocusRingColor(accent)
+					color := muted
+					if provider.ID == *selected {
+						color = accent
+						tab.Background(tint)
+					} else if tab.Hovered() {
+						tab.Background(side)
+					}
+					tab.Children(func() {
+						ui.Text(c, provider.Name).MinWidth(0).SingleLine().Ellipsis("…").
+							FontSize(12).FontWeight(580).TextColor(color)
+					})
+				}
+			})
+		})
+		group.Label(locales.ModelProvider())
+	})
+}
+
+func chatModelRows(c *ui.Context, provider *modelProvider, active modelChoice, choose func(string)) {
+	rows := func() {
+		for _, name := range provider.Models {
+			selected := provider.ID == active.ProviderID && name == active.Model
+			item := pointerButton(c.Key(name), false).Label(name).Tooltip(name).AccessSelected(selected).
+				FillWidth().Height(34).PaddingX(9).Gap(8).AlignItems(ui.Center).Radius(6).FocusRingColor(accent)
+			if item.Hovered() {
+				item.Background(side)
+			}
+			item.Children(func() {
+				ui.Text(c, name).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(13).TextColor(ink)
+				if selected {
+					icon(c, "check", accent, 14)
+				}
+			}).OnClick(func() { choose(name) })
+		}
+	}
+	if len(provider.Models) <= 6 {
+		ui.Column(c).Label(locales.ModelID()).FillWidth().Gap(2).Children(rows)
 		return
 	}
-	model := app.settings.Model
-	options := make([]modelOption, 0, len(p.Models))
-	for _, name := range p.Models {
-		label := name
-		if name == p.Model {
-			label += " · " + locales.DefaultModel()
-		}
-		options = append(options, modelOption{id: name, label: label})
-	}
-	modelSelect(c, locales.ModelID(), model, &model, options, 135, ui.Transparent, func() {
-		if model == p.Model {
-			model = ""
-		}
-		app.selectProvider(modelChoice{ProviderID: p.ID, Model: model})
+	scroll, offset := elastic.Scroll(c)
+	scroll.Label(locales.ModelID()).FillWidth().MaxHeight(214).Children(func() {
+		offset.Apply(ui.Column(c)).FillWidth().Gap(2).Children(rows)
 	})
 }
 
@@ -176,7 +255,7 @@ func (app *chatApp) providerProtocolControl(c *ui.Context) {
 	control := func(c *ui.Context, label string, selected *string, options []modelOption, change func()) {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(8).Children(func() {
 			ui.Text(c, label).FontSize(12).FontWeight(610)
-			modelSelect(c.Key("select"), label, *selected, selected, options, 180, ui.Transparent, change)
+			modelSelect(c.Key("select"), label, *selected, selected, options, 180, change)
 		})
 	}
 	control(c.Key("family"), locales.ModelApiFamily(), &family, []modelOption{
@@ -333,7 +412,7 @@ func (app *chatApp) connectionTestControl(c *ui.Context) {
 	ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
 		ui.Text(c, locales.TestModel()).FontSize(12).TextColor(muted)
 		if selected != "" {
-			modelSelect(c.Key("model-select"), locales.TestModel(), selected, &selected, options, 250, ui.Transparent, func() {
+			modelSelect(c.Key("model-select"), locales.TestModel(), selected, &selected, options, 250, func() {
 				form.testModel = selected
 				app.clearConnectionTest()
 			})

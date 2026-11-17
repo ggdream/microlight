@@ -24,6 +24,7 @@ func (app *chatApp) view(c *ui.Context) {
 		c.OnWindowShortcut(ui.Cmd, ui.KeyK, func() { app.selectChat("") })
 	}
 	selected := app.selected()
+	app.syncBackgroundTasks(c)
 	if app.sidebarWidth == 0 {
 		app.sidebarWidth = defaultSidebarWidth
 	}

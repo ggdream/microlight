@@ -50,7 +50,7 @@ func Fetch(ctx context.Context, raw string, config proxy.Config) (Metadata, erro
 		return Metadata{}, err
 	}
 	defer transport.CloseIdleConnections()
-	return fetch(ctx, raw, transport, checkPublic)
+	return fetch(ctx, raw, transport, previewTargetCheck(config))
 }
 
 func fetch(ctx context.Context, raw string, transport http.RoundTripper, check func(context.Context, *url.URL) error) (Metadata, error) {
@@ -78,6 +78,21 @@ func publicTransport(config proxy.Config) (*proxy.Transport, error) {
 	}
 	transport.RestrictDirectDial(publicDial)
 	return transport, nil
+}
+
+func previewTargetCheck(config proxy.Config) func(context.Context, *url.URL) error {
+	if config.EffectiveMode() == proxy.Direct {
+		return checkPublic
+	}
+	return func(ctx context.Context, target *url.URL) error {
+		if _, ok := URL(target.String()); !ok {
+			return errors.New("invalid preview redirect")
+		}
+		// Fake DNS can supply synthetic addresses for proxied domains.
+		// A direct route still uses publicDial, which rejects these addresses.
+		_, err := publicAddresses(ctx, target.Hostname(), true)
+		return err
+	}
 }
 
 func fetchPublic(ctx context.Context, raw, accept string, transport http.RoundTripper, check func(context.Context, *url.URL) error) (*http.Response, error) {

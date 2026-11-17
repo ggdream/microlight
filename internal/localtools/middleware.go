@@ -67,6 +67,7 @@ type sessionAccessKey struct{}
 type Access struct {
 	workspace string
 	mode      atomic.Value
+	versions  *FileVersions
 }
 
 func (a *Access) SetMode(mode Mode) {
@@ -78,6 +79,8 @@ func NewAccess(workspace string, mode Mode) *Access {
 	access.SetMode(mode)
 	return access
 }
+
+func (a *Access) TrackFiles(versions *FileVersions) { a.versions = versions }
 
 func WithAccess(ctx context.Context, access *Access) context.Context {
 	return context.WithValue(ctx, sessionAccessKey{}, access)
@@ -91,11 +94,14 @@ func Workspace(ctx context.Context, fallback string) string {
 }
 
 type Approval struct {
+	CallID  string `json:",omitempty"`
 	Target  string
 	Preview string `json:",omitempty"`
 }
 
 type localOperation struct {
+	ocrData               []byte
+	ocrExtension          string
 	webClient             *http.Client
 	name, target, content string
 	root, relative        string
@@ -115,11 +121,12 @@ type localArguments struct {
 
 type Middleware struct {
 	adk.TypedBaseChatModelAgentMiddleware[*schema.AgenticMessage]
-	Workspace      string
-	Mode           Mode
-	WebClient      *http.Client
-	MCPTargets     map[string]MCPTarget
-	EncodeApproval func(question string, approval Approval) ([]byte, error)
+	Workspace       string
+	Mode            Mode
+	WebClient       *http.Client
+	MCPTargets      map[string]MCPTarget
+	WebSearchTarget string
+	EncodeApproval  func(question string, approval Approval) ([]byte, error)
 }
 
 func (h Middleware) ChatModelAgentMiddlewareName() string {
@@ -128,24 +135,45 @@ func (h Middleware) ChatModelAgentMiddlewareName() string {
 
 func (h Middleware) BeforeAgent(ctx context.Context, run *adk.ChatModelAgentContext[*schema.AgenticMessage]) (context.Context, *adk.ChatModelAgentContext[*schema.AgenticMessage], error) {
 	workspace := Workspace(ctx, h.Workspace)
-	if workspace == "" {
+	updated := *run
+	if workspace != "" {
+		updated.Instruction += fmt.Sprintf("\nThe workspace path is %q.", workspace)
+	}
+	var files []string
+	for i, file := range ocrAttachments(ctx) {
+		if file != nil && ocrFileExtension(file.Data) != "" {
+			files = append(files, fmt.Sprintf("%d (%q)", i+1, file.Name))
+		}
+	}
+	if len(files) != 0 {
+		updated.Instruction += "\nCurrent user files available to ocr or parse_document by attachment_index when the task calls for those tools: " + strings.Join(files, ", ") + "."
+	}
+	if updated.Instruction == run.Instruction {
 		return ctx, run, nil
 	}
-	updated := *run
-	updated.Instruction += fmt.Sprintf("\nThe workspace path is %q.", workspace)
 	return ctx, &updated, nil
 }
 
 type approvedOperationKey struct{}
 
+func TracksToolStart(name string) bool {
+	return isLocalTool(name) || name == WebSearch || strings.HasPrefix(name, "mcp_")
+}
+
+func isLocalTool(name string) bool {
+	switch name {
+	case Read, List, Write, Fetch, Execute, ExecuteBackground, PublishArtifact, BrowserUse, OCR, ParseDocument:
+		return true
+	default:
+		return false
+	}
+}
+
 func (h Middleware) WrapInvokableToolCall(_ context.Context, next adk.InvokableToolCallEndpoint, call *adk.ToolContext) (adk.InvokableToolCallEndpoint, error) {
 	target, isMCP := h.MCPTargets[call.Name]
-	switch call.Name {
-	case Read, List, Write, Fetch, Execute:
-	default:
-		if !isMCP {
-			return next, nil
-		}
+	isSearch := call.Name == WebSearch && h.WebSearchTarget != ""
+	if !isMCP && !isSearch && !isLocalTool(call.Name) {
+		return next, nil
 	}
 	return func(ctx context.Context, args string, opts ...tool.Option) (string, error) {
 		wasInterrupted, hasState, saved := tool.GetInterruptState[string](ctx)
@@ -159,24 +187,56 @@ func (h Middleware) WrapInvokableToolCall(_ context.Context, next adk.InvokableT
 			policy.Workspace = access.workspace
 		}
 		op := localOperation{name: call.Name, target: target.Label, fileVersion: target.Version, content: args, mcp: isMCP}
-		if !isMCP {
+		if isSearch {
+			query, err := searchQuery(args)
+			if err != nil {
+				return err.Error(), nil
+			}
+			op.target, op.content = h.WebSearchTarget, query
+		} else if call.Name == BrowserUse {
+			parameters, err := browserParams(args)
+			if err != nil {
+				return err.Error(), nil
+			}
+			session, _ := ctx.Value(browserSessionKey{}).(*BrowserSession)
+			op.target = browserTarget(session, parameters)
+		} else if call.Name == OCR || call.Name == ParseDocument {
+			var err error
+			op, err = policy.resolveOCR(ctx, call.Name, args)
+			if err != nil {
+				return "无法执行：" + err.Error(), nil
+			}
+		} else if !isMCP {
 			var err error
 			op, err = policy.resolve(call.Name, args)
 			if err != nil {
 				return "无法执行：" + err.Error(), nil
 			}
 		}
+		op.callID = call.CallID
+		if result, skip := recoveryResult(ctx, op, args); skip {
+			return result, nil
+		}
+		if op.name == Write {
+			if err := op.checkVersion(ctx); err != nil {
+				op.reportConflict(ctx)
+				return err.Error(), nil
+			}
+		}
 		// Bind the decision to this tool call and the exact resolved target and arguments.
 		fingerprint := fmt.Sprintf("%x", sha256.Sum256([]byte(call.CallID+"\x00"+op.target+"\x00"+op.fileVersion+"\x00"+args)))
 		if wasInterrupted && (!hasState || saved != fingerprint) {
+			if op.name == Write && hasState {
+				op.reportConflict(ctx)
+			}
 			return "操作目标已变化，请重新请求批准。", nil
 		}
 		if scoped {
 			policy.Mode = access.mode.Load().(Mode)
 		}
-		if wasInterrupted || policy.needsApproval(op) {
+		if wasInterrupted || policy.needsApproval(op) || recoveryNeedsApproval(ctx, op) {
 			if !targeted || !hasAnswer {
-				data, err := h.EncodeApproval(op.title(), Approval{Target: op.target, Preview: op.content})
+				data, err := h.EncodeApproval(op.title(), Approval{CallID: call.CallID, Target: op.target, Preview: op.content})
 				if err != nil {
 					return "", err
 				}
@@ -189,14 +249,18 @@ func (h Middleware) WrapInvokableToolCall(_ context.Context, next adk.InvokableT
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
+		if report, ok := ctx.Value(toolStartReporterKey{}).(func(string) error); ok && call.CallID != "" {
+			if err := report(call.CallID); err != nil {
+				return "", err
+			}
+		}
 		op.webClient = h.WebClient
-		op.callID = call.CallID
 		return next(context.WithValue(ctx, approvedOperationKey{}, op), args, opts...)
 	}, nil
 }
 
 func (h Middleware) needsApproval(op localOperation) bool {
-	if op.name == Execute {
+	if op.name == Execute || op.name == ExecuteBackground || op.name == OCR || op.name == ParseDocument {
 		return h.Mode.Normalized() != Full
 	}
 	switch h.Mode.Normalized() {
@@ -214,7 +278,15 @@ func (op localOperation) title() string {
 		return locales.McpToolCall() + " · " + op.name
 	}
 	switch op.name {
-	case Execute:
+	case WebSearch:
+		return locales.WebSearch()
+	case BrowserUse:
+		return locales.BrowserUseTool()
+	case OCR:
+		return locales.OcrUploadApproval()
+	case ParseDocument:
+		return locales.OcrDocumentUploadApproval()
+	case Execute, ExecuteBackground:
 		return "运行命令"
 	case Read:
 		return "读取文件"
@@ -236,7 +308,7 @@ func (h Middleware) resolve(name, raw string) (localOperation, error) {
 	if err := json.Unmarshal([]byte(raw), &args); err != nil {
 		return op, errors.New("工具参数格式无效")
 	}
-	if name == Execute {
+	if name == Execute || name == ExecuteBackground {
 		if strings.TrimSpace(args.Command) == "" || len(args.Command) > maxLocalWrite || strings.ContainsRune(args.Command, 0) {
 			return op, errors.New("需要有效的命令，且不能超过 16 KiB")
 		}
@@ -333,6 +405,11 @@ func (t Tool) Info(context.Context) (*schema.ToolInfo, error) {
 	params := map[string]*schema.ParameterInfo{"path": path}
 	var desc string
 	switch string(t) {
+	case PublishArtifact:
+		desc = "Register an existing local file as a deliverable for this reply. Use after creating the requested file with a command or another tool. Requires a regular file."
+	case ExecuteBackground:
+		desc = "Start a non-interactive shell command as a background task in the conversation workspace (or home if none). It runs independently of the reply for up to two minutes. Use when the user wants work to run in the background. The chat header shows active background commands and allows stopping them."
+		params = map[string]*schema.ParameterInfo{"command": {Type: schema.String, Required: true}}
 	case Read:
 		desc = "Read a local UTF-8 text file, up to 64 KiB. Use only for files relevant to the user's request."
 	case List:
@@ -354,6 +431,9 @@ func (t Tool) InvokableRun(ctx context.Context, _ string, _ ...tool.Option) (str
 	}
 	result, diff, err := op.execute(ctx)
 	if err != nil {
+		if errors.Is(err, errFileConflict) {
+			op.reportConflict(ctx)
+		}
 		return "无法执行：" + err.Error(), nil
 	}
 	if report, ok := ctx.Value(reportToolResultKey{}).(func(Result)); ok && op.callID != "" {
@@ -367,6 +447,10 @@ func (t Tool) InvokableRun(ctx context.Context, _ string, _ ...tool.Option) (str
 }
 
 func (op localOperation) execute(ctx context.Context) (string, *diff.Lines, error) {
+	if op.name == ExecuteBackground {
+		result, err := op.startBackground(ctx)
+		return result, nil, err
+	}
 	if op.name == Fetch {
 		text, err := fetchLocalAgentURL(ctx, op.webClient, op.target)
 		return text, nil, err
@@ -384,14 +468,30 @@ func (op localOperation) execute(ctx context.Context) (string, *diff.Lines, erro
 	}
 	defer root.Close()
 	if op.name == Write {
-		return op.write(root, path)
+		if _, busy := activeWrites.LoadOrStore(op.target, struct{}{}); busy {
+			return "", nil, errFileConflict
+		}
+		defer activeWrites.Delete(op.target)
+		if err := op.checkVersion(ctx); err != nil {
+			return "", nil, err
+		}
+		result, changes, err := op.write(root, path)
+		if err == nil {
+			if info, statErr := root.Lstat(path); statErr == nil {
+				op.rememberVersion(ctx, info)
+			}
+		}
+		return result, changes, err
 	}
 	info, err := root.Stat(path)
 	if err != nil {
 		return "", nil, err
 	}
-	if (op.name == Read && !info.Mode().IsRegular()) || (op.name == List && !info.IsDir()) {
+	if ((op.name == Read || op.name == PublishArtifact) && !info.Mode().IsRegular()) || (op.name == List && !info.IsDir()) {
 		return "", nil, errors.New("目标类型与操作不匹配")
+	}
+	if op.name == PublishArtifact {
+		return "Deliverable registered", nil, nil
 	}
 	f, err := root.Open(path)
 	if err != nil {
@@ -406,7 +506,14 @@ func (op localOperation) execute(ctx context.Context) (string, *diff.Lines, erro
 		data, err := json.Marshal(names)
 		return string(data), nil, err
 	}
+	info, err = f.Stat()
+	if err != nil {
+		return "", nil, err
+	}
 	text, err := readLocalAgentText(f)
+	if err == nil {
+		op.rememberVersion(ctx, info)
+	}
 	return text, nil, err
 }
 
@@ -434,12 +541,15 @@ func (op localOperation) write(root *os.Root, path string) (string, *diff.Lines,
 	if op.exists {
 		info, statErr := root.Lstat(path)
 		if statErr != nil || !info.Mode().IsRegular() || localFileVersion(info) != op.fileVersion {
-			return "", nil, errors.New("文件已变化，请重新请求批准")
+			return "", nil, errFileConflict
 		}
 		err = root.Rename(temp, path)
 	} else {
 		// Atomically create the target only if it is still absent.
 		err = root.Link(temp, path)
+		if errors.Is(err, os.ErrExist) {
+			return "", nil, errFileConflict
+		}
 	}
 	if err != nil {
 		return "", nil, err

@@ -8,8 +8,10 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/background"
 	"github.com/ggdream/microlight/internal/desktop"
 	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/internal/storage"
@@ -29,10 +31,14 @@ func Run(assets fs.FS) {
 			os.RemoveAll(app.previewDirectory)
 		}
 	}()
-	mygo.Use(updatenative.New(updater.Options{DisableAutomaticChecks: true}))
-	dir, err := mygo.App.Path(mygo.PathUserData)
+	parent, err := mygo.App.Path(mygo.PathAppData)
+	var dir string
+	if err == nil {
+		dir, err = storage.PrepareAppDataDir(parent)
+	}
 	if err == nil {
 		mygo.App.SetPath(mygo.PathUserData, dir)
+		mygo.App.SetPath(mygo.PathLogs, filepath.Join(dir, "logs"))
 		closeLogs, logErr := openAppLogs(dir)
 		if logErr != nil {
 			slog.Error("打开日志文件失败", "error", logErr)
@@ -47,6 +53,7 @@ func Run(assets fs.FS) {
 	if app.store != nil {
 		defer app.store.Close()
 	}
+	mygo.Use(updatenative.New(updater.Options{DisableAutomaticChecks: true}))
 	loadedIcons, iconErr := asseticon.Load(assets)
 	if iconErr != nil {
 		slog.Error("读取应用图标失败", "error", iconErr)
@@ -63,11 +70,24 @@ func Run(assets fs.FS) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	app.ctx = ctx
+	tasks, taskErr := background.New(ctx)
+	if taskErr != nil {
+		slog.Error("initialize background tasks", "error", taskErr)
+	} else {
+		app.tasks = tasks
+		defer func() {
+			shutdown, stop := context.WithTimeout(context.Background(), 5*time.Second)
+			defer stop()
+			if err := tasks.Close(shutdown); err != nil {
+				slog.Error("close background tasks", "error", err)
+			}
+		}()
+	}
 	defer cancel()
 	offQuit := mygo.App.OnQuit(cancel)
 	defer offQuit()
 	app.md = markup.New(ink)
-	app.md.Preview = app.links.offer
+	app.configureLinkPreviews()
 	app.loadLanguage()
 	app.loadBusySendMode()
 	app.loadSystemPrompt()

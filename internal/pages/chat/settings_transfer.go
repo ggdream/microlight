@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/mcptools"
 	"github.com/ggdream/microlight/internal/pages/settings"
 	"github.com/ggdream/microlight/internal/storage"
@@ -20,6 +21,9 @@ type settingsFile struct {
 	Models       *providerCatalog            `json:"models"`
 	Proxy        proxy.Config                `json:"proxy"`
 	MCPServers   []mcptools.Server           `json:"mcp_servers"`
+	WebSearch    localtools.SearchConfig     `json:"web_search"`
+	OCR          localtools.OCRConfig        `json:"ocr,omitzero"`
+	BrowserUse   bool                        `json:"browser_use"`
 	Language     settings.LanguagePreference `json:"language"`
 	BusySend     busySendMode                `json:"busy_send"`
 	SystemPrompt string                      `json:"system_prompt"`
@@ -32,11 +36,15 @@ func (app *chatApp) exportSettings() ([]byte, error) {
 	for i := range catalog.Providers {
 		provider := &catalog.Providers[i]
 		provider.MCPServers = nil
+		provider.WebSearch = localtools.SearchConfig{}
+		provider.OCR = localtools.OCRConfig{}
+		provider.BrowserUse = false
 		provider.AccessMode, provider.Workspace = "", ""
 	}
 	return json.MarshalIndent(settingsFile{
 		Version: settingsFileVersion, Models: &catalog, Proxy: app.settings.Proxy,
 		MCPServers: app.settings.MCPServers, Language: app.language, BusySend: app.busySend,
+		WebSearch: app.settings.WebSearch, OCR: app.settings.OCR, BrowserUse: app.settings.BrowserUse,
 		SystemPrompt: app.systemPrompt, Desktop: app.desktop,
 	}, "", "  ")
 }
@@ -87,6 +95,9 @@ func (file *settingsFile) validate() (modelSettings, error) {
 			models[model], provider.Models[j] = true, model
 		}
 		provider.MCPServers = nil
+		provider.WebSearch = localtools.SearchConfig{}
+		provider.OCR = localtools.OCRConfig{}
+		provider.BrowserUse = false
 		provider.AccessMode, provider.Workspace = "", ""
 		if err := provider.modelSettings.validate(); err != nil {
 			return modelSettings{}, err
@@ -107,7 +118,7 @@ func (file *settingsFile) validate() (modelSettings, error) {
 	} else {
 		file.Models.Providers = []modelProvider{}
 	}
-	shared := modelSettings{BaseURL: defaultBaseURL, Model: defaultModel, Proxy: file.Proxy, MCPServers: file.MCPServers}
+	shared := modelSettings{BaseURL: defaultBaseURL, Model: defaultModel, Proxy: file.Proxy, MCPServers: file.MCPServers, WebSearch: file.WebSearch, OCR: file.OCR, BrowserUse: file.BrowserUse}
 	config := file.Models.activeConfig(shared)
 	err := config.validate()
 	return config, err

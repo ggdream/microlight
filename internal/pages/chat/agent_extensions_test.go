@@ -154,16 +154,25 @@ func TestAgentUsesConfiguredSkillsAndMCPWithApproval(t *testing.T) {
 		backend.skillsHome = dir
 		return backend
 	}
-	question, err := newBackend().runSession(t.Context(), store, "test", []*turn{userTurn("Use both tools")}, nil, "", func(replyDelta) error { return nil })
-	if err != nil || question == nil || question.Approval == nil || question.Approval.Target != endpoint.URL || calls.Load() != 0 {
+	var started []string
+	question, err := newBackend().runSession(t.Context(), store, "test", []*turn{userTurn("Use both tools")}, nil, "", func(part replyDelta) error {
+		if part.toolStarted != "" {
+			started = append(started, part.toolStarted)
+		}
+		return nil
+	})
+	if err != nil || question == nil || question.Approval == nil || question.Approval.Target != endpoint.URL || question.Approval.CallID != "mcp-call" || calls.Load() != 0 || len(started) != 0 {
 		t.Fatalf("expected approval before tool execution, got %+v, %v, calls=%d", question, err, calls.Load())
 	}
 	var body strings.Builder
 	pending, err := newBackend().runSession(t.Context(), store, "test", nil, question, localtools.AllowOnce, func(part replyDelta) error {
 		body.WriteString(part.text)
+		if part.toolStarted != "" {
+			started = append(started, part.toolStarted)
+		}
 		return nil
 	})
-	if err != nil || pending != nil || body.String() != "Done" || calls.Load() != 1 {
+	if err != nil || pending != nil || body.String() != "Done" || calls.Load() != 1 || !slices.Equal(started, []string{"mcp-call"}) {
 		t.Fatalf("MCP resume failed: %q, %+v, %v, calls=%d", body.String(), pending, err, calls.Load())
 	}
 }

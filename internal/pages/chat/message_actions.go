@@ -41,14 +41,23 @@ func (app *chatApp) endReply(chat *conversation, reply *turn, state string) bool
 }
 
 func (reply *turn) finishInterrupted(state string) {
+	reply.closeBrowser()
 	if len(reply.Clarifications) > 0 {
 		last := &reply.Clarifications[len(reply.Clarifications)-1]
 		last.CheckpointID, last.InterruptID = "", ""
 		reply.clarificationSurface = nil
 	}
+	reply.activeTools = nil
 	reply.compressing = false
 	reply.keepProcessPreview()
 	reply.State = state
+}
+
+func (reply *turn) closeBrowser() {
+	if reply.browser != nil {
+		reply.browser.Close()
+		reply.browser = nil
+	}
 }
 
 func (app *chatApp) stopReply(chat *conversation, reply *turn) {
@@ -91,6 +100,7 @@ func (app *chatApp) forkReply(chat *conversation, forkIndex int, prefix []*turn,
 	if chat.isRunning() {
 		// The previous run is canceled after the branch is safely saved.
 		stopped := *chat.run.reply
+		stopped.browser = nil
 		stopped.Activity = slices.Clone(stopped.Activity)
 		stopped.keepProcessPreview()
 		stopped.State, stopped.FinishedAt = "stopped", now
@@ -106,6 +116,8 @@ func (app *chatApp) forkReply(chat *conversation, forkIndex int, prefix []*turn,
 	}
 	if chat.isRunning() {
 		app.endReply(chat, chat.run.reply, "stopped")
+	} else if waiting := chat.waitingReply(); waiting != nil {
+		waiting.closeBrowser()
 	}
 	chat.branchID, chat.sessionID, chat.Turns = edited.branchID, edited.sessionID, edited.Turns
 	chat.projectedInterface = nil

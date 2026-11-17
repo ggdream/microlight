@@ -100,53 +100,71 @@ func (tree *Tree) View(c *ui.Context, roundKey any, icons asseticon.Set, selecte
 func rows(c *ui.Context, icons asseticon.Set, nodes []*Tree, depth, selected int, open func(int), quickLook func(string)) {
 	for _, node := range nodes {
 		rowContext := c.Key(node.key)
-		inset := 8 + float32(min(depth, 8))*12
+		inset := treeInset(depth)
 		if node.file == nil {
-			folder := theme.PointerButton(rowContext, false).Label(node.name).FillWidth().MinHeight(28).
-				AlignItems(ui.Center).Padding(3, 7, 3, inset).Gap(5).Radius(5)
-			closed := ui.Local(folder, "closed", func() bool { return false })
-			folder.Expanded(!*closed)
-			if folder.Hovered() {
-				folder.Background(theme.Side)
-			}
-			folder.Children(func() {
-				arrow := ui.Icon(c, icons.SVG("ios_chevron_right")).Size(12, 12).Shrink(0).TextColor(theme.Muted)
-				glyph := "folder"
-				if !*closed {
-					arrow.Rotate(90)
-					glyph = "folder_open"
-				}
-				ui.Icon(c, icons.SVG(glyph)).Size(15, 15).Shrink(0).TextColor(theme.Muted)
-				ui.Text(c, node.name).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(12)
-			}).OnClick(func() { *closed = !*closed })
-			if !*closed {
+			if folderRow(rowContext, icons, node.name, "", inset, true) {
 				rows(c, icons, node.children, depth+1, selected, open, quickLook)
 			}
 			continue
 		}
-		file := theme.PointerButton(rowContext, false).Label(node.name).Tooltip(node.file.Path).
-			FillWidth().MinHeight(28).AlignItems(ui.Center).Padding(3, 7, 3, inset+17).Gap(5).Radius(5)
-		if selected == node.file.Index {
-			file.Background(theme.Tint)
-		} else if file.Hovered() {
-			file.Background(theme.Side)
-		}
-		file.Children(func() {
-			ui.Icon(c, icons.SVG(node.file.Icon)).Size(15, 15).Shrink(0).TextColor(theme.Muted)
-			ui.Text(c, node.name).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(12)
-			if node.file.Diff != nil {
-				DiffCounts(c.Key("tree-counts"), node.file.Diff)
-			}
-		}).OnClick(func() { open(node.file.Index) })
+		var preview func()
 		if filepath.IsAbs(node.file.Path) {
-			preview := func() { quickLook(node.file.Path) }
-			if file.Shortcut(0, ui.KeySpace) {
-				preview()
-			}
-			theme.PopupContextMenu(file, theme.PopupItem{Label: desktop.PreviewLabel(), Icon: icons.Menu("open"), OnSelect: preview})
+			preview = func() { quickLook(node.file.Path) }
 		}
+		fileRow(rowContext, icons, node.name, *node.file, inset, selected == node.file.Index,
+			func() { open(node.file.Index) }, preview)
 	}
 }
+
+func treeInset(depth int) float32 { return 8 + float32(min(depth, 8))*12 }
+
+func folderRow(c *ui.Context, icons asseticon.Set, name, path string, inset float32, expanded bool) bool {
+	folder := theme.PointerButton(c, false).Label(name).Tooltip(path).FillWidth().MinHeight(28).
+		AlignItems(ui.Center).Padding(3, 7, 3, inset).Gap(5).Radius(5)
+	open := ui.Local(folder, "open", func() bool { return expanded })
+	folder.Expanded(*open)
+	if folder.Hovered() {
+		folder.Background(theme.Side)
+	}
+	folder.Children(func() {
+		arrow := ui.Icon(c, icons.SVG("ios_chevron_right")).Size(12, 12).Shrink(0).TextColor(theme.Muted)
+		glyph := "folder"
+		if *open {
+			arrow.Rotate(90)
+			glyph = "folder_open"
+		}
+		ui.Icon(c, icons.SVG(glyph)).Size(15, 15).Shrink(0).TextColor(theme.Muted)
+		ui.Text(c, name).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(12)
+	}).OnClick(func() { *open = !*open })
+	return *open
+}
+
+func fileRow(c *ui.Context, icons asseticon.Set, name string, change Change, inset float32, selected bool, open, quickLook func()) {
+	file := theme.PointerButton(c, open == nil).Label(name).Tooltip(change.Path).
+		FillWidth().MinHeight(28).AlignItems(ui.Center).Padding(3, 7, 3, inset+17).Gap(5).Radius(5)
+	if selected {
+		file.Background(theme.Tint)
+	} else if file.Hovered() {
+		file.Background(theme.Side)
+	}
+	file.Children(func() {
+		ui.Icon(c, icons.SVG(change.Icon)).Size(15, 15).Shrink(0).TextColor(theme.Muted)
+		ui.Text(c, name).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(12)
+		if change.Diff != nil {
+			DiffCounts(c.Key("tree-counts"), change.Diff)
+		}
+	})
+	if open != nil {
+		file.OnClick(open)
+	}
+	if quickLook != nil {
+		if file.Shortcut(0, ui.KeySpace) {
+			quickLook()
+		}
+		theme.PopupContextMenu(file, theme.PopupItem{Label: desktop.PreviewLabel(), Icon: icons.Menu("open"), OnSelect: quickLook})
+	}
+}
+
 func DiffCounts(c *ui.Context, diff *diff.Lines) {
 	ui.Row(c).Gap(5).Shrink(0).Children(func() {
 		ui.Text(c, "+"+strconv.Itoa(diff.Added)).NoWrap().FontFeatures("tnum").TextColor(theme.Accent)

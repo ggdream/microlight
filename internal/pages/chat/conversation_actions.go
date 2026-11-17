@@ -100,6 +100,9 @@ func (app *chatApp) deleteChat(chat *conversation) bool {
 	if !app.historyChange(app.store.deleteChat(chat, selected)) {
 		return false
 	}
+	if reply := chat.waitingReply(); reply != nil {
+		reply.closeBrowser()
+	}
 	app.history.Chats = slices.DeleteFunc(app.history.Chats, func(entry *conversation) bool { return entry == chat })
 	if selected {
 		app.leaveRemovedChat()

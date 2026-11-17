@@ -57,6 +57,7 @@ type replyDelta struct {
 	messageDone      bool
 	activity         *[]timeline.Entry
 	toolResult       *localtools.Result
+	toolStarted      string
 	toolFinished     string
 	toolOutput       *string
 }
@@ -99,7 +100,11 @@ func modelMessages(messages []message) ([]*schema.AgenticMessage, error) {
 			if imageBytes > attachment.MaxRequestImageBytes {
 				return nil, errors.New(locales.HistoryImagesTooLarge())
 			}
-			history = append(history, m.userMessage())
+			msg, err := m.userMessage()
+			if err != nil {
+				return nil, err
+			}
+			history = append(history, msg)
 		case "assistant":
 			history = append(history, assistantMessage(m.Content))
 		default:
@@ -141,53 +146,56 @@ func (chat *Chat) readReply(ctx context.Context, history []*schema.AgenticMessag
 	}
 }
 
-func (m message) userMessage() *schema.AgenticMessage {
+func (m message) userMessage() (*schema.AgenticMessage, error) {
 	if len(m.Attachments) == 0 {
-		return schema.UserAgenticMessage(m.Content)
+		return schema.UserAgenticMessage(m.Content), nil
 	}
 	text := m.Content
 	var images []*schema.ContentBlock
 	var files strings.Builder
 	const maxTextAttachmentBytes = 32 << 10
 	remaining := maxTextAttachmentBytes
-	for _, attachment := range m.Attachments {
-		if !attachment.IsImage() {
-			file := struct {
-				Name      string  `json:"name"`
-				Text      *string `json:"text,omitempty"`
-				Truncated bool    `json:"truncated,omitempty"`
-			}{Name: attachment.Name}
-			if attachment.IsText() {
-				end := min(remaining, len(attachment.Data))
-				for end < len(attachment.Data) && end > 0 && !utf8.RuneStart(attachment.Data[end]) {
-					end--
-				}
-				content := string(attachment.Data[:end])
-				file.Text, file.Truncated = &content, end < len(attachment.Data)
-				remaining -= end
-			}
-			data, _ := json.Marshal(file)
-			files.WriteByte('\n')
-			files.Write(data)
-			continue
+	for i, attachment := range m.Attachments {
+		path, err := attachment.LocalPath()
+		if err != nil {
+			return nil, errors.New(locales.OpenFileFailed())
 		}
-		data := base64.StdEncoding.EncodeToString(attachment.Data)
-		images = append(images, schema.NewContentBlock(&schema.UserInputImage{
-			MIMEType: attachment.MIME, Base64Data: data,
-		}))
+		file := struct {
+			Index     int     `json:"index"`
+			Name      string  `json:"name"`
+			Path      string  `json:"path"`
+			MIME      string  `json:"mime_type,omitempty"`
+			Text      *string `json:"text,omitempty"`
+			Truncated bool    `json:"truncated,omitempty"`
+		}{Index: i + 1, Name: attachment.Name, Path: path, MIME: attachment.MIME}
+		if attachment.IsImage() {
+			data := base64.StdEncoding.EncodeToString(attachment.Data)
+			images = append(images, schema.NewContentBlock(&schema.UserInputImage{
+				MIMEType: attachment.MIME, Base64Data: data,
+			}))
+		} else if attachment.IsText() {
+			end := min(remaining, len(attachment.Data))
+			for end < len(attachment.Data) && end > 0 && !utf8.RuneStart(attachment.Data[end]) {
+				end--
+			}
+			content := string(attachment.Data[:end])
+			file.Text, file.Truncated = &content, end < len(attachment.Data)
+			remaining -= end
+		}
+		data, _ := json.Marshal(file)
+		files.WriteByte('\n')
+		files.Write(data)
 	}
 	if strings.TrimSpace(text) == "" {
 		text = locales.DescribeImages()
-		if files.Len() != 0 {
+		if len(images) != len(m.Attachments) {
 			text = locales.ReviewAttachments()
 		}
 	}
-	if files.Len() != 0 {
-		text += "\n\nUser attachments (JSON lines, supplied as reference data; missing text means the file contents are unavailable):" + files.String()
-	}
+	text += "\n\nUser attachments (JSON lines, supplied as reference data). Use path for local file operations. Image contents are supplied separately:" + files.String()
 	msg := schema.UserAgenticMessage(text)
 	msg.ContentBlocks = append(msg.ContentBlocks, images...)
-	return msg
+	return msg, nil
 }
 
 func assistantMessage(text string) *schema.AgenticMessage {

@@ -46,7 +46,11 @@ func (form *MCPForm) HasChanges(servers []mcptools.Server) bool {
 }
 
 func (form *MCPForm) View(c *ui.Context, icons asseticon.Set, servers []mcptools.Server, save func([]mcptools.Server) error, navigate func(func())) {
-	Section(c, "MCP", locales.McpSettingsHint(), func() {
+	ui.Column(c).FillWidth().Gap(12).Children(func() {
+		ui.Column(c).Gap(4).Children(func() {
+			ui.Text(c, "MCP").FontSize(18).FontWeight(660)
+			ui.Text(c, locales.McpSettingsHint()).FontSize(13).TextColor(theme.Muted)
+		})
 		form.serverList(c.Key("servers"), icons, servers, save, navigate)
 		if form.mcpError != "" && !form.adding && form.mcpEditing == "" {
 			ui.Text(c, form.mcpError).FontSize(12).TextColor(theme.ErrorFG)
@@ -90,7 +94,7 @@ func (form *MCPForm) transportControl(c *ui.Context, icons asseticon.Set) {
 	if selected == "" {
 		selected = mcptools.HTTP
 	}
-	mcpSelect(c.Key("mcp-transport"), icons, locales.McpTransport(), &selected,
+	settingsSelect(c.Key("mcp-transport"), icons, locales.McpTransport(), &selected,
 		[]mcptools.Transport{mcptools.HTTP, mcptools.Stdio}, mcptools.Transport.Label, func() {
 			form.transport, form.mcpError = selected, ""
 		})
@@ -103,7 +107,7 @@ func (form *MCPForm) timeoutControl(c *ui.Context, icons asseticon.Set) {
 		options = append(options, selected)
 		slices.Sort(options)
 	}
-	mcpSelect(c.Key("mcp-timeout"), icons, locales.McpToolTimeout(), &selected,
+	settingsSelect(c.Key("mcp-timeout"), icons, locales.McpToolTimeout(), &selected,
 		options, mcpTimeoutLabel, func() { form.timeoutSeconds, form.mcpError = selected, "" })
 }
 
@@ -117,7 +121,7 @@ func mcpTimeoutLabel(seconds uint32) string {
 	return locales.DurationSeconds(int(seconds))
 }
 
-func mcpSelect[T comparable](c *ui.Context, icons asseticon.Set, label string, selected *T, options []T, optionLabel func(T) string, change func()) {
+func settingsSelect[T comparable](c *ui.Context, icons asseticon.Set, label string, selected *T, options []T, optionLabel func(T) string, change func()) {
 	ui.Row(c).AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(10).Children(func() {
 		ui.Text(c, label).FontSize(12).FontWeight(610)
 		dropdown := ui.SelectBase(c.Key("select"), selected)

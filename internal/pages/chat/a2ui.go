@@ -25,8 +25,10 @@ type interfaceUpdate struct {
 }
 
 type storedInterface struct {
-	Updates []interfaceUpdate     `json:"updates,omitempty"`
-	Action  *a2ui.RendererMessage `json:"action,omitempty"`
+	RecoveryModel  *modelChoice          `json:"recovery_model,omitempty"`
+	RecoveryOffset *int                  `json:"recovery_offset,omitempty"`
+	Updates        []interfaceUpdate     `json:"updates,omitempty"`
+	Action         *a2ui.RendererMessage `json:"action,omitempty"`
 }
 
 type interfaceAnchor struct {

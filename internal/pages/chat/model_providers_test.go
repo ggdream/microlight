@@ -139,10 +139,24 @@ func TestProviderSelectionRoutesRequestsAndSurvivesRestart(t *testing.T) {
 			app.chatModelSelect(c.Key("model"))
 		})
 	}, 720, 400)
-	for _, label := range []string{locales.ModelProvider(), "Second Provider", locales.ModelID(), "alternate"} {
-		if err := window.Click(label); err != nil {
-			t.Fatalf("cannot select %q: %v", label, err)
-		}
+	if err := window.Click(locales.ChooseChatModel()); err != nil {
+		t.Fatal(err)
+	}
+	before := app.currentModelChoice()
+	if window.HasText("alternate") {
+		t.Fatal("the picker should start on the active provider")
+	}
+	if err := window.Click("Second Provider"); err != nil {
+		t.Fatalf("%v, picker contents: %v", err, window.Texts())
+	}
+	if app.currentModelChoice() != before {
+		t.Fatal("choosing a provider should only filter the model list")
+	}
+	if !window.HasText("primary") || window.HasText(locales.DefaultModel()) {
+		t.Fatal("the model picker should list the chosen provider's models without a default label")
+	}
+	if err := window.Click("alternate"); err != nil {
+		t.Fatal(err)
 	}
 	if got := app.currentModelChoice(); got != (modelChoice{ProviderID: secondID, Model: "alternate"}) {
 		t.Fatalf("picked the wrong provider or model: %+v", got)
@@ -174,5 +188,35 @@ func TestProviderSelectionRoutesRequestsAndSurvivesRestart(t *testing.T) {
 	reopened.selectProvider(modelChoice{ProviderID: secondID})
 	if reopened.settings.Model != "primary" {
 		t.Fatal("switching providers did not select its default model")
+	}
+}
+
+func TestChatModelProviderTabsScrollToLastProvider(t *testing.T) {
+	app := &chatApp{}
+	names := []string{
+		"DeepSeek", "An Anthropic Provider", "Another Local Provider", "OpenAI Models", "Qwen Models",
+	}
+	for _, name := range names {
+		app.providers.Providers = append(app.providers.Providers, modelProvider{ID: name, Name: name})
+	}
+	selected := names[0]
+	last := names[len(names)-1]
+	window := ui.NewTester(func(c *ui.Context) {
+		ui.Column(c).Width(286).Children(func() { app.chatModelProviderTabs(c, &selected) })
+	}, 320, 100)
+	if err := window.Click(last); err == nil || selected != names[0] {
+		t.Fatal("the overflowing provider should be clipped before scrolling")
+	}
+	first, shown := window.Find(names[0])
+	if !shown {
+		t.Fatal("missing first provider")
+	}
+	window.Scroll(first.X+first.W/2, first.Y+first.H/2, 950, 0)
+	window.Advance(time.Second)
+	if err := window.Click(last); err != nil {
+		t.Fatalf("could not reach the last provider by horizontal scrolling: %v", err)
+	}
+	if selected != last {
+		t.Fatalf("selected %q instead of the last provider", selected)
 	}
 }

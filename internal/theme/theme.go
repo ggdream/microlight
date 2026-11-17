@@ -34,3 +34,12 @@ func PointerButton(c *ui.Context, disabled bool) ui.Element {
 	}
 	return button
 }
+
+func Switch(c *ui.Context, on *bool, label string, change func()) {
+	switchTheme := *c.Theme()
+	switchTheme.Accent = Accent
+	switchTheme.InactiveAccent = Accent
+	ui.Themed(c, &switchTheme).Background(ui.Transparent).Shrink(0).Children(func() {
+		ui.Switch(c.Key("control"), on).Label(label).OnChange(change)
+	})
+}

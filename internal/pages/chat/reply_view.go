@@ -31,8 +31,12 @@ func replyReasoning(entry *turn) (hasReasoning, open bool) {
 	return hasReasoning, open
 }
 
+func (entry *turn) visibleTool(activity timeline.Entry) bool {
+	return !activity.Pending || !localtools.TracksToolStart(activity.Tool) || entry.activeTools[activity.CallID]
+}
+
 func replyRunningStatus(entry *turn) string {
-	if slices.ContainsFunc(entry.Activity, func(activity timeline.Entry) bool { return activity.Pending }) {
+	if slices.ContainsFunc(entry.Activity, func(activity timeline.Entry) bool { return activity.Pending && entry.visibleTool(activity) }) {
 		return ""
 	}
 	if entry.compressing || len(entry.Interface) > 0 || len(entry.interfacePreview) > 0 || strings.TrimSpace(entry.processPreview) != "" || strings.TrimSpace(entry.Content) != "" {
@@ -145,6 +149,7 @@ func (app *chatApp) replyText(c *ui.Context, text string, streaming bool) {
 
 func (app *chatApp) reasoningSegments(c *ui.Context, entry *turn) {
 	type answerKey int
+	approvals := entry.linkedApprovals()
 	start := 0
 	showActivity := func(end int) {
 		for i, activity := range entry.Activity[start:end] {
@@ -152,13 +157,25 @@ func (app *chatApp) reasoningSegments(c *ui.Context, entry *turn) {
 				app.replyText(c.Key(start+i), activity.Text, false)
 				continue
 			}
-			app.toolActivityRow(c.Key(start+i), entry, start+i)
+			if approval, ok := approvals[activity.CallID]; ok {
+				question := &entry.Clarifications[approval]
+				answeredClarification(c.Key(answerKey(approval)), question)
+				if question.Answer == localtools.Deny {
+					continue
+				}
+			}
+			if entry.visibleTool(activity) {
+				app.toolActivityRow(c.Key(start+i), entry, start+i)
+			}
 		}
 		start = end
 	}
 	for i := range entry.Clarifications {
 		question := &entry.Clarifications[i]
 		if question.Answer == "" {
+			continue
+		}
+		if linked, ok := approvals[entry.approvalCallID(question)]; ok && linked == i {
 			continue
 		}
 		end := len(entry.Activity)
@@ -179,19 +196,25 @@ func (app *chatApp) toolActivityRow(c *ui.Context, entry *turn, index int) {
 	target := activity.ShortTarget()
 	command := activity.RunsCommand()
 	fileTarget := target != "" && (activity.Tool == localtools.Read || activity.Tool == localtools.List || activity.Tool == localtools.Write)
+	expandable := command || (!fileTarget && activity.Tool != timeline.AskUserTool &&
+		(activity.Arguments != "" || activity.Output != nil))
 	row := ui.Column(c).FillWidth().Gap(4)
 	open := ui.Local(row, "tool-details-open", func() bool { return false })
 	row.Children(func() {
 		var line ui.Element
-		if command {
-			line = pointerButton(c.Key("toggle"), false).Label(locales.ToolArguments()).Expanded(*open).
+		if expandable {
+			label := locales.ToolDetails()
+			if command {
+				label = locales.ToolArguments()
+			}
+			line = pointerButton(c.Key("toggle"), false).Label(label).Expanded(*open).
 				OnClick(func() { *open = !*open })
 		} else {
 			line = ui.Row(c)
 		}
 		line.FillWidth().Justify(ui.Start).AlignItems(ui.Center).Gap(8).Padding(4, 0)
 		bodyStyle := markdown.DefaultTheme(c.Theme())
-		hovered := command && line.Hovered()
+		hovered := expandable && line.Hovered()
 		color := muted
 		if hovered {
 			color = bodyStyle.Text
@@ -264,12 +287,16 @@ func (app *chatApp) toolActivityRow(c *ui.Context, entry *turn, index int) {
 			if diff := activity.Diff; diff != nil {
 				preview.DiffCounts(c.Key("diff"), diff)
 			}
-			if command {
-				replyActivityChevron(c, hovered || line.FocusVisible(), *open, bodyStyle.Text)
+			if expandable {
+				replyActivityChevron(c, !command || hovered || line.FocusVisible(), *open, color)
 			}
 		})
-		if command && *open {
-			shellCard(c.Key("details"), activity)
+		if expandable && *open {
+			if command {
+				shellCard(c.Key("details"), activity)
+			} else {
+				toolActivityCard(c.Key("details"), activity)
+			}
 		}
 	})
 }

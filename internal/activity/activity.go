@@ -16,6 +16,7 @@ import (
 
 type Entry struct {
 	Text           string                    `json:",omitempty"`
+	Model          string                    `json:",omitempty"`
 	Tool           string                    `json:",omitempty"`
 	Target         string                    `json:",omitempty"`
 	Arguments      string                    `json:",omitempty"`
@@ -24,6 +25,8 @@ type Entry struct {
 	ResolvedTarget string                    `json:",omitempty"`
 	Output         *string                   `json:",omitempty"`
 	CommandResult  *localtools.CommandResult `json:",omitempty"`
+	Conflict       bool                      `json:",omitempty"`
+	Receipt        *string                   `json:",omitempty"`
 	Pending        bool                      `json:",omitempty"`
 }
 
@@ -37,14 +40,23 @@ func DescribeToolCall(call *schema.FunctionToolCall) Entry {
 		Command     string
 		Description string
 		Skill       string
+		Query       string
+		Action      string
 	}
 	_ = json.Unmarshal([]byte(call.Arguments), &args)
 	name, target := call.Name, args.Command
 	switch name {
-	case localtools.Read, localtools.List, localtools.Write:
+	case localtools.Read, localtools.List, localtools.Write, localtools.PublishArtifact, localtools.OCR, localtools.ParseDocument:
 		target = args.Path
 	case localtools.Fetch:
 		target = args.URL
+	case localtools.WebSearch:
+		target = args.Query
+	case localtools.BrowserUse:
+		target = args.URL
+		if target == "" {
+			target = args.Action
+		}
 	case SkillTool:
 		target = args.Skill
 	default:
@@ -60,6 +72,10 @@ func (activity Entry) Label(target string) string {
 	switch activity.Tool {
 	case localtools.Execute:
 		label = locales.RunCommand()
+	case localtools.ExecuteBackground:
+		label = locales.BackgroundCommand()
+	case localtools.PublishArtifact:
+		label = locales.Deliverables()
 	case localtools.Read:
 		label = locales.ReadFile()
 	case localtools.List:
@@ -68,12 +84,23 @@ func (activity Entry) Label(target string) string {
 		label = locales.WriteFile()
 	case localtools.Fetch:
 		label = locales.VisitURL()
+	case localtools.WebSearch:
+		label = locales.WebSearch()
+	case localtools.OCR:
+		label = locales.OcrTextRecognition()
+	case localtools.ParseDocument:
+		label = locales.OcrDocumentParsing()
+	case localtools.BrowserUse:
+		label = locales.BrowserUseTool()
 	case AskUserTool:
 		label = locales.AskUserTool()
 	case SkillTool:
 		label = locales.UseSkill()
 	case "write_todos":
 		label = locales.UpdateTasksTool()
+	}
+	if activity.Model != "" {
+		label += " · " + activity.Model
 	}
 	if target != "" {
 		return label + " " + target
@@ -87,9 +114,11 @@ func (activity Entry) Icon() string {
 		return "book_open"
 	case localtools.Write:
 		return "edit"
+	case localtools.PublishArtifact:
+		return "document_text"
 	case localtools.List:
 		return "folder"
-	case localtools.Fetch:
+	case localtools.Fetch, localtools.BrowserUse:
 		return "globe"
 	case AskUserTool:
 		return "question"
@@ -112,7 +141,7 @@ func (activity Entry) Icon() string {
 func (activity Entry) RunsCommand() bool {
 	name := strings.ToLower(activity.Tool)
 	switch name {
-	case localtools.Read, localtools.List, localtools.Write, localtools.Fetch, AskUserTool, SkillTool, "write_todos":
+	case localtools.Read, localtools.List, localtools.Write, localtools.Fetch, localtools.BrowserUse, AskUserTool, SkillTool, "write_todos":
 		return false
 	}
 	if strings.Contains(name, "search") {

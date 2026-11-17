@@ -38,6 +38,14 @@ type linkPreviews struct {
 	inFlight map[previewRequest]bool
 }
 
+func (app *chatApp) configureLinkPreviews() {
+	app.md.Preview = app.links.offer
+	app.md.CodeLink = func(source string) (string, bool) {
+		_, ok := linkpreview.URL(source)
+		return source, ok
+	}
+}
+
 func (p *linkPreviews) offer(_ *ui.Context, dest string) func(ui.Element) {
 	if _, ok := linkpreview.URL(dest); !ok {
 		return nil
@@ -97,7 +105,7 @@ func (app *chatApp) linkPreview(c *ui.Context, root ui.Element) {
 		if !p.hideAt.IsZero() {
 			c.After(p.hideAt.Sub(now))
 		}
-		metadata, finished := p.metadata(app.appContext(), c.Services(), previewRequest{target.String(), app.settings.Proxy})
+		metadata := p.metadata(app.appContext(), c.Services(), previewRequest{target.String(), app.settings.Proxy})
 		panel.Children(func() {
 			p.cardHeader(c, target, panel)
 			ui.Box(c).FillWidth().Height(1).Background(border)
@@ -108,8 +116,6 @@ func (app *chatApp) linkPreview(c *ui.Context, root ui.Element) {
 				switch {
 				case metadata.Description != "":
 					ui.Text(c, metadata.Description).FontSize(13).TextColor(muted).MaxLines(3)
-				case !finished:
-					ui.Text(c, locales.LinkPreviewLoading()).FontSize(13).TextColor(muted)
 				case metadata.Title == "":
 					ui.Text(c, p.target).FontSize(13).TextColor(muted).MaxLines(3)
 				}
@@ -146,15 +152,15 @@ func (p *linkPreviews) cardHeader(c *ui.Context, target *url.URL, panel ui.Eleme
 	})
 }
 
-func (p *linkPreviews) metadata(ctx context.Context, services ui.Services, request previewRequest) (linkpreview.Metadata, bool) {
+func (p *linkPreviews) metadata(ctx context.Context, services ui.Services, request previewRequest) linkpreview.Metadata {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	now := time.Now()
 	if result, ok := p.results[request]; ok && result.until.After(now) {
-		return result.metadata, true
+		return result.metadata
 	}
 	if p.inFlight[request] || len(p.inFlight) >= 4 {
-		return linkpreview.Metadata{}, false
+		return linkpreview.Metadata{}
 	}
 	if p.inFlight == nil {
 		p.inFlight = make(map[previewRequest]bool)
@@ -179,5 +185,5 @@ func (p *linkPreviews) metadata(ctx context.Context, services ui.Services, reque
 		p.mu.Unlock()
 		services.Invalidate()
 	}()
-	return linkpreview.Metadata{}, false
+	return linkpreview.Metadata{}
 }

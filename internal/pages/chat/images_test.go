@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ggdream/microlight/internal/attachment"
@@ -140,7 +141,23 @@ func TestImagesStayInConversationAfterReopen(t *testing.T) {
 		if parts[0].Type != "text" || parts[0].Text == "" {
 			t.Error("image-only message is missing its default prompt")
 		}
+		records := strings.Split(parts[0].Text, "\n")
+		if len(records) < len(attachments)+1 {
+			t.Error("image metadata is missing")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		for i, attachment := range attachments {
+			var record struct {
+				Index int
+				Name  string
+				Path  string
+				MIME  string `json:"mime_type"`
+			}
+			err := json.Unmarshal([]byte(records[len(records)-len(attachments)+i]), &record)
+			if err != nil || record.Index != i+1 || record.Name != attachment.Name || record.Path != attachment.Path || record.MIME != attachment.MIME {
+				t.Errorf("attachment %d metadata is incomplete: %+v, %v", i, record, err)
+			}
 			want := "data:image/png;base64," + base64.StdEncoding.EncodeToString(attachment.Data)
 			if parts[i+1].Type != "image_url" || parts[i+1].ImageURL.URL != want {
 				t.Errorf("image %d changed in the request", i)

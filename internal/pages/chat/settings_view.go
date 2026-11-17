@@ -22,7 +22,7 @@ func (app *chatApp) settingsPage(c *ui.Context) {
 		case settings.Skills:
 			app.skillsSettings(c.Key("skills-content"))
 		case settings.Tools:
-			app.mcpSettings(c.Key("mcp-content"))
+			app.toolsSettings(c.Key("tools-content"))
 		case settings.Archive:
 			app.archiveSettings(c.Key("archive-content"))
 		case settings.About:

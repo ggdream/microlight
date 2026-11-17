@@ -3,7 +3,6 @@ package chat
 import (
 	"path/filepath"
 	"slices"
-	"strings"
 
 	"github.com/ggdream/microlight/assets/locales"
 	timeline "github.com/ggdream/microlight/internal/activity"
@@ -18,10 +17,11 @@ import (
 )
 
 type toolPreview struct {
-	entry *turn
-	index int
-	text  *string
-	list  ui.ListState
+	entry     *turn
+	index     int
+	text      *string
+	directory *previewui.Directory
+	list      ui.ListState
 }
 
 type toolPreviewPanel struct {
@@ -52,6 +52,11 @@ func (panel *toolPreviewPanel) closeTab(tab *toolPreview) {
 	}
 }
 
+func (app *chatApp) openRoundChanges(entry *turn) {
+	app.toolPanel.visible, app.toolPanel.round = true, entry
+	app.toolPanel.active, app.toolPanel.reveal = nil, nil
+}
+
 func (app *chatApp) openToolPreview(entry *turn, index int) {
 	panel := &app.toolPanel
 	for _, tab := range panel.tabs {
@@ -64,16 +69,24 @@ func (app *chatApp) openToolPreview(entry *turn, index int) {
 	panel.tabs = append(panel.tabs, preview)
 	panel.selectTab(preview)
 	activity := entry.Activity[index]
+	var workspace string
+	if selected := app.selected(); selected != nil {
+		workspace = selected.workspace
+	}
+	if activity.Tool == localtools.List {
+		path := activity.DisplayTarget()
+		if path != "" && !filepath.IsAbs(path) && workspace != "" {
+			path = filepath.Join(workspace, path)
+		}
+		preview.directory = previewui.NewDirectory(path, activity.Output)
+		return
+	}
 	if activity.Output != nil || (activity.Diff != nil && len(activity.Diff.Rows) > 0) ||
 		activity.Target == "" || app.win == nil {
 		return
 	}
-	if activity.Tool != localtools.Read && activity.Tool != localtools.List && activity.Tool != localtools.Write {
+	if activity.Tool != localtools.Read && activity.Tool != localtools.Write {
 		return
-	}
-	var workspace string
-	if selected := app.selected(); selected != nil {
-		workspace = selected.workspace
 	}
 	// Older records can open the current file on an explicit click. A stored
 	// result, when present, is always preferred to reading the filesystem again.
@@ -109,14 +122,7 @@ func previewName(activity timeline.Entry) string {
 
 func previewIcon(activity timeline.Entry) string {
 	if activity.Tool == localtools.Read || activity.Tool == localtools.Write {
-		switch strings.ToLower(filepath.Ext(activity.DisplayTarget())) {
-		case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg":
-			return "image"
-		case ".go", ".js", ".ts", ".jsx", ".tsx", ".css", ".html", ".json", ".py", ".rs", ".sh":
-			return "code"
-		default:
-			return "document_text"
-		}
+		return previewui.FileIcon(activity.DisplayTarget())
 	}
 	return activity.Icon()
 }
@@ -139,7 +145,17 @@ func (app *chatApp) toolPreviewPane(c *ui.Context, width float32, workspace stri
 		}
 		previewContent := func() {
 			activity := active.entry.Activity[active.index]
-			previewui.Content(c.Key("preview").Key(active), &active.list, activity, previewName(activity), active.text)
+			view := c.Key("preview").Key(active)
+			if active.directory != nil {
+				var update func(func())
+				if app.win != nil {
+					update = app.win.Update
+				}
+				active.directory.View(view, icons, previewName(activity), update,
+					func(path string) { app.showPreviewError(desktop.PreviewFile(path)) })
+				return
+			}
+			previewui.Content(view, &active.list, activity, previewName(activity), active.text)
 		}
 		switch {
 		case active == nil:

@@ -19,18 +19,21 @@ import (
 )
 
 type modelSettings struct {
-	Protocol         apiProtocol       `json:"protocol,omitempty"`
-	Proxy            proxy.Config      `json:"-"`
-	MCPServers       []mcptools.Server `json:"mcp_servers,omitempty"`
-	BaseURL          string            `json:"base_url"`
-	Model            string            `json:"model"`
-	APIKey           string            `json:"api_key,omitempty"`
-	Temperature      *float32          `json:"temperature,omitempty"`
-	TopP             *float32          `json:"top_p,omitempty"`
-	ContextThreshold int               `json:"context_threshold,omitempty"`
-	MaxTokens        *int              `json:"max_tokens,omitempty"`
-	AccessMode       localtools.Mode   `json:"access_mode,omitempty"`
-	Workspace        string            `json:"workspace,omitempty"`
+	Protocol         apiProtocol             `json:"protocol,omitempty"`
+	Proxy            proxy.Config            `json:"-"`
+	MCPServers       []mcptools.Server       `json:"mcp_servers,omitempty"`
+	WebSearch        localtools.SearchConfig `json:"web_search,omitzero"`
+	OCR              localtools.OCRConfig    `json:"ocr,omitzero"`
+	BrowserUse       bool                    `json:"browser_use,omitempty"`
+	BaseURL          string                  `json:"base_url"`
+	Model            string                  `json:"model"`
+	APIKey           string                  `json:"api_key,omitempty"`
+	Temperature      *float32                `json:"temperature,omitempty"`
+	TopP             *float32                `json:"top_p,omitempty"`
+	ContextThreshold int                     `json:"context_threshold,omitempty"`
+	MaxTokens        *int                    `json:"max_tokens,omitempty"`
+	AccessMode       localtools.Mode         `json:"access_mode,omitempty"`
+	Workspace        string                  `json:"workspace,omitempty"`
 }
 
 type apiProtocol string
@@ -58,6 +61,13 @@ func (s *modelSettings) validate() error {
 	s.APIKey = strings.TrimSpace(s.APIKey)
 	s.AccessMode = s.AccessMode.Normalized()
 	s.Workspace = strings.TrimSpace(s.Workspace)
+	s.WebSearch.Migrate()
+	if err := s.WebSearch.Validate(); err != nil {
+		return err
+	}
+	if err := s.OCR.Validate(); err != nil {
+		return err
+	}
 	seen := make(map[string]bool)
 	for _, server := range s.MCPServers {
 		if !mcptools.ServerName.MatchString(server.Name) || seen[server.Name] {
@@ -308,7 +318,9 @@ func (app *chatApp) deferSettingsLeave(next func()) bool {
 			return false
 		}
 	case settings.Tools:
-		if !app.extensionsForm.mcp.HasChanges(app.settings.MCPServers) {
+		if !app.extensionsForm.mcp.HasChanges(app.settings.MCPServers) &&
+			!app.extensionsForm.search.HasChanges(app.settings.WebSearch) &&
+			!app.extensionsForm.ocr.HasChanges(app.settings.OCR) {
 			return false
 		}
 	default:
@@ -344,6 +356,8 @@ func (app *chatApp) discardSettingsChanges() {
 		app.form.settingsStatus = settingsStatus{}
 	case settings.Tools:
 		app.extensionsForm.mcp = settings.MCPForm{}
+		app.extensionsForm.search = settings.WebSearchForm{}
+		app.extensionsForm.ocr = settings.OCRForm{}
 	}
 }
 
@@ -371,6 +385,9 @@ func (app *chatApp) saveSettings() {
 	form := &app.form
 	config := app.connectionConfig()
 	config.MCPServers = app.settings.MCPServers
+	config.WebSearch = app.settings.WebSearch
+	config.OCR = app.settings.OCR
+	config.BrowserUse = app.settings.BrowserUse
 	config.Temperature = optionalNumber(form.temperature)
 	config.TopP = optionalNumber(form.topP)
 	if value := strings.TrimSpace(form.maxTokens); value != "" {

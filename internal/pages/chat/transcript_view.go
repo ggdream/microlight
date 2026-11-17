@@ -28,6 +28,7 @@ func (app *chatApp) transcript(c *ui.Context, chat *conversation) {
 					hasReasoning, open := replyReasoning(entry)
 					replyProgress(c.Key("reply-progress"), entry, hasReasoning, open)
 					app.replyBody(c, chat, entry, interfaces, hasReasoning && open)
+					app.replyDeliverables(c.Key("artifacts"), entry, chat.workspace)
 					if len(entry.Clarifications) > 0 {
 						app.clarificationCards(c, chat, entry)
 					}
@@ -37,6 +38,9 @@ func (app *chatApp) transcript(c *ui.Context, chat *conversation) {
 							message = locales.ReplyFailed()
 						}
 						ui.Text(c, message).FontSize(12).TextColor(errorFG)
+						if entry.State == "error" && i == len(chat.Turns)-1 {
+							clarificationButton(c.Key("continue-failed"), locales.ContinueFailedTask(), chat.isRunning(), func() { app.continueFailed(chat, entry) })
+						}
 					}
 					if entry.State == "pending" {
 						if status := replyRunningStatus(entry); status != "" {

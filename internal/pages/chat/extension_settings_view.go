@@ -1,26 +1,65 @@
 package chat
 
 import (
+	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/mcptools"
 	"github.com/ggdream/microlight/internal/pages/settings"
+	"github.com/ggdream/microlight/internal/theme"
 
 	"github.com/egoist/mygo/ui"
 )
 
 type extensionsForm struct {
 	mcp                       settings.MCPForm
+	search                    settings.WebSearchForm
+	ocr                       settings.OCRForm
 	skillIndex                *skillIndex
 	skillQuery, expandedSkill string
+	browserError              string
 }
 
-func (app *chatApp) mcpSettings(c *ui.Context) {
-	app.extensionsForm.mcp.View(c, icons, app.settings.MCPServers, func(servers []mcptools.Server) error {
-		config := app.settings
-		config.MCPServers = servers
-		return app.applySettings(config)
-	}, func(next func()) {
-		if !app.deferSettingsLeave(next) {
-			next()
+func (app *chatApp) toolsSettings(c *ui.Context) {
+	settings.Section(c, locales.SettingsTools(), locales.ToolsSettingsHint(), func() {
+		app.extensionsForm.search.View(c.Key("web-search"), icons, app.settings.WebSearch, func(search localtools.SearchConfig) error {
+			config := app.settings
+			config.WebSearch = search
+			return app.applySettings(config)
+		})
+		app.extensionsForm.ocr.View(c.Key("ocr"), icons, app.settings.OCR, func(ocr localtools.OCRConfig) error {
+			config := app.settings
+			config.OCR = ocr
+			return app.applySettings(config)
+		})
+		app.browserSettings(c.Key("browser-use"))
+		app.extensionsForm.mcp.View(c.Key("mcp"), icons, app.settings.MCPServers, func(servers []mcptools.Server) error {
+			config := app.settings
+			config.MCPServers = servers
+			return app.applySettings(config)
+		}, func(next func()) {
+			if !app.extensionsForm.mcp.HasChanges(app.settings.MCPServers) || !app.deferSettingsLeave(next) {
+				next()
+			}
+		})
+	})
+}
+
+func (app *chatApp) browserSettings(c *ui.Context) {
+	enabled := app.settings.BrowserUse
+	settings.Card(c, locales.BrowserUseTool(), func() {
+		ui.Row(c).AlignItems(ui.Center).Gap(12).Children(func() {
+			ui.Text(c, locales.BrowserUseHint()).Grow(1).MinWidth(0).FontSize(12).TextColor(muted)
+			theme.Switch(c.Key("enabled"), &enabled, locales.EnableBrowserUse(), func() {
+				config := app.settings
+				config.BrowserUse = enabled
+				app.extensionsForm.browserError = ""
+				if err := app.applySettings(config); err != nil {
+					app.extensionsForm.browserError = err.Error()
+				}
+			})
+		})
+		if app.extensionsForm.browserError != "" {
+			ui.Text(c, app.extensionsForm.browserError).FontSize(12).TextColor(errorFG)
 		}
 	})
 }

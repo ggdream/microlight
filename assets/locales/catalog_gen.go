@@ -724,6 +724,26 @@ func (msgs Messages) ToolArguments() string {
 	return Catalog.Format(msgs.locale, "toolArguments", nil)
 }
 
+// ToolDetails says "Tool Details"
+// in the language the app shows.
+func ToolDetails() string { return In(i18n.Locale()).ToolDetails() }
+
+// ToolDetails says "Tool Details"
+// in the language of msgs.
+func (msgs Messages) ToolDetails() string {
+	return Catalog.Format(msgs.locale, "toolDetails", nil)
+}
+
+// ToolOutput says "Tool Output"
+// in the language the app shows.
+func ToolOutput() string { return In(i18n.Locale()).ToolOutput() }
+
+// ToolOutput says "Tool Output"
+// in the language of msgs.
+func (msgs Messages) ToolOutput() string {
+	return Catalog.Format(msgs.locale, "toolOutput", nil)
+}
+
 // PlanMode says "Plan Mode"
 // in the language the app shows.
 func PlanMode() string { return In(i18n.Locale()).PlanMode() }
@@ -742,6 +762,36 @@ func RoundChanges() string { return In(i18n.Locale()).RoundChanges() }
 // in the language of msgs.
 func (msgs Messages) RoundChanges() string {
 	return Catalog.Format(msgs.locale, "roundChanges", nil)
+}
+
+// DirectoryLoading says "Loading folder…"
+// in the language the app shows.
+func DirectoryLoading() string { return In(i18n.Locale()).DirectoryLoading() }
+
+// DirectoryLoading says "Loading folder…"
+// in the language of msgs.
+func (msgs Messages) DirectoryLoading() string {
+	return Catalog.Format(msgs.locale, "directoryLoading", nil)
+}
+
+// DirectoryEmpty says "This folder is empty"
+// in the language the app shows.
+func DirectoryEmpty() string { return In(i18n.Locale()).DirectoryEmpty() }
+
+// DirectoryEmpty says "This folder is empty"
+// in the language of msgs.
+func (msgs Messages) DirectoryEmpty() string {
+	return Catalog.Format(msgs.locale, "directoryEmpty", nil)
+}
+
+// DirectoryEntryLimit says "Showing up to 200 entries"
+// in the language the app shows.
+func DirectoryEntryLimit() string { return In(i18n.Locale()).DirectoryEntryLimit() }
+
+// DirectoryEntryLimit says "Showing up to 200 entries"
+// in the language of msgs.
+func (msgs Messages) DirectoryEntryLimit() string {
+	return Catalog.Format(msgs.locale, "directoryEntryLimit", nil)
 }
 
 // NoRoundChanges says "No files changed in this round"
@@ -1754,31 +1804,31 @@ func (msgs Messages) ModeFull() string {
 	return Catalog.Format(msgs.locale, "modeFull", nil)
 }
 
-// ModeAskHint says "Read ordinary workspace files directly. Ask before writing, accessing sensitive paths or files outside the workspace,…"
+// ModeAskHint says "Always ask before editing external files or using the internet"
 // in the language the app shows.
 func ModeAskHint() string { return In(i18n.Locale()).ModeAskHint() }
 
-// ModeAskHint says "Read ordinary workspace files directly. Ask before writing, accessing sensitive paths or files outside the workspace,…"
+// ModeAskHint says "Always ask before editing external files or using the internet"
 // in the language of msgs.
 func (msgs Messages) ModeAskHint() string {
 	return Catalog.Format(msgs.locale, "modeAskHint", nil)
 }
 
-// ModeSmartHint says "Read and create ordinary workspace files directly. Ask before overwriting, accessing sensitive paths or files outside…"
+// ModeSmartHint says "Request approval only for detected risky actions"
 // in the language the app shows.
 func ModeSmartHint() string { return In(i18n.Locale()).ModeSmartHint() }
 
-// ModeSmartHint says "Read and create ordinary workspace files directly. Ask before overwriting, accessing sensitive paths or files outside…"
+// ModeSmartHint says "Request approval only for detected risky actions"
 // in the language of msgs.
 func (msgs Messages) ModeSmartHint() string {
 	return Catalog.Format(msgs.locale, "modeSmartHint", nil)
 }
 
-// ModeFullHint says "The agent may directly access files and websites and run shell commands within system permissions."
+// ModeFullHint says "Unrestricted access to the internet and any file on your computer"
 // in the language the app shows.
 func ModeFullHint() string { return In(i18n.Locale()).ModeFullHint() }
 
-// ModeFullHint says "The agent may directly access files and websites and run shell commands within system permissions."
+// ModeFullHint says "Unrestricted access to the internet and any file on your computer"
 // in the language of msgs.
 func (msgs Messages) ModeFullHint() string {
 	return Catalog.Format(msgs.locale, "modeFullHint", nil)
@@ -1794,6 +1844,16 @@ func (msgs Messages) Workspace() string {
 	return Catalog.Format(msgs.locale, "workspace", nil)
 }
 
+// WorkspaceUnspecified says "Not specified"
+// in the language the app shows.
+func WorkspaceUnspecified() string { return In(i18n.Locale()).WorkspaceUnspecified() }
+
+// WorkspaceUnspecified says "Not specified"
+// in the language of msgs.
+func (msgs Messages) WorkspaceUnspecified() string {
+	return Catalog.Format(msgs.locale, "workspaceUnspecified", nil)
+}
+
 // NoWorkspace says "No workspace"
 // in the language the app shows.
 func NoWorkspace() string { return In(i18n.Locale()).NoWorkspace() }
@@ -1802,26 +1862,6 @@ func NoWorkspace() string { return In(i18n.Locale()).NoWorkspace() }
 // in the language of msgs.
 func (msgs Messages) NoWorkspace() string {
 	return Catalog.Format(msgs.locale, "noWorkspace", nil)
-}
-
-// WorkspaceLocked says "To change the workspace, start a new chat."
-// in the language the app shows.
-func WorkspaceLocked() string { return In(i18n.Locale()).WorkspaceLocked() }
-
-// WorkspaceLocked says "To change the workspace, start a new chat."
-// in the language of msgs.
-func (msgs Messages) WorkspaceLocked() string {
-	return Catalog.Format(msgs.locale, "workspaceLocked", nil)
-}
-
-// ClearWorkspace says "Clear workspace"
-// in the language the app shows.
-func ClearWorkspace() string { return In(i18n.Locale()).ClearWorkspace() }
-
-// ClearWorkspace says "Clear workspace"
-// in the language of msgs.
-func (msgs Messages) ClearWorkspace() string {
-	return Catalog.Format(msgs.locale, "clearWorkspace", nil)
 }
 
 // PermissionSaveFailed says "Could not save permissions for this chat."
@@ -2752,6 +2792,376 @@ func SettingsTools() string { return In(i18n.Locale()).SettingsTools() }
 // in the language of msgs.
 func (msgs Messages) SettingsTools() string {
 	return Catalog.Format(msgs.locale, "settingsTools", nil)
+}
+
+// ToolsSettingsHint says "Manage built-in tools and MCP servers."
+// in the language the app shows.
+func ToolsSettingsHint() string { return In(i18n.Locale()).ToolsSettingsHint() }
+
+// ToolsSettingsHint says "Manage built-in tools and MCP servers."
+// in the language of msgs.
+func (msgs Messages) ToolsSettingsHint() string {
+	return Catalog.Format(msgs.locale, "toolsSettingsHint", nil)
+}
+
+// BuiltInTools says "Built-in tools"
+// in the language the app shows.
+func BuiltInTools() string { return In(i18n.Locale()).BuiltInTools() }
+
+// BuiltInTools says "Built-in tools"
+// in the language of msgs.
+func (msgs Messages) BuiltInTools() string {
+	return Catalog.Format(msgs.locale, "builtInTools", nil)
+}
+
+// WebSearch says "Web search"
+// in the language the app shows.
+func WebSearch() string { return In(i18n.Locale()).WebSearch() }
+
+// WebSearch says "Web search"
+// in the language of msgs.
+func (msgs Messages) WebSearch() string {
+	return Catalog.Format(msgs.locale, "webSearch", nil)
+}
+
+// OcrTool says "OCR"
+// in the language the app shows.
+func OcrTool() string { return In(i18n.Locale()).OcrTool() }
+
+// OcrTool says "OCR"
+// in the language of msgs.
+func (msgs Messages) OcrTool() string {
+	return Catalog.Format(msgs.locale, "ocrTool", nil)
+}
+
+// OcrToolHint says "Extract text or preserve document structure in images and PDFs."
+// in the language the app shows.
+func OcrToolHint() string { return In(i18n.Locale()).OcrToolHint() }
+
+// OcrToolHint says "Extract text or preserve document structure in images and PDFs."
+// in the language of msgs.
+func (msgs Messages) OcrToolHint() string {
+	return Catalog.Format(msgs.locale, "ocrToolHint", nil)
+}
+
+// EnableOcrTool says "Enable OCR"
+// in the language the app shows.
+func EnableOcrTool() string { return In(i18n.Locale()).EnableOcrTool() }
+
+// EnableOcrTool says "Enable OCR"
+// in the language of msgs.
+func (msgs Messages) EnableOcrTool() string {
+	return Catalog.Format(msgs.locale, "enableOcrTool", nil)
+}
+
+// OcrProvider says "Provider"
+// in the language the app shows.
+func OcrProvider() string { return In(i18n.Locale()).OcrProvider() }
+
+// OcrProvider says "Provider"
+// in the language of msgs.
+func (msgs Messages) OcrProvider() string {
+	return Catalog.Format(msgs.locale, "ocrProvider", nil)
+}
+
+// OcrToken says "AI Studio access token"
+// in the language the app shows.
+func OcrToken() string { return In(i18n.Locale()).OcrToken() }
+
+// OcrToken says "AI Studio access token"
+// in the language of msgs.
+func (msgs Messages) OcrToken() string {
+	return Catalog.Format(msgs.locale, "ocrToken", nil)
+}
+
+// OcrTokenRequired says "Enter a valid AI Studio access token for PaddleOCR."
+// in the language the app shows.
+func OcrTokenRequired() string { return In(i18n.Locale()).OcrTokenRequired() }
+
+// OcrTokenRequired says "Enter a valid AI Studio access token for PaddleOCR."
+// in the language of msgs.
+func (msgs Messages) OcrTokenRequired() string {
+	return Catalog.Format(msgs.locale, "ocrTokenRequired", nil)
+}
+
+// OcrInvalidProvider says "Unsupported OCR provider."
+// in the language the app shows.
+func OcrInvalidProvider() string { return In(i18n.Locale()).OcrInvalidProvider() }
+
+// OcrInvalidProvider says "Unsupported OCR provider."
+// in the language of msgs.
+func (msgs Messages) OcrInvalidProvider() string {
+	return Catalog.Format(msgs.locale, "ocrInvalidProvider", nil)
+}
+
+// OcrUploadApproval says "Upload file to PaddleOCR for text recognition"
+// in the language the app shows.
+func OcrUploadApproval() string { return In(i18n.Locale()).OcrUploadApproval() }
+
+// OcrUploadApproval says "Upload file to PaddleOCR for text recognition"
+// in the language of msgs.
+func (msgs Messages) OcrUploadApproval() string {
+	return Catalog.Format(msgs.locale, "ocrUploadApproval", nil)
+}
+
+// OcrDocumentUploadApproval says "Upload file to PaddleOCR for document parsing"
+// in the language the app shows.
+func OcrDocumentUploadApproval() string { return In(i18n.Locale()).OcrDocumentUploadApproval() }
+
+// OcrDocumentUploadApproval says "Upload file to PaddleOCR for document parsing"
+// in the language of msgs.
+func (msgs Messages) OcrDocumentUploadApproval() string {
+	return Catalog.Format(msgs.locale, "ocrDocumentUploadApproval", nil)
+}
+
+// OcrTextRecognition says "Text recognition"
+// in the language the app shows.
+func OcrTextRecognition() string { return In(i18n.Locale()).OcrTextRecognition() }
+
+// OcrTextRecognition says "Text recognition"
+// in the language of msgs.
+func (msgs Messages) OcrTextRecognition() string {
+	return Catalog.Format(msgs.locale, "ocrTextRecognition", nil)
+}
+
+// OcrDocumentParsing says "Document parsing"
+// in the language the app shows.
+func OcrDocumentParsing() string { return In(i18n.Locale()).OcrDocumentParsing() }
+
+// OcrDocumentParsing says "Document parsing"
+// in the language of msgs.
+func (msgs Messages) OcrDocumentParsing() string {
+	return Catalog.Format(msgs.locale, "ocrDocumentParsing", nil)
+}
+
+// OcrTextModel says "Text recognition model"
+// in the language the app shows.
+func OcrTextModel() string { return In(i18n.Locale()).OcrTextModel() }
+
+// OcrTextModel says "Text recognition model"
+// in the language of msgs.
+func (msgs Messages) OcrTextModel() string {
+	return Catalog.Format(msgs.locale, "ocrTextModel", nil)
+}
+
+// OcrDocumentModel says "Document parsing model"
+// in the language the app shows.
+func OcrDocumentModel() string { return In(i18n.Locale()).OcrDocumentModel() }
+
+// OcrDocumentModel says "Document parsing model"
+// in the language of msgs.
+func (msgs Messages) OcrDocumentModel() string {
+	return Catalog.Format(msgs.locale, "ocrDocumentModel", nil)
+}
+
+// OcrInvalidModel says "Select a supported PaddleOCR model for each task."
+// in the language the app shows.
+func OcrInvalidModel() string { return In(i18n.Locale()).OcrInvalidModel() }
+
+// OcrInvalidModel says "Select a supported PaddleOCR model for each task."
+// in the language of msgs.
+func (msgs Messages) OcrInvalidModel() string {
+	return Catalog.Format(msgs.locale, "ocrInvalidModel", nil)
+}
+
+// BrowserUseTool says "Browser automation"
+// in the language the app shows.
+func BrowserUseTool() string { return In(i18n.Locale()).BrowserUseTool() }
+
+// BrowserUseTool says "Browser automation"
+// in the language of msgs.
+func (msgs Messages) BrowserUseTool() string {
+	return Catalog.Format(msgs.locale, "browserUseTool", nil)
+}
+
+// EnableBrowserUse says "Enable browser automation"
+// in the language the app shows.
+func EnableBrowserUse() string { return In(i18n.Locale()).EnableBrowserUse() }
+
+// EnableBrowserUse says "Enable browser automation"
+// in the language of msgs.
+func (msgs Messages) EnableBrowserUse() string {
+	return Catalog.Format(msgs.locale, "enableBrowserUse", nil)
+}
+
+// BrowserUseHint says "Use an isolated browser to interact with pages that require JavaScript. Requires Chrome or Chromium."
+// in the language the app shows.
+func BrowserUseHint() string { return In(i18n.Locale()).BrowserUseHint() }
+
+// BrowserUseHint says "Use an isolated browser to interact with pages that require JavaScript. Requires Chrome or Chromium."
+// in the language of msgs.
+func (msgs Messages) BrowserUseHint() string {
+	return Catalog.Format(msgs.locale, "browserUseHint", nil)
+}
+
+// EnableWebSearch says "Enable web search"
+// in the language the app shows.
+func EnableWebSearch() string { return In(i18n.Locale()).EnableWebSearch() }
+
+// EnableWebSearch says "Enable web search"
+// in the language of msgs.
+func (msgs Messages) EnableWebSearch() string {
+	return Catalog.Format(msgs.locale, "enableWebSearch", nil)
+}
+
+// WebSearchHint says "Allow the agent to search the web using the selected provider."
+// in the language the app shows.
+func WebSearchHint() string { return In(i18n.Locale()).WebSearchHint() }
+
+// WebSearchHint says "Allow the agent to search the web using the selected provider."
+// in the language of msgs.
+func (msgs Messages) WebSearchHint() string {
+	return Catalog.Format(msgs.locale, "webSearchHint", nil)
+}
+
+// SearchProvider says "Search provider"
+// in the language the app shows.
+func SearchProvider() string { return In(i18n.Locale()).SearchProvider() }
+
+// SearchProvider says "Search provider"
+// in the language of msgs.
+func (msgs Messages) SearchProvider() string {
+	return Catalog.Format(msgs.locale, "searchProvider", nil)
+}
+
+// SearchProviderGoogle says "Google Custom Search"
+// in the language the app shows.
+func SearchProviderGoogle() string { return In(i18n.Locale()).SearchProviderGoogle() }
+
+// SearchProviderGoogle says "Google Custom Search"
+// in the language of msgs.
+func (msgs Messages) SearchProviderGoogle() string {
+	return Catalog.Format(msgs.locale, "searchProviderGoogle", nil)
+}
+
+// SearchProviderWikipedia says "Wikipedia"
+// in the language the app shows.
+func SearchProviderWikipedia() string { return In(i18n.Locale()).SearchProviderWikipedia() }
+
+// SearchProviderWikipedia says "Wikipedia"
+// in the language of msgs.
+func (msgs Messages) SearchProviderWikipedia() string {
+	return Catalog.Format(msgs.locale, "searchProviderWikipedia", nil)
+}
+
+// SearchEngineId says "Search engine ID (cx)"
+// in the language the app shows.
+func SearchEngineId() string { return In(i18n.Locale()).SearchEngineId() }
+
+// SearchEngineId says "Search engine ID (cx)"
+// in the language of msgs.
+func (msgs Messages) SearchEngineId() string {
+	return Catalog.Format(msgs.locale, "searchEngineId", nil)
+}
+
+// SearchEngineIdRequired says "Enter the Google search engine ID (cx)."
+// in the language the app shows.
+func SearchEngineIdRequired() string { return In(i18n.Locale()).SearchEngineIdRequired() }
+
+// SearchEngineIdRequired says "Enter the Google search engine ID (cx)."
+// in the language of msgs.
+func (msgs Messages) SearchEngineIdRequired() string {
+	return Catalog.Format(msgs.locale, "searchEngineIdRequired", nil)
+}
+
+// GoogleSearchAvailability says "Available to existing Google Custom Search JSON API customers through December 2026."
+// in the language the app shows.
+func GoogleSearchAvailability() string { return In(i18n.Locale()).GoogleSearchAvailability() }
+
+// GoogleSearchAvailability says "Available to existing Google Custom Search JSON API customers through December 2026."
+// in the language of msgs.
+func (msgs Messages) GoogleSearchAvailability() string {
+	return Catalog.Format(msgs.locale, "googleSearchAvailability", nil)
+}
+
+// WikipediaSearchScope says "Searches articles in English Wikipedia."
+// in the language the app shows.
+func WikipediaSearchScope() string { return In(i18n.Locale()).WikipediaSearchScope() }
+
+// WikipediaSearchScope says "Searches articles in English Wikipedia."
+// in the language of msgs.
+func (msgs Messages) WikipediaSearchScope() string {
+	return Catalog.Format(msgs.locale, "wikipediaSearchScope", nil)
+}
+
+// SearchProviderBaidu says "Baidu Qianfan"
+// in the language the app shows.
+func SearchProviderBaidu() string { return In(i18n.Locale()).SearchProviderBaidu() }
+
+// SearchProviderBaidu says "Baidu Qianfan"
+// in the language of msgs.
+func (msgs Messages) SearchProviderBaidu() string {
+	return Catalog.Format(msgs.locale, "searchProviderBaidu", nil)
+}
+
+// SearchProviderAliyun says "Alibaba Cloud IQS"
+// in the language the app shows.
+func SearchProviderAliyun() string { return In(i18n.Locale()).SearchProviderAliyun() }
+
+// SearchProviderAliyun says "Alibaba Cloud IQS"
+// in the language of msgs.
+func (msgs Messages) SearchProviderAliyun() string {
+	return Catalog.Format(msgs.locale, "searchProviderAliyun", nil)
+}
+
+// SearchProviderTencent says "Tencent Yuanbao"
+// in the language the app shows.
+func SearchProviderTencent() string { return In(i18n.Locale()).SearchProviderTencent() }
+
+// SearchProviderTencent says "Tencent Yuanbao"
+// in the language of msgs.
+func (msgs Messages) SearchProviderTencent() string {
+	return Catalog.Format(msgs.locale, "searchProviderTencent", nil)
+}
+
+// SearchProviderVolcengine says "Volcengine Doubao"
+// in the language the app shows.
+func SearchProviderVolcengine() string { return In(i18n.Locale()).SearchProviderVolcengine() }
+
+// SearchProviderVolcengine says "Volcengine Doubao"
+// in the language of msgs.
+func (msgs Messages) SearchProviderVolcengine() string {
+	return Catalog.Format(msgs.locale, "searchProviderVolcengine", nil)
+}
+
+// InvalidSearchProvider says "Select a supported search provider."
+// in the language the app shows.
+func InvalidSearchProvider() string { return In(i18n.Locale()).InvalidSearchProvider() }
+
+// InvalidSearchProvider says "Select a supported search provider."
+// in the language of msgs.
+func (msgs Messages) InvalidSearchProvider() string {
+	return Catalog.Format(msgs.locale, "invalidSearchProvider", nil)
+}
+
+// SearchKeyRequired says "Enter an API key for the selected search provider."
+// in the language the app shows.
+func SearchKeyRequired() string { return In(i18n.Locale()).SearchKeyRequired() }
+
+// SearchKeyRequired says "Enter an API key for the selected search provider."
+// in the language of msgs.
+func (msgs Messages) SearchKeyRequired() string {
+	return Catalog.Format(msgs.locale, "searchKeyRequired", nil)
+}
+
+// InvalidSearchURL says "Enter a valid HTTP or HTTPS SearXNG base URL."
+// in the language the app shows.
+func InvalidSearchURL() string { return In(i18n.Locale()).InvalidSearchURL() }
+
+// InvalidSearchURL says "Enter a valid HTTP or HTTPS SearXNG base URL."
+// in the language of msgs.
+func (msgs Messages) InvalidSearchURL() string {
+	return Catalog.Format(msgs.locale, "invalidSearchURL", nil)
+}
+
+// SearxngJSONHint says "Enable JSON output on the SearXNG instance."
+// in the language the app shows.
+func SearxngJSONHint() string { return In(i18n.Locale()).SearxngJSONHint() }
+
+// SearxngJSONHint says "Enable JSON output on the SearXNG instance."
+// in the language of msgs.
+func (msgs Messages) SearxngJSONHint() string {
+	return Catalog.Format(msgs.locale, "searxngJSONHint", nil)
 }
 
 // SkillsSettingsHint says "Skills available to the agent across all chats."
@@ -3822,4 +4232,284 @@ func UpdateAvailable(version string) string { return In(i18n.Locale()).UpdateAva
 // in the language of msgs.
 func (msgs Messages) UpdateAvailable(version string) string {
 	return Catalog.Format(msgs.locale, "updateAvailable", map[string]any{"version": version})
+}
+
+// TaskRunning says "Running"
+// in the language the app shows.
+func TaskRunning() string { return In(i18n.Locale()).TaskRunning() }
+
+// TaskRunning says "Running"
+// in the language of msgs.
+func (msgs Messages) TaskRunning() string {
+	return Catalog.Format(msgs.locale, "taskRunning", nil)
+}
+
+// TaskQueued says "Queued"
+// in the language the app shows.
+func TaskQueued() string { return In(i18n.Locale()).TaskQueued() }
+
+// TaskQueued says "Queued"
+// in the language of msgs.
+func (msgs Messages) TaskQueued() string {
+	return Catalog.Format(msgs.locale, "taskQueued", nil)
+}
+
+// TaskStopping says "Stopping"
+// in the language the app shows.
+func TaskStopping() string { return In(i18n.Locale()).TaskStopping() }
+
+// TaskStopping says "Stopping"
+// in the language of msgs.
+func (msgs Messages) TaskStopping() string {
+	return Catalog.Format(msgs.locale, "taskStopping", nil)
+}
+
+// TaskStop says "Stop task"
+// in the language the app shows.
+func TaskStop() string { return In(i18n.Locale()).TaskStop() }
+
+// TaskStop says "Stop task"
+// in the language of msgs.
+func (msgs Messages) TaskStop() string {
+	return Catalog.Format(msgs.locale, "taskStop", nil)
+}
+
+// TaskStopFailed says "Could not stop the background task."
+// in the language the app shows.
+func TaskStopFailed() string { return In(i18n.Locale()).TaskStopFailed() }
+
+// TaskStopFailed says "Could not stop the background task."
+// in the language of msgs.
+func (msgs Messages) TaskStopFailed() string {
+	return Catalog.Format(msgs.locale, "taskStopFailed", nil)
+}
+
+// OpenConversationTask says "Open in conversation"
+// in the language the app shows.
+func OpenConversationTask() string { return In(i18n.Locale()).OpenConversationTask() }
+
+// OpenConversationTask says "Open in conversation"
+// in the language of msgs.
+func (msgs Messages) OpenConversationTask() string {
+	return Catalog.Format(msgs.locale, "openConversationTask", nil)
+}
+
+// BackgroundTasks says "Background tasks"
+// in the language the app shows.
+func BackgroundTasks() string { return In(i18n.Locale()).BackgroundTasks() }
+
+// BackgroundTasks says "Background tasks"
+// in the language of msgs.
+func (msgs Messages) BackgroundTasks() string {
+	return Catalog.Format(msgs.locale, "backgroundTasks", nil)
+}
+
+// BackgroundCommand says "Run in background"
+// in the language the app shows.
+func BackgroundCommand() string { return In(i18n.Locale()).BackgroundCommand() }
+
+// BackgroundCommand says "Run in background"
+// in the language of msgs.
+func (msgs Messages) BackgroundCommand() string {
+	return Catalog.Format(msgs.locale, "backgroundCommand", nil)
+}
+
+// FileConflict says "File conflict"
+// in the language the app shows.
+func FileConflict() string { return In(i18n.Locale()).FileConflict() }
+
+// FileConflict says "File conflict"
+// in the language of msgs.
+func (msgs Messages) FileConflict() string {
+	return Catalog.Format(msgs.locale, "fileConflict", nil)
+}
+
+// FileConflictDetail says "The write was blocked. Read the latest file before trying again."
+// in the language the app shows.
+func FileConflictDetail() string { return In(i18n.Locale()).FileConflictDetail() }
+
+// FileConflictDetail says "The write was blocked. Read the latest file before trying again."
+// in the language of msgs.
+func (msgs Messages) FileConflictDetail() string {
+	return Catalog.Format(msgs.locale, "fileConflictDetail", nil)
+}
+
+// ContinueFailedTask says "Continue task"
+// in the language the app shows.
+func ContinueFailedTask() string { return In(i18n.Locale()).ContinueFailedTask() }
+
+// ContinueFailedTask says "Continue task"
+// in the language of msgs.
+func (msgs Messages) ContinueFailedTask() string {
+	return Catalog.Format(msgs.locale, "continueFailedTask", nil)
+}
+
+// Deliverables says "Deliverables"
+// in the language the app shows.
+func Deliverables() string { return In(i18n.Locale()).Deliverables() }
+
+// Deliverables says "Deliverables"
+// in the language of msgs.
+func (msgs Messages) Deliverables() string {
+	return Catalog.Format(msgs.locale, "deliverables", nil)
+}
+
+// ArtifactViewChanges says "View changes"
+// in the language the app shows.
+func ArtifactViewChanges() string { return In(i18n.Locale()).ArtifactViewChanges() }
+
+// ArtifactViewChanges says "View changes"
+// in the language of msgs.
+func (msgs Messages) ArtifactViewChanges() string {
+	return Catalog.Format(msgs.locale, "artifactViewChanges", nil)
+}
+
+// ArtifactReveal says "Show in file manager"
+// in the language the app shows.
+func ArtifactReveal() string { return In(i18n.Locale()).ArtifactReveal() }
+
+// ArtifactReveal says "Show in file manager"
+// in the language of msgs.
+func (msgs Messages) ArtifactReveal() string {
+	return Catalog.Format(msgs.locale, "artifactReveal", nil)
+}
+
+// WorkspaceConcurrent says "Shared workspace in use"
+// in the language the app shows.
+func WorkspaceConcurrent() string { return In(i18n.Locale()).WorkspaceConcurrent() }
+
+// WorkspaceConcurrent says "Shared workspace in use"
+// in the language of msgs.
+func (msgs Messages) WorkspaceConcurrent() string {
+	return Catalog.Format(msgs.locale, "workspaceConcurrent", nil)
+}
+
+// ArtifactFilesEdited says "{count, plural, one{# file edited} other{# files edited}}"
+// in the language the app shows.
+func ArtifactFilesEdited(count int) string { return In(i18n.Locale()).ArtifactFilesEdited(count) }
+
+// ArtifactFilesEdited says "{count, plural, one{# file edited} other{# files edited}}"
+// in the language of msgs.
+func (msgs Messages) ArtifactFilesEdited(count int) string {
+	return Catalog.Format(msgs.locale, "artifactFilesEdited", map[string]any{"count": count})
+}
+
+// ArtifactShowMore says "{count, plural, one{Show # more file} other{Show # more files}}"
+// in the language the app shows.
+func ArtifactShowMore(count int) string { return In(i18n.Locale()).ArtifactShowMore(count) }
+
+// ArtifactShowMore says "{count, plural, one{Show # more file} other{Show # more files}}"
+// in the language of msgs.
+func (msgs Messages) ArtifactShowMore(count int) string {
+	return Catalog.Format(msgs.locale, "artifactShowMore", map[string]any{"count": count})
+}
+
+// ArtifactShowLess says "Show fewer files"
+// in the language the app shows.
+func ArtifactShowLess() string { return In(i18n.Locale()).ArtifactShowLess() }
+
+// ArtifactShowLess says "Show fewer files"
+// in the language of msgs.
+func (msgs Messages) ArtifactShowLess() string {
+	return Catalog.Format(msgs.locale, "artifactShowLess", nil)
+}
+
+// ChatInfo says "Conversation Info"
+// in the language the app shows.
+func ChatInfo() string { return In(i18n.Locale()).ChatInfo() }
+
+// ChatInfo says "Conversation Info"
+// in the language of msgs.
+func (msgs Messages) ChatInfo() string {
+	return Catalog.Format(msgs.locale, "chatInfo", nil)
+}
+
+// ChatCreated says "Created"
+// in the language the app shows.
+func ChatCreated() string { return In(i18n.Locale()).ChatCreated() }
+
+// ChatCreated says "Created"
+// in the language of msgs.
+func (msgs Messages) ChatCreated() string {
+	return Catalog.Format(msgs.locale, "chatCreated", nil)
+}
+
+// ChatFirstRecorded says "First recorded message"
+// in the language the app shows.
+func ChatFirstRecorded() string { return In(i18n.Locale()).ChatFirstRecorded() }
+
+// ChatFirstRecorded says "First recorded message"
+// in the language of msgs.
+func (msgs Messages) ChatFirstRecorded() string {
+	return Catalog.Format(msgs.locale, "chatFirstRecorded", nil)
+}
+
+// ChatLastActivity says "Last conversation activity"
+// in the language the app shows.
+func ChatLastActivity() string { return In(i18n.Locale()).ChatLastActivity() }
+
+// ChatLastActivity says "Last conversation activity"
+// in the language of msgs.
+func (msgs Messages) ChatLastActivity() string {
+	return Catalog.Format(msgs.locale, "chatLastActivity", nil)
+}
+
+// ChatMessageCount says "Messages"
+// in the language the app shows.
+func ChatMessageCount() string { return In(i18n.Locale()).ChatMessageCount() }
+
+// ChatMessageCount says "Messages"
+// in the language of msgs.
+func (msgs Messages) ChatMessageCount() string {
+	return Catalog.Format(msgs.locale, "chatMessageCount", nil)
+}
+
+// ChatTimeUnavailable says "Not recorded"
+// in the language the app shows.
+func ChatTimeUnavailable() string { return In(i18n.Locale()).ChatTimeUnavailable() }
+
+// ChatTimeUnavailable says "Not recorded"
+// in the language of msgs.
+func (msgs Messages) ChatTimeUnavailable() string {
+	return Catalog.Format(msgs.locale, "chatTimeUnavailable", nil)
+}
+
+// CloseChatInfo says "Close"
+// in the language the app shows.
+func CloseChatInfo() string { return In(i18n.Locale()).CloseChatInfo() }
+
+// CloseChatInfo says "Close"
+// in the language of msgs.
+func (msgs Messages) CloseChatInfo() string {
+	return Catalog.Format(msgs.locale, "closeChatInfo", nil)
+}
+
+// ChatTitleView says "View"
+// in the language the app shows.
+func ChatTitleView() string { return In(i18n.Locale()).ChatTitleView() }
+
+// ChatTitleView says "View"
+// in the language of msgs.
+func (msgs Messages) ChatTitleView() string {
+	return Catalog.Format(msgs.locale, "chatTitleView", nil)
+}
+
+// ChatTitleCollapse says "Collapse"
+// in the language the app shows.
+func ChatTitleCollapse() string { return In(i18n.Locale()).ChatTitleCollapse() }
+
+// ChatTitleCollapse says "Collapse"
+// in the language of msgs.
+func (msgs Messages) ChatTitleCollapse() string {
+	return Catalog.Format(msgs.locale, "chatTitleCollapse", nil)
+}
+
+// ChooseChatModel says "Select model"
+// in the language the app shows.
+func ChooseChatModel() string { return In(i18n.Locale()).ChooseChatModel() }
+
+// ChooseChatModel says "Select model"
+// in the language of msgs.
+func (msgs Messages) ChooseChatModel() string {
+	return Catalog.Format(msgs.locale, "chooseChatModel", nil)
 }

@@ -20,6 +20,9 @@ func (app *chatApp) generate(chat *conversation, index int) {
 	}
 	reply := &turn{message: message{Role: "assistant"}, State: "pending", StartedAt: time.Now()}
 	if index < len(chat.Turns) {
+		for _, previous := range chat.Turns[index:] {
+			previous.closeBrowser()
+		}
 		chat.sessionID = ""
 		chat.projectedInterface = nil
 	}
@@ -88,6 +91,8 @@ func (app *chatApp) startReply(chat *conversation, reply *turn, index int, answe
 	var input []*turn
 	var resume *clarification
 	sessionModel := backend.sessionModelKey(choice)
+	calls := recoveryCalls(reply)
+	reply.RecoveryModel = &choice
 	if answer != "" {
 		question := reply.Clarifications[len(reply.Clarifications)-1]
 		resume = &question
@@ -95,7 +100,11 @@ func (app *chatApp) startReply(chat *conversation, reply *turn, index int, answe
 		// Provider reasoning and tool blocks may contain endpoint-specific data.
 		chat.sessionID = newID()
 		chat.sessionModel = sessionModel
-		input = replyInput(chat.Turns[:index])
+		if calls != nil {
+			input = recoveryInput(chat.Turns[:index], reply, calls)
+		} else {
+			input = replyInput(chat.Turns[:index])
+		}
 	} else {
 		input = []*turn{chat.Turns[index-1]}
 	}
@@ -104,9 +113,30 @@ func (app *chatApp) startReply(chat *conversation, reply *turn, index int, answe
 	chat.list.ScrollToEnd()
 	parent := app.appContext()
 	ctx, cancel := context.WithCancel(parent)
+	if backend.config.BrowserUse {
+		if reply.browser == nil {
+			reply.browser = localtools.NewBrowserSession(parent, backend.config.Proxy)
+		}
+		ctx = localtools.WithBrowserSession(ctx, reply.browser)
+	} else {
+		reply.closeBrowser()
+	}
+	browser := reply.browser
 	ctx = context.WithValue(ctx, systemPromptKey{}, strings.TrimSpace(app.systemPrompt))
 	access := localtools.NewAccess(chat.workspace, chat.accessMode)
+	if chat.fileVersions == nil {
+		chat.fileVersions = &localtools.FileVersions{}
+	}
+	access.TrackFiles(chat.fileVersions)
+	ctx = localtools.WithBackground(ctx, app.tasks, chat.ID)
+	if calls != nil {
+		ctx = localtools.WithRecovery(ctx, calls)
+		ctx = context.WithValue(ctx, recoveryPromptKey{}, chat.Turns[index-1].Content)
+	}
 	ctx = localtools.WithAccess(ctx, access)
+	if backend.config.OCR.Enabled && index > 0 && chat.Turns[index-1].Role == "user" {
+		ctx = localtools.WithOCRAttachments(ctx, chat.Turns[index-1].Attachments)
+	}
 	ctx = context.WithValue(ctx, interfaceContextKey{}, chat.interfaceRequest())
 	run := &replyRun{reply: reply, cancel: cancel, access: access}
 	chat.run = run
@@ -132,6 +162,8 @@ func (app *chatApp) startReply(chat *conversation, reply *turn, index int, answe
 					reply.appendDelta(part)
 					if len(part.interfaceUpdates) != 0 {
 						chat.commitInterface(reply, len(reply.Content)-len(part.text), part.interfaceUpdates)
+					}
+					if len(part.interfaceUpdates) != 0 || part.toolResult != nil || part.toolFinished != "" || part.activity != nil {
 						app.save(chat)
 					}
 				}
@@ -139,12 +171,20 @@ func (app *chatApp) startReply(chat *conversation, reply *turn, index int, answe
 			return nil
 		}
 		question, err := backend.runSession(ctx, store, sessionID, input, resume, answer, emit)
+		if browser != nil && (question == nil || err != nil) {
+			browser.Close()
+		}
 		finishedAt := time.Now()
 		update(func() {
 			if parent.Err() != nil || chat.run != run {
 				return
 			}
+			app.backgroundRefresh = time.Time{}
+			if question == nil || err != nil {
+				reply.browser = nil
+			}
 			reply.FinishedAt = finishedAt
+			reply.activeTools = nil
 			reply.compressing = false
 			reply.keepProcessPreview()
 			if err == nil && resume != nil {
@@ -172,6 +212,8 @@ func (app *chatApp) startReply(chat *conversation, reply *turn, index int, answe
 				reply.State = "waiting"
 			default:
 				reply.State = "done"
+				reply.RecoveryOffset = nil
+				reply.RecoveryModel = nil
 			}
 			chat.run = nil
 			app.save(chat)
@@ -232,12 +274,26 @@ func (entry *turn) appendDelta(delta replyDelta) {
 	if delta.activity != nil {
 		entry.Activity = append(entry.Activity, (*delta.activity)...)
 	}
+	if delta.toolStarted != "" {
+		if entry.activeTools == nil {
+			entry.activeTools = make(map[string]bool)
+		}
+		entry.activeTools[delta.toolStarted] = true
+	}
 	if delta.toolFinished != "" {
+		delete(entry.activeTools, delta.toolFinished)
 		for i := len(entry.Activity) - 1; i >= 0; i-- {
 			if entry.Activity[i].CallID == delta.toolFinished {
 				activity := &entry.Activity[i]
 				activity.Pending = false
-				if activity.Output == nil && activity.RunsCommand() {
+				if localtools.RecordsMutation(activity.Tool) {
+					activity.Receipt = delta.toolOutput
+					if activity.Conflict || (activity.CommandResult != nil && !activity.CommandResult.Succeeded()) ||
+						(activity.Receipt != nil && strings.HasPrefix(*activity.Receipt, "无法执行：")) {
+						activity.Receipt = nil
+					}
+				}
+				if activity.Output == nil && activity.Tool != timeline.AskUserTool {
 					activity.Output = delta.toolOutput
 				}
 				break
@@ -247,8 +303,10 @@ func (entry *turn) appendDelta(delta replyDelta) {
 	if result := delta.toolResult; result != nil {
 		for i := len(entry.Activity) - 1; i >= 0; i-- {
 			if entry.Activity[i].CallID == result.CallID {
+				entry.Activity[i].Conflict = result.Conflict
 				entry.Activity[i].Diff = result.Diff
 				entry.Activity[i].ResolvedTarget = result.Target
+				entry.Activity[i].Model = result.Model
 				entry.Activity[i].Output = &result.Text
 				entry.Activity[i].CommandResult = result.Command
 				break

@@ -13,7 +13,7 @@ import (
 func TestLinkPreviewHoverAndOpen(t *testing.T) {
 	const dest = "https://example.org/guide#install"
 	app := &chatApp{md: markup.New(ink)}
-	app.md.Preview = app.links.offer
+	app.configureLinkPreviews()
 	const title = "Installation guide"
 	app.links.results = map[previewRequest]previewResult{
 		{url: "https://example.org/guide"}: {
@@ -63,5 +63,36 @@ func TestLinkPreviewHoverAndOpen(t *testing.T) {
 	window.ClickAt(open.X+open.W/2, open.Y+open.H/2)
 	if urls := window.OpenedURLs(); len(urls) != 1 || urls[0] != dest {
 		t.Fatalf("expected the original URL including its fragment, opened %v", urls)
+	}
+}
+
+func TestLinkPreviewForURLText(t *testing.T) {
+	const dest = "https://example.org/guide#install"
+	for name, source := range map[string]string{"bare": dest, "inline code": "`" + dest + "`"} {
+		t.Run(name, func(t *testing.T) {
+			app := &chatApp{md: markup.New(ink)}
+			app.configureLinkPreviews()
+			app.links.results = map[previewRequest]previewResult{
+				{url: "https://example.org/guide"}: {until: time.Now().Add(time.Minute)},
+			}
+			chat := &conversation{ID: "test-chat", Turns: []*turn{{
+				message: message{Role: "assistant", Content: source}, State: "done",
+			}}}
+			window := ui.NewTester(func(c *ui.Context) {
+				root := ui.Column(c).Fill().Padding(155, 20, 0).Children(func() {
+					app.transcript(c, chat)
+				})
+				app.linkPreview(c, root)
+			}, 480, 420)
+			link, ok := window.Find(dest)
+			if !ok {
+				t.Fatalf("link missing from %v", window.Texts())
+			}
+			window.Move(link.X+12, link.Y+link.H/2)
+			window.Advance(800 * time.Millisecond)
+			if !window.HasText("example.org") || !window.HasText(locales.LinkPreviewOpen()) {
+				t.Fatalf("missing URL fallback card: %v", window.Texts())
+			}
+		})
 	}
 }

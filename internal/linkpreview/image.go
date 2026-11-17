@@ -9,7 +9,6 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
-	"net/url"
 	"time"
 
 	"github.com/ggdream/microlight/pkg/proxy"
@@ -31,26 +30,12 @@ func FetchImage(ctx context.Context, raw string, config proxy.Config) (Image, er
 		return Image{}, err
 	}
 	defer transport.CloseIdleConnections()
-	check := checkPublic
-	if config.EffectiveMode() != proxy.Direct {
-		check = checkImageProxyTarget
-	}
-	res, err := fetchPublic(ctx, raw, "image/*", transport, check)
+	res, err := fetchPublic(ctx, raw, "image/*", transport, previewTargetCheck(config))
 	if err != nil {
 		return Image{}, err
 	}
 	defer res.Body.Close()
 	return decodeImage(res.Body)
-}
-
-func checkImageProxyTarget(ctx context.Context, target *url.URL) error {
-	if _, ok := URL(target.String()); !ok {
-		return errors.New("invalid image redirect")
-	}
-	// Some system proxies return synthetic DNS for public hostnames. Let the
-	// proxy resolve them itself. The direct dialer still rejects these IPs.
-	_, err := publicAddresses(ctx, target.Hostname(), true)
-	return err
 }
 
 func decodeImage(body io.Reader) (Image, error) {

@@ -15,7 +15,7 @@ func roundChangedFiles(entry *turn, workspace string) []preview.Change {
 	}
 	byPath := make(map[string]int)
 	for index, activity := range entry.Activity {
-		if activity.Tool != localtools.Write || (activity.Diff == nil && activity.Output == nil) ||
+		if activity.Tool != localtools.Write || activity.Conflict || (activity.Diff == nil && activity.Output == nil) ||
 			(activity.Diff != nil && activity.Diff.Added+activity.Diff.Removed == 0) {
 			continue
 		}

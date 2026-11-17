@@ -1,7 +1,9 @@
 package chat
 
 import (
+	"math"
 	"strings"
+	"time"
 
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/pages/settings"
@@ -15,6 +17,7 @@ var conversationMenuTheme = theme.MenuTheme
 type conversationAction struct {
 	chat     *conversation
 	deleting bool
+	info     bool
 	title    string
 	failed   bool
 }
@@ -39,14 +42,14 @@ func (app *chatApp) sidebarChat(c *ui.Context, chat *conversation, selected bool
 				glyph = "pin"
 			}
 			icon(c, glyph, color, 14)
-			ui.Text(c, chat.Title).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(12).TextColor(color)
+			sidebarTitle(c.Key("title"), chat.Title, color, hovered && !chat.menuOpen)
 		}).OnClick(func() { app.selectChat(chat.ID) })
 
-		indicator := ui.Box(c.Key("activity")).Size(14, 14).Margin(0, 2).Shrink(0)
 		if chat.isRunning() {
-			indicator.Role(ui.RoleProgress).Label(locales.Thinking()).Draw(drawActivityRing)
-		}
-		if hovered || chat.menuOpen || button.FocusVisible() {
+			chat.menuOpen = false
+			ui.Box(c.Key("activity")).Size(24, 24).Shrink(0).
+				Role(ui.RoleProgress).Label(locales.Thinking()).Draw(drawActivityRing)
+		} else if hovered || chat.menuOpen || button.FocusVisible() {
 			more := pointerButton(c.Key("more"), false).Label(locales.ChatActions()).Size(24, 24).
 				Shrink(0).Radius(5).AlignItems(ui.Center).Justify(ui.Center)
 			if more.Hovered() || chat.menuOpen {
@@ -60,6 +63,53 @@ func (app *chatApp) sidebarChat(c *ui.Context, chat *conversation, selected bool
 			ui.Box(c.Key("menu-slot")).Size(24, 24).Shrink(0)
 		}
 	}).PopoverMenu(menu)
+}
+
+func sidebarTitle(c *ui.Context, title string, color ui.Color, hovered bool) {
+	const fontSize, gap = 12, 24
+	viewport := ui.Row(c).Grow(1).MinWidth(0).AlignItems(ui.Center).Clip().AccessHidden(true)
+	width := viewport.LayoutBounds().W
+	textWidth, _ := c.MeasureText(0, ui.Span{Text: title, Size: fontSize})
+	textWidth = float32(math.Ceil(float64(textWidth)))
+	overflow := width > 0 && textWidth > width
+	if width == 0 {
+		c.After(time.Millisecond)
+	}
+	if overflow {
+		viewport.MaskLinearGradient(ui.LinearGradient{
+			Angle: 90, From: ui.RGB(0, 0, 0), To: ui.Transparent,
+			Start: 1 - min(18/width, .4),
+		})
+	}
+
+	started := ui.Local(viewport, "hover-started", func() time.Time { return time.Time{} })
+	scrolling := hovered && overflow && !c.Preferences().ReduceMotion
+	var offset float32
+	if scrolling {
+		now := c.Now()
+		if started.IsZero() {
+			*started = now
+		}
+		const pause = 350 * time.Millisecond
+		if elapsed := now.Sub(*started); elapsed < pause {
+			c.After(pause - elapsed)
+		} else {
+			const speed = 40 // DIPs per second.
+			offset = float32(math.Mod((elapsed-pause).Seconds()*speed, float64(textWidth+gap)))
+			c.AnimationFrame()
+		}
+	} else {
+		*started = time.Time{}
+	}
+	viewport.Children(func() {
+		track := ui.Row(c).Shrink(0).Gap(gap).AlignItems(ui.Center).Translate(-offset, 0)
+		track.Children(func() {
+			ui.Text(c, title).Width(textWidth).Shrink(0).SingleLine().FontSize(fontSize).TextColor(color)
+			if scrolling {
+				ui.Text(c.Key("repeat"), title).Width(textWidth).Shrink(0).SingleLine().FontSize(fontSize).TextColor(color)
+			}
+		})
+	})
 }
 
 func (app *chatApp) conversationMenu(m *ui.Menu, chat *conversation) {
@@ -82,11 +132,19 @@ func (app *chatApp) conversationMenu(m *ui.Menu, chat *conversation) {
 		Disabled(disabled || chat.isRunning()).Chosen() {
 		app.chatAction = &conversationAction{chat: chat, deleting: true}
 	}
+	m.Separator()
+	if m.Item(locales.ChatInfo()).Icon(icons.Menu("info")).Chosen() {
+		app.chatAction = &conversationAction{chat: chat, info: true}
+	}
 }
 
 func (app *chatApp) conversationActionDialog(c *ui.Context) {
 	action := app.chatAction
 	if action == nil {
+		return
+	}
+	if action.info {
+		app.conversationInfoDialog(c.Key("info"), action.chat)
 		return
 	}
 	title, confirm, confirmColor := locales.RenameChat(), locales.SaveChatTitle(), accent

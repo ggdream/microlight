@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -63,6 +65,7 @@ func TestReplyTimerAndReasoningDisclosure(t *testing.T) {
 	}
 	tools := []timeline.Entry{{Tool: localtools.Write, Target: "example.go", CallID: "edit", Pending: true}}
 	reply.appendDelta(replyDelta{messageDone: true, activity: &tools})
+	reply.appendDelta(replyDelta{toolStarted: "edit"})
 	surface.Frame()
 	if _, shown := surface.Find(locales.WriteFile() + " example.go"); !shown {
 		t.Fatal("the running tool row should remain visible")
@@ -240,11 +243,21 @@ func TestToolTargetOpensPreviewAndContextMenu(t *testing.T) {
 	if _, found := surface.Find("denied.go"); found {
 		t.Fatal("an unsuccessful write appeared in the change tree")
 	}
+	countExtra := func() int {
+		count := 0
+		for _, label := range surface.Texts() {
+			if label == "extra.go" {
+				count++
+			}
+		}
+		return count
+	}
+	beforeCollapse := countExtra()
 	if err := surface.Click("internal"); err != nil {
 		t.Fatal(err)
 	}
-	if _, found := surface.Find("extra.go"); found {
-		t.Fatal("collapsing the folder left its file visible")
+	if countExtra() >= beforeCollapse {
+		t.Fatal("collapsing the folder left its file visible in the change tree")
 	}
 	if err := surface.Click("internal"); err != nil {
 		t.Fatal(err)
@@ -268,5 +281,81 @@ func TestToolTargetOpensPreviewAndContextMenu(t *testing.T) {
 		if _, found := surface.Find(item); !found {
 			t.Errorf("composer menu missing %q", item)
 		}
+	}
+}
+
+func TestMCPApprovalPrecedesRunningTool(t *testing.T) {
+	const tool = "mcp_images_generate"
+	const question = "允许生成图片？"
+	const callID = "image-call"
+	entry := &turn{
+		message:  message{Role: "assistant"},
+		State:    "pending",
+		Activity: []timeline.Entry{{Text: "准备生成图片。"}, {Tool: tool, CallID: callID, Pending: true}},
+	}
+	app := &chatApp{}
+	chat := &conversation{ID: "chat", Turns: []*turn{entry}}
+	surface := ui.NewTester(func(c *ui.Context) { app.transcript(c, chat) }, 580, 420)
+	if surface.HasText(tool) {
+		t.Fatal("tool proposal was displayed as an execution")
+	}
+
+	entry.State = "waiting"
+	entry.Clarifications = []clarification{{Question: question, Approval: &localtools.Approval{CallID: callID}}}
+	surface.Frame()
+	if !surface.HasText(question) || !surface.HasText(locales.ApproveOnce()) || surface.HasText(tool) {
+		t.Fatalf("waiting should show approval alone: %v", surface.Texts())
+	}
+
+	entry.State = "pending"
+	entry.Clarifications[0].Answer = localtools.AllowOnce
+	surface.Frame()
+	if surface.HasText(tool) {
+		t.Fatal("answer alone should not mark the tool running")
+	}
+	entry.appendDelta(replyDelta{toolStarted: callID})
+	surface.Frame()
+	approval, foundApproval := surface.Find(locales.ApprovalRecord())
+	running, foundRunning := surface.Find(tool)
+	if !foundApproval || !foundRunning || approval.Y >= running.Y {
+		t.Fatalf("approval must be above the running tool: %v", surface.Texts())
+	}
+
+	entry.Clarifications[0].Answer = localtools.Deny
+	entry.appendDelta(replyDelta{toolFinished: callID})
+	surface.Frame()
+	if !surface.HasText(locales.ApprovalRecord()) || surface.HasText(tool) {
+		t.Fatalf("rejected operation should only show the approval record: %v", surface.Texts())
+	}
+}
+
+func TestBuiltInToolDetailsShowArgumentsAndResult(t *testing.T) {
+	const id = "search-call"
+	const arguments = `{"query":"Microlight"}`
+	output := `{"status":"error","error":{"code":"QUOTA_USER_DAILY_FREE"}}`
+	entry := &turn{
+		Activity: []timeline.Entry{{Tool: localtools.WebSearch, Target: "Microlight", Arguments: arguments, CallID: id}},
+	}
+	entry.appendDelta(replyDelta{toolFinished: id, toolOutput: &output})
+	app := &chatApp{}
+	surface := ui.NewTester(func(c *ui.Context) { app.toolActivityRow(c, entry, 0) }, 540, 360)
+	if surface.HasText(locales.ToolOutput()) {
+		t.Fatal("tool output should start collapsed")
+	}
+	if err := surface.Click(locales.ToolDetails()); err != nil {
+		t.Fatal(err)
+	}
+	if !surface.HasText(locales.ToolArguments()) || !surface.HasText(locales.ToolOutput()) ||
+		!surface.HasText(entry.Activity[0].Details()) || entry.Activity[0].Output == nil ||
+		*entry.Activity[0].Output != output || !slices.ContainsFunc(surface.Texts(), func(text string) bool {
+		return strings.Contains(text, "QUOTA_USER_DAILY_FREE")
+	}) {
+		t.Fatalf("missing tool arguments or output: %v", surface.Texts())
+	}
+	if err := surface.Click(locales.ToolDetails()); err != nil {
+		t.Fatal(err)
+	}
+	if surface.HasText(locales.ToolOutput()) {
+		t.Fatal("tool output should collapse on the second click")
 	}
 }
