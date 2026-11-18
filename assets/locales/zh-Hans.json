@@ -23,6 +23,7 @@
   "appSubtitle": "桌面 AI 智能体",
   "retryTitle": "重新生成回复？",
   "retryBody": "确认后会替换当前回复。",
+  "retryBranchBody": "将从这里新建分支会话，原会话及后续消息会保留。",
   "cancel": "取消",
   "confirmRetry": "确认重新生成",
   "fullAccessTitle": "开启完全访问权限？",

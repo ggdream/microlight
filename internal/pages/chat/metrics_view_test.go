@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -34,35 +35,61 @@ func TestStatisticsPopoversSeparateUsageAndTiming(t *testing.T) {
 	if _, visible := view.Find(locales.Statistics()); visible {
 		t.Fatal("the latest reply should also hide statistics at rest")
 	}
-	response, found := view.Find("Sample reply")
-	if !found {
-		t.Fatal("test reply is missing")
+	moveTo := func(label string) {
+		t.Helper()
+		rect, ok := view.Find(label)
+		if !ok {
+			t.Fatalf("cannot find %q", label)
+		}
+		view.Move(rect.X+rect.W/2, rect.Y+rect.H/2)
 	}
-	view.Move(response.X+4, response.Y+4)
-	if err := view.Click(locales.Statistics()); err != nil {
-		t.Fatal(err)
+	moveTo("Sample reply")
+	if slices.Contains(view.Texts(), locales.StatisticsTokenTotal(metricNumber(120))) ||
+		view.HasText(locales.Elapsed(metricDuration(3*time.Second))) ||
+		view.HasText(locales.StatisticsReplyTime()) || view.HasText(locales.StatisticsUsagePartial()) {
+		t.Fatalf("hovering a reply should show statistic icons without numbers: %v", view.Texts())
 	}
+	moveTo(locales.Statistics())
 	if !view.HasText(locales.StatisticsCache()) || !view.HasText(locales.StatisticsUsagePartial()) ||
 		view.HasText(locales.StatisticsGenerationSpeed()) {
 		t.Fatalf("unexpected reply usage details: %v", view.Texts())
 	}
-
-	if err := view.Click(locales.StatisticsTiming()); err != nil {
-		t.Fatal(err)
+	moveTo(locales.StatisticsCache())
+	if view.HasText(locales.StatisticsCache()) {
+		t.Fatal("reply details should close on leaving the icon, even over the card")
 	}
+	moveTo("Sample reply")
+
+	moveTo(locales.StatisticsTiming())
 	if !view.HasText(locales.StatisticsGenerationSpeed()) || view.HasText(locales.StatisticsCache()) {
 		t.Fatalf("switching to reply timing should close the usage popover: %v", view.Texts())
 	}
+	moveTo("Sample reply")
+	if view.HasText(locales.StatisticsGenerationSpeed()) {
+		t.Fatal("moving back to the reply should close timing details")
+	}
+	moveTo(locales.StatisticsTiming())
 	view.Key(0, ui.KeyEscape)
 	if view.HasText(locales.StatisticsGenerationSpeed()) {
 		t.Fatal("Escape did not close the timing popover")
 	}
 
-	if err := view.Click(locales.StatisticsSessionTiming()); err != nil {
-		t.Fatal(err)
-	}
+	moveTo(locales.StatisticsSessionTiming())
 	if !view.HasText(locales.StatisticsReplies()) || view.HasText(locales.StatisticsReplyTime()) {
 		t.Fatalf("conversation timing should show aggregate metrics: %v", view.Texts())
+	}
+	moveTo(locales.StatisticsSessionUsage())
+	if !view.HasText(locales.StatisticsCache()) || view.HasText(locales.StatisticsReplies()) {
+		t.Fatalf("moving to conversation usage should replace timing details: %v", view.Texts())
+	}
+	moveTo(locales.StatisticsCache())
+	if view.HasText(locales.StatisticsCache()) {
+		t.Fatal("conversation usage should close on leaving the trigger, even over the card")
+	}
+	moveTo(locales.StatisticsSessionTiming())
+	view.Move(2, 2)
+	if view.HasText(locales.StatisticsReplies()) {
+		t.Fatal("conversation timing should close without clicking after the pointer leaves")
 	}
 
 	app.desktop.HideStatistics = true

@@ -154,3 +154,60 @@ func TestBrowserRunModeAndTabIndexes(t *testing.T) {
 		})
 	}
 }
+
+func TestBrowserExplicitModeOverridesDefaultForOneReply(t *testing.T) {
+	const target = "https://example.com/"
+	for _, tc := range []struct {
+		configured, explicit BrowserMode
+		headless             bool
+	}{
+		{BrowserForeground, BrowserBackground, true},
+		{BrowserBackground, BrowserForeground, false},
+	} {
+		t.Run(string(tc.explicit), func(t *testing.T) {
+			browser := BrowserTool{Mode: tc.configured}
+			session := NewBrowserSession(t.Context(), proxy.Config{}, tc.configured)
+			defer session.Close()
+			var starts []bool
+			session.newEngine = func(_ context.Context, config *browseruse.Config) (browserEngine, error) {
+				starts = append(starts, config.Headless)
+				return testBrowserEngine{}, nil
+			}
+			run := func(raw string, approvedMode BrowserMode) string {
+				t.Helper()
+				ctx := context.WithValue(WithBrowserSession(t.Context(), session), approvedOperationKey{},
+					localOperation{name: BrowserUse, target: target, browserMode: approvedMode})
+				got, err := browser.InvokableRun(ctx, raw)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return got
+			}
+			navigate := `{"action":"go_to_url","url":"https://example.com/","mode":"` + string(tc.explicit) + `"}`
+			if got := run(navigate, tc.configured); !strings.Contains(got, "changed after approval") || len(starts) != 0 {
+				t.Fatalf("call with the wrong mode approval started a browser: %s, %v", got, starts)
+			}
+			want := "isolated_" + string(tc.explicit)
+			if got := run(navigate, tc.explicit); !strings.Contains(got, want) {
+				t.Fatal(got)
+			}
+			// Page interactions reuse the actual mode even if the configured setting differs.
+			if got := run(`{"action":"get_state"}`, tc.explicit); !strings.Contains(got, want) || len(starts) != 1 || starts[0] != tc.headless {
+				t.Fatalf("follow-up did not reuse the override: %s, headless modes %v", got, starts)
+			}
+			if got := run(`{"action":"click_element","index":0,"mode":"`+string(tc.configured)+`"}`, tc.configured); !strings.Contains(got, "requires a URL") {
+				t.Fatalf("changing modes must not reuse element indexes: %s", got)
+			}
+			session.Close()
+			session = NewBrowserSession(t.Context(), proxy.Config{}, tc.configured)
+			defer session.Close()
+			session.newEngine = func(_ context.Context, config *browseruse.Config) (browserEngine, error) {
+				starts = append(starts, config.Headless)
+				return testBrowserEngine{}, nil
+			}
+			if got := run(`{"action":"go_to_url","url":"https://example.com/"}`, tc.configured); !strings.Contains(got, "isolated_"+string(tc.configured)) || len(starts) != 2 || starts[1] == tc.headless {
+				t.Fatalf("new reply did not use the configured default: %s, headless modes %v", got, starts)
+			}
+		})
+	}
+}

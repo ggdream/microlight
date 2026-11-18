@@ -291,7 +291,7 @@ func (app *chatApp) toolActivityRow(c *ui.Context, entry *turn, index int) {
 				preview.DiffCounts(c.Key("diff"), diff)
 			}
 			if expandable {
-				replyActivityChevron(c, !command || hovered || line.FocusVisible(), *open, color)
+				replyActivityChevron(c, !command || hovered || line.FocusVisible(), *open, color, 16)
 			}
 		})
 		if expandable && *open {
@@ -304,9 +304,9 @@ func (app *chatApp) toolActivityRow(c *ui.Context, entry *turn, index int) {
 	})
 }
 
-func replyActivityChevron(c *ui.Context, visible, open bool, color ui.Color) {
+func replyActivityChevron(c *ui.Context, visible, open bool, color ui.Color, height float32) {
 	ui.Box(c.Key("spacer")).Grow(1)
-	ui.Box(c.Key("arrow")).Size(23, 23).Shrink(0).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
+	ui.Box(c.Key("arrow")).Size(23, height).Shrink(0).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
 		if visible || open {
 			chevron := ui.Icon(c, icons.SVG("ios_chevron_right")).Size(14, 14).TextColor(color)
 			if open {
@@ -332,7 +332,7 @@ func answeredClarification(c *ui.Context, question *clarification) {
 		button.Children(func() {
 			icon(c, "question", color, 16)
 			ui.Text(c, title).MinWidth(0).SingleLine().Ellipsis("…").FontSize(bodyStyle.FontSize).TextColor(color)
-			replyActivityChevron(c, button.Hovered() || button.FocusVisible(), question.answerOpen, bodyStyle.Text)
+			replyActivityChevron(c, button.Hovered() || button.FocusVisible(), question.answerOpen, bodyStyle.Text, 23)
 		}).OnClick(func() {
 			question.answerOpen = !question.answerOpen
 		})

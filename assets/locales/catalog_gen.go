@@ -264,6 +264,16 @@ func (msgs Messages) RetryBody() string {
 	return Catalog.Format(msgs.locale, "retryBody", nil)
 }
 
+// RetryBranchBody says "This starts a new conversation from this point. All messages stay in the original conversation."
+// in the language the app shows.
+func RetryBranchBody() string { return In(i18n.Locale()).RetryBranchBody() }
+
+// RetryBranchBody says "This starts a new conversation from this point. All messages stay in the original conversation."
+// in the language of msgs.
+func (msgs Messages) RetryBranchBody() string {
+	return Catalog.Format(msgs.locale, "retryBranchBody", nil)
+}
+
 // Cancel says "Cancel"
 // in the language the app shows.
 func Cancel() string { return In(i18n.Locale()).Cancel() }

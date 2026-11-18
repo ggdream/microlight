@@ -196,6 +196,35 @@ func TestStopWaitingClarification(t *testing.T) {
 	}
 }
 
+func TestHistoricalReplyOffersRegenerationOnHover(t *testing.T) {
+	chat := &conversation{ID: "regenerate-history", Turns: []*turn{
+		userTurn("First prompt"),
+		{message: message{Role: "assistant", Content: "Earlier answer"}, State: "done"},
+		userTurn("Follow-up prompt"),
+		{message: message{Role: "assistant", Content: "Later answer"}, State: "done"},
+	}}
+	app := &chatApp{backend: &Chat{}}
+	window := ui.NewTester(func(c *ui.Context) {
+		app.transcript(c, chat)
+		app.regenerateDialog(c.Key("regenerate-dialog"), chat)
+	}, 660, 500)
+	body, ok := window.Find("Earlier answer")
+	if !ok {
+		t.Fatal("earlier reply is missing")
+	}
+	window.Move(body.X+body.W/2, body.Y+body.H/2)
+	if err := window.Click(locales.Retry()); err != nil {
+		t.Fatal(err)
+	}
+	if app.retryReply != chat.Turns[1] || !window.HasText(locales.RetryBranchBody()) {
+		t.Fatal("the earlier reply must open the branch confirmation for that reply")
+	}
+	window.Key(0, ui.KeyEscape)
+	if app.retryReply != nil || len(chat.Turns) != 4 {
+		t.Fatal("dismissing the confirmation changed the conversation")
+	}
+}
+
 func TestRegenerateConfirmationKeysStayInDialog(t *testing.T) {
 	var draft string
 	open, confirms, composerKeys := false, 0, 0
@@ -207,7 +236,7 @@ func TestRegenerateConfirmationKeysStayInDialog(t *testing.T) {
 		ui.Button(c, "Regenerate").OnClick(func() { open = true })
 		if open {
 			var confirmed bool
-			open, confirmed = regenerateConfirmation(c)
+			open, confirmed = regenerateConfirmation(c, false)
 			if confirmed {
 				confirms++
 			}

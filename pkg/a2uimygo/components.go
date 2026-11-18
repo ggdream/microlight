@@ -155,21 +155,46 @@ func (r renderer) slider(c *ui.Context, node a2ui.Component, scope string) {
 }
 
 func parseDate(value string) time.Time {
+	date, _ := parseDateValue(value)
+	return date
+}
+
+func parseDateValue(value string) (time.Time, bool) {
 	for _, format := range []string{time.RFC3339Nano, "2006-01-02T15:04:05", time.DateOnly, "15:04:05", "15:04"} {
 		if parsed, err := time.ParseInLocation(format, value, time.Local); err == nil {
-			return parsed
+			return parsed, true
 		}
 	}
-	return time.Time{}
+	return time.Time{}, false
 }
 
 func (r renderer) dateTime(c *ui.Context, node a2ui.Component, scope string) {
 	useTime := a2ui.Boolean(r.property(node, scope, "enableTime"))
 	useDate := !useTime || a2ui.Boolean(r.property(node, scope, "enableDate"))
 	original := r.surface.String(node.Props["value"], scope)
-	value := parseDate(original)
+	value, valid := parseDateValue(original)
+	unset := strings.TrimSpace(original) == "" || (valid && useDate && value.Year() == 1)
 	label := r.surface.String(node.Props["label"], scope)
 	disabled := r.disabled(node, scope)
+	if unset {
+		value = c.Now().Local().Truncate(time.Minute)
+		if !useDate {
+			value = time.Date(0, time.January, 1, value.Hour(), value.Minute(), 0, 0, value.Location())
+		}
+	}
+	minimum := parseDate(r.surface.String(node.Props["min"], scope))
+	maximum := parseDate(r.surface.String(node.Props["max"], scope))
+	clamp := func() {
+		if !minimum.IsZero() && value.Before(minimum) {
+			value = minimum
+		}
+		if !maximum.IsZero() && value.After(maximum) {
+			value = maximum
+		}
+	}
+	if unset {
+		clamp()
+	}
 	ui.Column(c).Gap(4).Children(func() {
 		if label != "" {
 			ui.Text(c, label).TextColor(r.Style.Text)
@@ -185,7 +210,8 @@ func (r renderer) dateTime(c *ui.Context, node a2ui.Component, scope string) {
 				changed = tm.Changed() || changed
 			}
 		})
-		if changed && !disabled {
+		if (changed || unset) && !disabled {
+			clamp()
 			layout := time.DateOnly
 			if useTime && useDate {
 				layout = "2006-01-02T15:04:05"
@@ -195,14 +221,6 @@ func (r renderer) dateTime(c *ui.Context, node a2ui.Component, scope string) {
 			if useDate && useTime && strings.ContainsAny(strings.TrimPrefix(original, strings.SplitN(original, "T", 2)[0]), "Z+-") {
 				layout = time.RFC3339
 				value = value.UTC()
-			}
-			minimum := parseDate(r.surface.String(node.Props["min"], scope))
-			maximum := parseDate(r.surface.String(node.Props["max"], scope))
-			if !minimum.IsZero() && value.Before(minimum) {
-				value = minimum
-			}
-			if !maximum.IsZero() && value.After(maximum) {
-				value = maximum
 			}
 			r.write(node, scope, value.Format(layout))
 		}

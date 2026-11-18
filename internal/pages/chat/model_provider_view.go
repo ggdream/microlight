@@ -163,12 +163,8 @@ func chatModelRows(c *ui.Context, provider *modelProvider, active modelChoice, c
 			}).OnClick(func() { choose(name) })
 		}
 	}
-	if len(provider.Models) <= 6 {
-		ui.Column(c).Label(locales.ModelID()).FillWidth().Gap(2).Children(rows)
-		return
-	}
 	scroll, offset := elastic.Scroll(c)
-	scroll.Label(locales.ModelID()).FillWidth().MaxHeight(214).Children(func() {
+	scroll.Label(locales.ModelID()).FillWidth().Shrink(1).MinHeight(0).MaxHeight(214).Children(func() {
 		offset.Apply(ui.Column(c)).FillWidth().Gap(2).Children(rows)
 	})
 }

@@ -92,9 +92,14 @@ func (app *chatApp) messageEditor(c *ui.Context, chat *conversation, index int, 
 	})
 }
 
+const messageControlRadius = 6
+
+func messageIconFrame(control ui.Element) ui.Element {
+	return control.Size(25, 25).Radius(messageControlRadius).AlignItems(ui.Center).Justify(ui.Center)
+}
+
 func messageIcon(c *ui.Context, label, glyph string, disabled bool, action func()) {
-	button := pointerButton(c, disabled).Label(label).Tooltip(label).Size(25, 25).
-		Radius(6).AlignItems(ui.Center).Justify(ui.Center)
+	button := messageIconFrame(pointerButton(c, disabled).Label(label).Tooltip(label))
 	if button.Hovered() {
 		button.Background(side)
 	}

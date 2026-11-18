@@ -28,9 +28,7 @@ func (app *chatApp) transcript(c *ui.Context, chat *conversation) {
 				elapsed := replyElapsed(entry)
 				response.Children(func() {
 					hasReasoning, open := replyReasoning(entry)
-					if !showStatistics || entry.State != "done" || hasReasoning || elapsed <= 0 {
-						replyProgress(c.Key("reply-progress"), entry, hasReasoning, open)
-					}
+					replyProgress(c.Key("reply-progress"), entry, hasReasoning, open)
 					app.replyBody(c, chat, entry, interfaces, hasReasoning && open)
 					app.replyDeliverables(c.Key("artifacts"), entry, chat.workspace)
 					if len(entry.Clarifications) > 0 {
@@ -49,11 +47,11 @@ func (app *chatApp) transcript(c *ui.Context, chat *conversation) {
 					if entry.State == "pending" {
 						if status := replyRunningStatus(entry); status != "" {
 							label := ui.Text(c.Key("running-status"), status).AlignSelf(ui.Start).
-								FontSize(12).FontWeight(620).TextColor(ink).Padding(3, 0)
-							shimmerReplyText(c, label)
+								FontSize(12).FontWeight(500).TextColor(ink).Padding(3, 0)
+							flowThinkingText(c, label)
 						}
 					} else if entry.State != "waiting" {
-						app.replyFooter(c.Key("reply-footer"), chat, entry, i == len(chat.Turns)-1, showActions, showStatistics, elapsed)
+						app.replyFooter(c.Key("reply-footer"), chat, entry, canRegenerateReply(chat, i), showActions, showStatistics, elapsed)
 					}
 				})
 			})

@@ -23,6 +23,7 @@
   "appSubtitle": "Desktop AI Agent",
   "retryTitle": "Regenerate this reply?",
   "retryBody": "This will replace the current reply.",
+  "retryBranchBody": "This starts a new conversation from this point. All messages stay in the original conversation.",
   "cancel": "Cancel",
   "confirmRetry": "Regenerate Reply",
   "fullAccessTitle": "Enable Full Access?",

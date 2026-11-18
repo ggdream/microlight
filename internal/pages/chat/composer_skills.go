@@ -226,7 +226,7 @@ func (app *chatApp) composerSkills(c *ui.Context, editor ui.Element, workspace s
 						Ellipsis("…").Clip().FontSize(11).TextColor(muted)
 				})
 			}).OnClick(func() { app.insertComposerSkill(entry.Name) })
-		}).FillWidth().Height(min(264, height))
+		}).FillWidth().Shrink(1).MinHeight(0).Height(min(264, height))
 	})
 	if !picker.open && picker.index != nil {
 		app.resetComposerSkills()

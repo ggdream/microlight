@@ -108,6 +108,7 @@ type localOperation struct {
 	exists, sensitive     bool
 	mcp                   bool
 	fileVersion           string
+	browserMode           BrowserMode
 	fileMode              os.FileMode
 	callID                string
 }
@@ -199,7 +200,17 @@ func (h Middleware) WrapInvokableToolCall(_ context.Context, next adk.InvokableT
 				return err.Error(), nil
 			}
 			session, _ := ctx.Value(browserSessionKey{}).(*BrowserSession)
-			op.target = browserTarget(session, parameters)
+			op.browserMode = parameters.Mode
+			if session != nil {
+				session.mu.Lock()
+				op.target = browserTarget(session, parameters.Param)
+				if op.browserMode == "" {
+					op.browserMode = session.mode
+				}
+				session.mu.Unlock()
+			} else {
+				op.target = browserTarget(nil, parameters.Param)
+			}
 		} else if call.Name == OCR || call.Name == ParseDocument {
 			var err error
 			op, err = policy.resolveOCR(ctx, call.Name, args)
@@ -224,7 +235,7 @@ func (h Middleware) WrapInvokableToolCall(_ context.Context, next adk.InvokableT
 			}
 		}
 		// Bind the decision to this tool call and the exact resolved target and arguments.
-		fingerprint := fmt.Sprintf("%x", sha256.Sum256([]byte(call.CallID+"\x00"+op.target+"\x00"+op.fileVersion+"\x00"+args)))
+		fingerprint := fmt.Sprintf("%x", sha256.Sum256([]byte(call.CallID+"\x00"+op.target+"\x00"+op.fileVersion+string(op.browserMode)+"\x00"+args)))
 		if wasInterrupted && (!hasState || saved != fingerprint) {
 			if op.name == Write && hasState {
 				op.reportConflict(ctx)

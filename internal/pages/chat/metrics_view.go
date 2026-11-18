@@ -110,9 +110,9 @@ func replyElapsed(entry *turn) time.Duration {
 	return entry.FinishedAt.Sub(entry.StartedAt)
 }
 
-func (app *chatApp) replyFooter(c *ui.Context, chat *conversation, entry *turn, latest, showActions, showStatistics bool, elapsed time.Duration) {
+func (app *chatApp) replyFooter(c *ui.Context, chat *conversation, entry *turn, allowRetry, showActions, showStatistics bool, elapsed time.Duration) {
 	row := ui.Row(c).Gap(4).AlignItems(ui.Center).Wrap()
-	open := ui.Local(row, "panels", func() statisticOpen { return statisticOpen{} })
+	preview := ui.Local(row, "preview", func() statisticPreview { return statisticPreview{} })
 	if !entry.FinishedAt.IsZero() {
 		row.MinHeight(25)
 	}
@@ -125,15 +125,17 @@ func (app *chatApp) replyFooter(c *ui.Context, chat *conversation, entry *turn, 
 			if entry.Content != "" {
 				copyMessageIcon(c, entry, locales.Copy(), locales.Copied())
 			}
-			if latest {
-				messageIcon(c, locales.Retry(), "retry", chat.isRunning(), func() { app.retryReply = entry })
+			if allowRetry {
+				messageIcon(c, locales.Retry(), "retry", chat.isRunning() || chat.waitingReply() != nil, func() { app.retryReply = entry })
 			}
 		})
-		if showStatistics && (showActions || open.timing || open.usage) {
-			ui.Row(c.Key("statistics")).Gap(3).AlignItems(ui.Center).Children(func() {
-				statisticButton(c.Key("usage"), entry.Metrics.tokenCard(false), &open.usage, &open.timing)
-				statisticButton(c.Key("timing"), entry.Metrics.timingCard(elapsed), &open.timing, &open.usage)
+		if showStatistics && showActions {
+			stats := c.Key("statistics")
+			ui.Row(stats).Gap(3).AlignItems(ui.Center).Children(func() {
+				preview.triggers(stats, [2]statisticCard{entry.Metrics.tokenCard(false), entry.Metrics.timingCard(elapsed)}, false)
 			})
+		} else {
+			*preview = statisticPreview{}
 		}
 		if showActions {
 			messageTimestamp(c.Key("completion-time"), entry.FinishedAt)
@@ -166,53 +168,89 @@ func (app *chatApp) conversationStatistics(c *ui.Context, chat *conversation) {
 	usage := metrics.tokenCard(true)
 	usage.title = locales.StatisticsSessionUsage()
 	row := ui.Row(c.Key(chat.ID)).AlignItems(ui.Center).Justify(ui.Center).Wrap().Gap(4)
-	open := ui.Local(row, "panels", func() statisticOpen { return statisticOpen{} })
+	preview := ui.Local(row, "preview", func() statisticPreview { return statisticPreview{} })
 	row.Children(func() {
-		statisticButton(c.Key("timing"), timing, &open.timing, &open.usage)
-		statisticButton(c.Key("usage"), usage, &open.usage, &open.timing)
+		preview.triggers(c, [2]statisticCard{timing, usage}, true)
 	})
 }
 
-type statisticOpen struct{ timing, usage bool }
+type statisticPreview struct {
+	dismissed int
+}
 
-func statisticButton(c *ui.Context, card statisticCard, open, other *bool) {
-	button := pointerButton(c, false).Label(card.title).Expanded(*open).
-		Height(24).PaddingX(7).AlignItems(ui.Center).Gap(5).Radius(12)
+func (p *statisticPreview) triggers(c *ui.Context, cards [2]statisticCard, session bool) {
+	var anchors [2]ui.Element
+	var target int
+	for i, card := range cards {
+		anchor := statisticTrigger(c.Key(card.glyph), card, session)
+		anchors[i] = anchor
+		if anchor.Hovered() || (anchor.FocusVisible() && target == 0) {
+			target = i + 1
+		}
+	}
+	if target != p.dismissed {
+		p.dismissed = 0
+	}
+	if target == 0 || target == p.dismissed || !c.WindowActive() {
+		return
+	}
+
+	anchor, card := anchors[target-1], cards[target-1]
+	open := true
+	ui.PopoverBase(c.Key("detail"), anchor, &open, func(panel ui.Element) {
+		// Only the trigger owns the preview; the card cannot keep itself hovered or focused.
+		panel.IgnoreInput(true)
+		statisticDetail(c.Key(card.glyph), panel, anchor, card)
+	})
+	if !open {
+		p.dismissed = target
+	}
+}
+
+func statisticTrigger(c *ui.Context, card statisticCard, showSummary bool) ui.Element {
+	trigger := ui.Row(c).Focusable().Label(card.title)
+	iconSize := float32(14)
+	if showSummary {
+		trigger.Height(24).PaddingX(7).AlignItems(ui.Center).Gap(5).Radius(messageControlRadius)
+		iconSize = 13
+	} else {
+		messageIconFrame(trigger)
+	}
 	color := muted
-	if button.Hovered() || *open {
-		button.Background(side)
+	if trigger.Hovered() || trigger.FocusVisible() {
+		trigger.Background(side)
 		color = ink
 	}
-	button.Children(func() {
-		icon(c, card.glyph, color, 13)
-		ui.Text(c, card.summary).FontSize(11).TextColor(color).SingleLine().Ellipsis("…")
-	}).OnClick(func() {
-		*open = !*open
-		*other = false
+	return trigger.Children(func() {
+		icon(c, card.glyph, color, iconSize)
+		if showSummary {
+			ui.Text(c, card.summary).FontSize(11).TextColor(color).SingleLine().Ellipsis("…")
+		}
 	})
-	ui.PopoverBase(c.Key("detail"), button, open, func(panel ui.Element) {
-		panel.AttachTo(button, ui.AnchorTopStart, ui.AnchorBottomStart).Margin(0, 0, 6).
-			AttachEdgeMargin(12).Width(288).Padding(14).Gap(9).
-			Background(white).Border(1, border).Radius(12).Shadow(0, 5, 18, 0, ui.RGBA(20, 34, 28, .14)).
-			Label(card.title)
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(7).Children(func() {
-			icon(c, card.glyph, muted, 14)
-			ui.Text(c, card.title).FontSize(12).FontWeight(630).Grow(1)
-			if card.total != "" {
-				ui.Text(c, card.total).FontSize(12).FontWeight(630).Selectable()
-			}
-		})
-		ui.Box(c).FillWidth().Height(1).Background(border)
-		ui.Column(c).FillWidth().Gap(6).Children(func() {
-			for _, line := range card.lines {
-				ui.Row(c.Key(line.label)).FillWidth().AlignItems(ui.Start).Gap(12).Children(func() {
-					ui.Text(c, line.label).Grow(1).MinWidth(0).FontSize(12).TextColor(muted)
-					ui.Text(c, line.value).FontSize(12).Selectable()
-				})
-			}
-			if card.note != "" {
-				ui.Text(c, card.note).FillWidth().FontSize(11).TextColor(muted)
-			}
-		})
+}
+
+func statisticDetail(c *ui.Context, panel, anchor ui.Element, card statisticCard) {
+	panel.AttachTo(anchor, ui.AnchorTopStart, ui.AnchorBottomStart).Margin(0, 0, 6).
+		AttachEdgeMargin(12).Width(288).Padding(14).Gap(9).
+		Background(white).Border(1, border).Radius(12).Shadow(0, 5, 18, 0, ui.RGBA(20, 34, 28, .14)).
+		Label(card.title)
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(7).Children(func() {
+		icon(c, card.glyph, muted, 14)
+		ui.Text(c, card.title).FontSize(12).FontWeight(630).Grow(1)
+		if card.total != "" {
+			ui.Text(c, card.total).FontSize(12).FontWeight(630)
+		}
+	})
+	ui.Box(c).FillWidth().Height(1).Background(border)
+	ui.Column(c).FillWidth().Gap(6).Children(func() {
+		for _, line := range card.lines {
+			ui.Row(c.Key(line.label)).FillWidth().AlignItems(ui.Start).Gap(12).Children(func() {
+				ui.Text(c, line.label).Grow(1).MinWidth(0).FontSize(12).TextColor(muted)
+				ui.Text(c, line.value).FontSize(12)
+			})
+		}
+		if card.note != "" {
+			ui.Text(c, card.note).FillWidth().FontSize(11).TextColor(muted)
+		}
 	})
 }

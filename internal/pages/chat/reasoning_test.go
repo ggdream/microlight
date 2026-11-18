@@ -2,6 +2,7 @@ package chat
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -119,6 +120,23 @@ func TestReplyTimerAndReasoningDisclosure(t *testing.T) {
 	surface.Move(0, 0)
 	if _, shown := surface.Find(want); shown {
 		t.Fatal("completion time is still visible after pointer exit")
+	}
+}
+
+func TestCompletedReplyShowsElapsedWithoutReasoning(t *testing.T) {
+	started := time.Now()
+	reply := &turn{
+		message: message{Role: "assistant", Content: "Sample response"},
+		State:   "done", StartedAt: started, FinishedAt: started.Add(8 * time.Second),
+		Metrics: usageMetrics{Requests: 1},
+	}
+	chat := &conversation{ID: "elapsed-test", Turns: []*turn{reply}}
+	app := &chatApp{}
+	view := ui.NewTester(func(c *ui.Context) { app.transcript(c, chat) }, 620, 420)
+	timer, shown := view.Find(locales.Elapsed(locales.DurationSeconds(8)))
+	body, bodyShown := view.Find("Sample response")
+	if !shown || !bodyShown || timer.Y >= body.Y {
+		t.Fatal("elapsed time should appear above the completed response without requiring hover or reasoning")
 	}
 }
 
@@ -327,6 +345,39 @@ func TestMCPApprovalPrecedesRunningTool(t *testing.T) {
 	surface.Frame()
 	if !surface.HasText(locales.ApprovalRecord()) || surface.HasText(tool) {
 		t.Fatalf("rejected operation should only show the approval record: %v", surface.Texts())
+	}
+}
+
+func TestCollapsedToolRowsMatchSearchSpacing(t *testing.T) {
+	entry := &turn{Activity: []timeline.Entry{
+		{Tool: localtools.WebSearch, Target: "first"},
+		{Tool: localtools.WebSearch, Target: "second"},
+		{Tool: localtools.Execute, Target: "pwd"},
+		{Tool: localtools.BrowserUse, Target: "example.com"},
+		{Tool: localtools.OCR, Target: "scan.png", Arguments: `{"path":"scan.png"}`},
+		{Tool: localtools.Read, Target: "notes.txt"},
+		{Tool: localtools.WebSearch, Target: "last"},
+	}}
+	app := &chatApp{}
+	surface := ui.NewTester(func(c *ui.Context) {
+		app.replyBody(c, &conversation{}, entry, &interfaceProjection{}, true)
+	}, 540, 360)
+	var previous, spacing float32
+	for i, activity := range entry.Activity {
+		label := activity.Label(activity.ShortTarget())
+		if activity.Tool == localtools.Read {
+			label = activity.Label("")
+		}
+		rect, ok := surface.Find(label)
+		if !ok {
+			t.Fatalf("missing tool row %q: %v", label, surface.Texts())
+		}
+		if i == 1 {
+			spacing = rect.Y - previous
+		} else if i > 1 && math.Abs(float64(rect.Y-previous-spacing)) > 0.5 {
+			t.Errorf("row %q has spacing %.1f; want %.1f", label, rect.Y-previous, spacing)
+		}
+		previous = rect.Y
 	}
 }
 
