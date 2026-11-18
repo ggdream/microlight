@@ -134,7 +134,7 @@ func (activity Entry) Icon() string {
 	case strings.Contains(name, "search"):
 		return "search"
 	default:
-		return "wrench"
+		return "plug_connected"
 	}
 }
 

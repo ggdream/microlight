@@ -62,6 +62,16 @@ func TestConversationMenusAndArchiveRestore(t *testing.T) {
 	find(locales.ChatLastActivity())
 	find(locales.ChatMessageCount())
 	find(locales.WorkspaceUnspecified())
+	if _, shown := window.Find(locales.ChatTitleView()); shown {
+		t.Fatal("a title that fits should not offer an expand action")
+	}
+	click(locales.CloseChatInfo())
+	shortTitle := first.Title
+	first.Title = "A much longer conversation title that does not fit on one line in the information dialog"
+	window.Frame()
+	rightClick(first.Title)
+	click(locales.ChatInfo())
+	window.Advance(time.Millisecond)
 	click(locales.ChatTitleView())
 	find(locales.ChatTitleCollapse())
 	click(locales.ChatTitleCollapse())
@@ -71,6 +81,7 @@ func TestConversationMenusAndArchiveRestore(t *testing.T) {
 		t.Fatal("viewing another conversation’s details changed the selection")
 	}
 
+	first.Title = shortTitle
 	first.run = nil
 	window.Frame()
 	window.Move(row.X+row.W/2, row.Y+row.H/2)

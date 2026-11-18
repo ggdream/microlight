@@ -21,7 +21,7 @@ import (
 func replyReasoning(entry *turn) (hasReasoning, open bool) {
 	hasBody := strings.TrimSpace(entry.Content) != "" || len(entry.Interface) > 0
 	compressing := entry.State == "pending" && entry.compressing
-	hasReasoning = compressing || len(entry.Activity) != 0 || strings.TrimSpace(entry.processPreview) != "" || slices.ContainsFunc(entry.Clarifications, func(q clarification) bool {
+	hasReasoning = compressing || slices.ContainsFunc(entry.Activity, func(a timeline.Entry) bool { return a.Tool != timeline.AskUserTool }) || strings.TrimSpace(entry.processPreview) != "" || slices.ContainsFunc(entry.Clarifications, func(q clarification) bool {
 		return q.Answer != ""
 	})
 	open = (entry.State == "pending" || entry.State == "waiting") && !hasBody
@@ -36,7 +36,9 @@ func (entry *turn) visibleTool(activity timeline.Entry) bool {
 }
 
 func replyRunningStatus(entry *turn) string {
-	if slices.ContainsFunc(entry.Activity, func(activity timeline.Entry) bool { return activity.Pending && entry.visibleTool(activity) }) {
+	if slices.ContainsFunc(entry.Activity, func(activity timeline.Entry) bool {
+		return activity.Tool != timeline.AskUserTool && activity.Pending && entry.visibleTool(activity)
+	}) {
 		return ""
 	}
 	if entry.compressing || len(entry.Interface) > 0 || len(entry.interfacePreview) > 0 || strings.TrimSpace(entry.processPreview) != "" || strings.TrimSpace(entry.Content) != "" {
@@ -164,7 +166,7 @@ func (app *chatApp) reasoningSegments(c *ui.Context, entry *turn) {
 					continue
 				}
 			}
-			if entry.visibleTool(activity) {
+			if activity.Tool != timeline.AskUserTool && entry.visibleTool(activity) {
 				app.toolActivityRow(c.Key(start+i), entry, start+i)
 			}
 		}
@@ -197,6 +199,7 @@ func (app *chatApp) toolActivityRow(c *ui.Context, entry *turn, index int) {
 	command := activity.RunsCommand()
 	fileTarget := target != "" && (activity.Tool == localtools.Read || activity.Tool == localtools.List || activity.Tool == localtools.Write)
 	expandable := command || (!fileTarget && activity.Tool != timeline.AskUserTool &&
+		activity.Tool != localtools.WebSearch && activity.Tool != localtools.BrowserUse &&
 		(activity.Arguments != "" || activity.Output != nil))
 	row := ui.Column(c).FillWidth().Gap(4)
 	open := ui.Local(row, "tool-details-open", func() bool { return false })
@@ -314,7 +317,7 @@ func replyActivityChevron(c *ui.Context, visible, open bool, color ui.Color) {
 }
 
 func answeredClarification(c *ui.Context, question *clarification) {
-	title := locales.ClarificationRecord()
+	title := locales.AskUserTool()
 	if question.Approval != nil {
 		title = locales.ApprovalRecord()
 	}

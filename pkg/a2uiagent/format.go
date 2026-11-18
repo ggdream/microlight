@@ -42,6 +42,7 @@ surface("welcome")
 root = Text("Hello")
 </a2ui>
 Express: start with surface("id"), declare root = Component(...), and declare children as variables referenced by identifier. Use named properties, e.g. Button(child=label, action=Event("submit", {value: $/value})). Bind with $/path and set data with $/path = value. Start with surface("id", update=true) to update an existing surface.
+` + expressBindingGuide + `
 Use the following JSON format as an alternative when exact wire messages are needed.
 ` + prompt, nil
 	}
@@ -53,9 +54,20 @@ Use the following JSON format as an alternative when exact wire messages are nee
 Begin a surface with surface("surface_id"). Declare its root with root = Component(...).
 Reference other component variables by identifier. Use Component(property=value) for named properties.
 Bind data with $/path and assign data with $/path = value. Emit an event with Event("name", {key: $/path}).
+` + expressBindingGuide + `
 Use _template($/items, child) for a repeated child and deleteSurface("surface_id") to remove a surface.
 Use only the following negotiated catalogs.` + definitions, nil
 }
+
+const expressBindingGuide = `After $, use a JSON Pointer: begin with / and separate nested keys with /, never with dots. For example:
+<a2ui>
+surface("form_example")
+$/form/name = ""
+field = TextField(label="Name", value=$/form/name)
+label = Text("Submit")
+submit = Button(child=label, action=Event("submit", {name: $/form/name}))
+root = Column(children=[field, submit])
+</a2ui>`
 
 // Decompile returns model-facing source for the supported inference format.
 func Decompile(format Format, messages []a2ui.AgentMessage, catalogs ...*a2ui.Catalog) (string, error) {

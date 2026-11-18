@@ -2964,34 +2964,74 @@ func (msgs Messages) OcrInvalidModel() string {
 	return Catalog.Format(msgs.locale, "ocrInvalidModel", nil)
 }
 
-// BrowserUseTool says "Browser automation"
+// BrowserUseTool says "Control browser"
 // in the language the app shows.
 func BrowserUseTool() string { return In(i18n.Locale()).BrowserUseTool() }
 
-// BrowserUseTool says "Browser automation"
+// BrowserUseTool says "Control browser"
 // in the language of msgs.
 func (msgs Messages) BrowserUseTool() string {
 	return Catalog.Format(msgs.locale, "browserUseTool", nil)
 }
 
-// EnableBrowserUse says "Enable browser automation"
+// EnableBrowserUse says "Enable browser tool"
 // in the language the app shows.
 func EnableBrowserUse() string { return In(i18n.Locale()).EnableBrowserUse() }
 
-// EnableBrowserUse says "Enable browser automation"
+// EnableBrowserUse says "Enable browser tool"
 // in the language of msgs.
 func (msgs Messages) EnableBrowserUse() string {
 	return Catalog.Format(msgs.locale, "enableBrowserUse", nil)
 }
 
-// BrowserUseHint says "Use an isolated browser to interact with pages that require JavaScript. Requires Chrome or Chromium."
+// BrowserUseHint says "Choose whether to show the browser window. Web interactions require Chrome or Chromium."
 // in the language the app shows.
 func BrowserUseHint() string { return In(i18n.Locale()).BrowserUseHint() }
 
-// BrowserUseHint says "Use an isolated browser to interact with pages that require JavaScript. Requires Chrome or Chromium."
+// BrowserUseHint says "Choose whether to show the browser window. Web interactions require Chrome or Chromium."
 // in the language of msgs.
 func (msgs Messages) BrowserUseHint() string {
 	return Catalog.Format(msgs.locale, "browserUseHint", nil)
+}
+
+// BrowserMode says "Run mode"
+// in the language the app shows.
+func BrowserMode() string { return In(i18n.Locale()).BrowserMode() }
+
+// BrowserMode says "Run mode"
+// in the language of msgs.
+func (msgs Messages) BrowserMode() string {
+	return Catalog.Format(msgs.locale, "browserMode", nil)
+}
+
+// BrowserModeForeground says "Foreground"
+// in the language the app shows.
+func BrowserModeForeground() string { return In(i18n.Locale()).BrowserModeForeground() }
+
+// BrowserModeForeground says "Foreground"
+// in the language of msgs.
+func (msgs Messages) BrowserModeForeground() string {
+	return Catalog.Format(msgs.locale, "browserModeForeground", nil)
+}
+
+// BrowserModeBackground says "Background"
+// in the language the app shows.
+func BrowserModeBackground() string { return In(i18n.Locale()).BrowserModeBackground() }
+
+// BrowserModeBackground says "Background"
+// in the language of msgs.
+func (msgs Messages) BrowserModeBackground() string {
+	return Catalog.Format(msgs.locale, "browserModeBackground", nil)
+}
+
+// BrowserModeInvalid says "Invalid browser run mode."
+// in the language the app shows.
+func BrowserModeInvalid() string { return In(i18n.Locale()).BrowserModeInvalid() }
+
+// BrowserModeInvalid says "Invalid browser run mode."
+// in the language of msgs.
+func (msgs Messages) BrowserModeInvalid() string {
+	return Catalog.Format(msgs.locale, "browserModeInvalid", nil)
 }
 
 // EnableWebSearch says "Enable web search"
@@ -4484,11 +4524,11 @@ func (msgs Messages) CloseChatInfo() string {
 	return Catalog.Format(msgs.locale, "closeChatInfo", nil)
 }
 
-// ChatTitleView says "View"
+// ChatTitleView says "Expand"
 // in the language the app shows.
 func ChatTitleView() string { return In(i18n.Locale()).ChatTitleView() }
 
-// ChatTitleView says "View"
+// ChatTitleView says "Expand"
 // in the language of msgs.
 func (msgs Messages) ChatTitleView() string {
 	return Catalog.Format(msgs.locale, "chatTitleView", nil)
@@ -4512,4 +4552,248 @@ func ChooseChatModel() string { return In(i18n.Locale()).ChooseChatModel() }
 // in the language of msgs.
 func (msgs Messages) ChooseChatModel() string {
 	return Catalog.Format(msgs.locale, "chooseChatModel", nil)
+}
+
+// ShowStatistics says "Show usage statistics"
+// in the language the app shows.
+func ShowStatistics() string { return In(i18n.Locale()).ShowStatistics() }
+
+// ShowStatistics says "Show usage statistics"
+// in the language of msgs.
+func (msgs Messages) ShowStatistics() string {
+	return Catalog.Format(msgs.locale, "showStatistics", nil)
+}
+
+// ShowStatisticsHint says "Show model usage and response timing for replies and conversations."
+// in the language the app shows.
+func ShowStatisticsHint() string { return In(i18n.Locale()).ShowStatisticsHint() }
+
+// ShowStatisticsHint says "Show model usage and response timing for replies and conversations."
+// in the language of msgs.
+func (msgs Messages) ShowStatisticsHint() string {
+	return Catalog.Format(msgs.locale, "showStatisticsHint", nil)
+}
+
+// Statistics says "Usage statistics"
+// in the language the app shows.
+func Statistics() string { return In(i18n.Locale()).Statistics() }
+
+// Statistics says "Usage statistics"
+// in the language of msgs.
+func (msgs Messages) Statistics() string {
+	return Catalog.Format(msgs.locale, "statistics", nil)
+}
+
+// StatisticsTokenTotal says "{count} tokens"
+// in the language the app shows.
+func StatisticsTokenTotal(count string) string { return In(i18n.Locale()).StatisticsTokenTotal(count) }
+
+// StatisticsTokenTotal says "{count} tokens"
+// in the language of msgs.
+func (msgs Messages) StatisticsTokenTotal(count string) string {
+	return Catalog.Format(msgs.locale, "statisticsTokenTotal", map[string]any{"count": count})
+}
+
+// StatisticsInput says "Input"
+// in the language the app shows.
+func StatisticsInput() string { return In(i18n.Locale()).StatisticsInput() }
+
+// StatisticsInput says "Input"
+// in the language of msgs.
+func (msgs Messages) StatisticsInput() string {
+	return Catalog.Format(msgs.locale, "statisticsInput", nil)
+}
+
+// StatisticsOutput says "Output"
+// in the language the app shows.
+func StatisticsOutput() string { return In(i18n.Locale()).StatisticsOutput() }
+
+// StatisticsOutput says "Output"
+// in the language of msgs.
+func (msgs Messages) StatisticsOutput() string {
+	return Catalog.Format(msgs.locale, "statisticsOutput", nil)
+}
+
+// StatisticsCache says "Cached input"
+// in the language the app shows.
+func StatisticsCache() string { return In(i18n.Locale()).StatisticsCache() }
+
+// StatisticsCache says "Cached input"
+// in the language of msgs.
+func (msgs Messages) StatisticsCache() string {
+	return Catalog.Format(msgs.locale, "statisticsCache", nil)
+}
+
+// StatisticsReasoning says "Reasoning"
+// in the language the app shows.
+func StatisticsReasoning() string { return In(i18n.Locale()).StatisticsReasoning() }
+
+// StatisticsReasoning says "Reasoning"
+// in the language of msgs.
+func (msgs Messages) StatisticsReasoning() string {
+	return Catalog.Format(msgs.locale, "statisticsReasoning", nil)
+}
+
+// StatisticsRequests says "Model calls"
+// in the language the app shows.
+func StatisticsRequests() string { return In(i18n.Locale()).StatisticsRequests() }
+
+// StatisticsRequests says "Model calls"
+// in the language of msgs.
+func (msgs Messages) StatisticsRequests() string {
+	return Catalog.Format(msgs.locale, "statisticsRequests", nil)
+}
+
+// StatisticsModelTime says "Model time"
+// in the language the app shows.
+func StatisticsModelTime() string { return In(i18n.Locale()).StatisticsModelTime() }
+
+// StatisticsModelTime says "Model time"
+// in the language of msgs.
+func (msgs Messages) StatisticsModelTime() string {
+	return Catalog.Format(msgs.locale, "statisticsModelTime", nil)
+}
+
+// StatisticsFirstToken says "Avg. time to first token"
+// in the language the app shows.
+func StatisticsFirstToken() string { return In(i18n.Locale()).StatisticsFirstToken() }
+
+// StatisticsFirstToken says "Avg. time to first token"
+// in the language of msgs.
+func (msgs Messages) StatisticsFirstToken() string {
+	return Catalog.Format(msgs.locale, "statisticsFirstToken", nil)
+}
+
+// StatisticsSpeed says "{rate} tokens/s"
+// in the language the app shows.
+func StatisticsSpeed(rate string) string { return In(i18n.Locale()).StatisticsSpeed(rate) }
+
+// StatisticsSpeed says "{rate} tokens/s"
+// in the language of msgs.
+func (msgs Messages) StatisticsSpeed(rate string) string {
+	return Catalog.Format(msgs.locale, "statisticsSpeed", map[string]any{"rate": rate})
+}
+
+// StatisticsTiming says "Reply timing"
+// in the language the app shows.
+func StatisticsTiming() string { return In(i18n.Locale()).StatisticsTiming() }
+
+// StatisticsTiming says "Reply timing"
+// in the language of msgs.
+func (msgs Messages) StatisticsTiming() string {
+	return Catalog.Format(msgs.locale, "statisticsTiming", nil)
+}
+
+// StatisticsReplyTime says "Total reply time"
+// in the language the app shows.
+func StatisticsReplyTime() string { return In(i18n.Locale()).StatisticsReplyTime() }
+
+// StatisticsReplyTime says "Total reply time"
+// in the language of msgs.
+func (msgs Messages) StatisticsReplyTime() string {
+	return Catalog.Format(msgs.locale, "statisticsReplyTime", nil)
+}
+
+// StatisticsGenerationSpeed says "Generation speed"
+// in the language the app shows.
+func StatisticsGenerationSpeed() string { return In(i18n.Locale()).StatisticsGenerationSpeed() }
+
+// StatisticsGenerationSpeed says "Generation speed"
+// in the language of msgs.
+func (msgs Messages) StatisticsGenerationSpeed() string {
+	return Catalog.Format(msgs.locale, "statisticsGenerationSpeed", nil)
+}
+
+// StatisticsSessionTiming says "Conversation timing"
+// in the language the app shows.
+func StatisticsSessionTiming() string { return In(i18n.Locale()).StatisticsSessionTiming() }
+
+// StatisticsSessionTiming says "Conversation timing"
+// in the language of msgs.
+func (msgs Messages) StatisticsSessionTiming() string {
+	return Catalog.Format(msgs.locale, "statisticsSessionTiming", nil)
+}
+
+// StatisticsSessionUsage says "Conversation usage"
+// in the language the app shows.
+func StatisticsSessionUsage() string { return In(i18n.Locale()).StatisticsSessionUsage() }
+
+// StatisticsSessionUsage says "Conversation usage"
+// in the language of msgs.
+func (msgs Messages) StatisticsSessionUsage() string {
+	return Catalog.Format(msgs.locale, "statisticsSessionUsage", nil)
+}
+
+// StatisticsReplies says "Replies"
+// in the language the app shows.
+func StatisticsReplies() string { return In(i18n.Locale()).StatisticsReplies() }
+
+// StatisticsReplies says "Replies"
+// in the language of msgs.
+func (msgs Messages) StatisticsReplies() string {
+	return Catalog.Format(msgs.locale, "statisticsReplies", nil)
+}
+
+// StatisticsSessionCounts says "{replies, plural, one{# reply} other{# replies}} · {calls, plural, one{# call} other{# calls}}"
+// in the language the app shows.
+func StatisticsSessionCounts(replies int, calls int) string {
+	return In(i18n.Locale()).StatisticsSessionCounts(replies, calls)
+}
+
+// StatisticsSessionCounts says "{replies, plural, one{# reply} other{# replies}} · {calls, plural, one{# call} other{# calls}}"
+// in the language of msgs.
+func (msgs Messages) StatisticsSessionCounts(replies int, calls int) string {
+	return Catalog.Format(msgs.locale, "statisticsSessionCounts", map[string]any{"replies": replies, "calls": calls})
+}
+
+// StatisticsCacheHit says "{percent} cached"
+// in the language the app shows.
+func StatisticsCacheHit(percent string) string { return In(i18n.Locale()).StatisticsCacheHit(percent) }
+
+// StatisticsCacheHit says "{percent} cached"
+// in the language of msgs.
+func (msgs Messages) StatisticsCacheHit(percent string) string {
+	return Catalog.Format(msgs.locale, "statisticsCacheHit", map[string]any{"percent": percent})
+}
+
+// StatisticsMilliseconds says "{value} ms"
+// in the language the app shows.
+func StatisticsMilliseconds(value string) string {
+	return In(i18n.Locale()).StatisticsMilliseconds(value)
+}
+
+// StatisticsMilliseconds says "{value} ms"
+// in the language of msgs.
+func (msgs Messages) StatisticsMilliseconds(value string) string {
+	return Catalog.Format(msgs.locale, "statisticsMilliseconds", map[string]any{"value": value})
+}
+
+// StatisticsSeconds says "{value} s"
+// in the language the app shows.
+func StatisticsSeconds(value string) string { return In(i18n.Locale()).StatisticsSeconds(value) }
+
+// StatisticsSeconds says "{value} s"
+// in the language of msgs.
+func (msgs Messages) StatisticsSeconds(value string) string {
+	return Catalog.Format(msgs.locale, "statisticsSeconds", map[string]any{"value": value})
+}
+
+// StatisticsUsageUnavailable says "Token usage unavailable"
+// in the language the app shows.
+func StatisticsUsageUnavailable() string { return In(i18n.Locale()).StatisticsUsageUnavailable() }
+
+// StatisticsUsageUnavailable says "Token usage unavailable"
+// in the language of msgs.
+func (msgs Messages) StatisticsUsageUnavailable() string {
+	return Catalog.Format(msgs.locale, "statisticsUsageUnavailable", nil)
+}
+
+// StatisticsUsagePartial says "Token usage is partial"
+// in the language the app shows.
+func StatisticsUsagePartial() string { return In(i18n.Locale()).StatisticsUsagePartial() }
+
+// StatisticsUsagePartial says "Token usage is partial"
+// in the language of msgs.
+func (msgs Messages) StatisticsUsagePartial() string {
+	return Catalog.Format(msgs.locale, "statisticsUsagePartial", nil)
 }

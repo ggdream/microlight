@@ -122,7 +122,7 @@ For complex tasks, use write_todos if it helps. Use local file and web tools onl
 		instruction += "\nUse the current model's vision for ordinary image requests. For image inputs, call ocr only when the user explicitly requests OCR, and call parse_document only when the user explicitly requests document parsing or reconstruction of document structure. If vision is unavailable for an ordinary image request, ask before using an external tool. For PDFs, choose ocr for plain text and parse_document to preserve structure."
 	}
 	if config.BrowserUse {
-		tools = append(tools, localtools.BrowserTool{})
+		tools = append(tools, localtools.BrowserTool{Mode: config.BrowserMode})
 	}
 	handlers := []adk.TypedChatModelAgentMiddleware[*schema.AgenticMessage]{permissions, middleware, &systemPromptMiddleware{}, &project.InstructionsMiddleware{}, &interfaceMiddleware{}}
 	shell, err := localtools.ShellMiddleware(ctx)

@@ -33,6 +33,8 @@ type turn struct {
 	Interface       []interfaceUpdate     `json:"a2ui,omitempty"`
 	InterfaceAction *a2ui.RendererMessage `json:"a2ui_action,omitempty"`
 
+	Metrics usageMetrics `json:"metrics,omitzero"`
+
 	RecoveryModel  *modelChoice `json:"recovery_model,omitempty"`
 	RecoveryOffset *int         `json:"recovery_offset,omitempty"`
 

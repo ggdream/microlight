@@ -46,18 +46,21 @@ func (app *chatApp) toolsSettings(c *ui.Context) {
 
 func (app *chatApp) browserSettings(c *ui.Context) {
 	enabled := app.settings.BrowserUse
+	mode := app.settings.BrowserMode.Effective()
+	save := func() {
+		config := app.settings
+		config.BrowserUse, config.BrowserMode = enabled, mode
+		app.extensionsForm.browserError = ""
+		if err := app.applySettings(config); err != nil {
+			app.extensionsForm.browserError = err.Error()
+		}
+	}
 	settings.Card(c, locales.BrowserUseTool(), func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(12).Children(func() {
 			ui.Text(c, locales.BrowserUseHint()).Grow(1).MinWidth(0).FontSize(12).TextColor(muted)
-			theme.Switch(c.Key("enabled"), &enabled, locales.EnableBrowserUse(), func() {
-				config := app.settings
-				config.BrowserUse = enabled
-				app.extensionsForm.browserError = ""
-				if err := app.applySettings(config); err != nil {
-					app.extensionsForm.browserError = err.Error()
-				}
-			})
+			theme.Switch(c.Key("enabled"), &enabled, locales.EnableBrowserUse(), save)
 		})
+		settings.BrowserModeSelect(c.Key("mode"), icons, &mode, save)
 		if app.extensionsForm.browserError != "" {
 			ui.Text(c, app.extensionsForm.browserError).FontSize(12).TextColor(errorFG)
 		}

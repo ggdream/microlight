@@ -24,9 +24,13 @@ func (app *chatApp) transcript(c *ui.Context, chat *conversation) {
 				ui.Image(c, app.brandIcon).Size(34, 34).Shrink(0).Fit(ui.Contain)
 				response := ui.Column(c.Key(entry)).Grow(1).MinWidth(0).Gap(5).Padding(3, 0, 0)
 				showActions := response.Hovered() || response.FocusWithin()
+				showStatistics := !app.desktop.HideStatistics && entry.State != "pending" && entry.State != "waiting" && entry.Metrics.Requests > 0
+				elapsed := replyElapsed(entry)
 				response.Children(func() {
 					hasReasoning, open := replyReasoning(entry)
-					replyProgress(c.Key("reply-progress"), entry, hasReasoning, open)
+					if !showStatistics || entry.State != "done" || hasReasoning || elapsed <= 0 {
+						replyProgress(c.Key("reply-progress"), entry, hasReasoning, open)
+					}
 					app.replyBody(c, chat, entry, interfaces, hasReasoning && open)
 					app.replyDeliverables(c.Key("artifacts"), entry, chat.workspace)
 					if len(entry.Clarifications) > 0 {
@@ -45,28 +49,11 @@ func (app *chatApp) transcript(c *ui.Context, chat *conversation) {
 					if entry.State == "pending" {
 						if status := replyRunningStatus(entry); status != "" {
 							label := ui.Text(c.Key("running-status"), status).AlignSelf(ui.Start).
-								FontSize(12).TextColor(muted).Padding(3, 0)
+								FontSize(12).FontWeight(620).TextColor(ink).Padding(3, 0)
 							shimmerReplyText(c, label)
 						}
 					} else if entry.State != "waiting" {
-						actions := ui.Row(c).Gap(4).AlignItems(ui.Center)
-						if !showActions {
-							actions.Opacity(0)
-						}
-						if !entry.FinishedAt.IsZero() {
-							actions.MinHeight(25)
-						}
-						actions.Children(func() {
-							if entry.Content != "" {
-								copyMessageIcon(c, entry, locales.Copy(), locales.Copied())
-							}
-							if i == len(chat.Turns)-1 {
-								messageIcon(c, locales.Retry(), "retry", chat.isRunning(), func() { app.retryReply = entry })
-							}
-							if showActions {
-								messageTimestamp(c, entry.FinishedAt)
-							}
-						})
+						app.replyFooter(c.Key("reply-footer"), chat, entry, i == len(chat.Turns)-1, showActions, showStatistics, elapsed)
 					}
 				})
 			})

@@ -3,6 +3,7 @@ package desktop
 import (
 	"io/fs"
 	"log/slog"
+	"runtime"
 
 	"github.com/ggdream/microlight/assets/locales"
 
@@ -15,10 +16,14 @@ func SetupTray(window *mygo.Window, assets fs.FS) {
 		slog.Error("读取应用图标失败", "error", err)
 		return
 	}
-	trayIcon, err := fs.ReadFile(assets, "assets/tray.png")
-	if err != nil {
-		slog.Error("读取托盘图标失败", "error", err)
-		return
+	trayIcon, template := appIcon, false
+	if runtime.GOOS != "windows" && runtime.GOOS != "linux" {
+		trayIcon, err = fs.ReadFile(assets, "assets/tray.png")
+		if err != nil {
+			slog.Error("读取托盘图标失败", "error", err)
+			return
+		}
+		template = true
 	}
 	if err := mygo.App.Dock.SetIcon(appIcon); err != nil {
 		slog.Error("设置应用图标失败", "error", err)
@@ -33,7 +38,7 @@ func SetupTray(window *mygo.Window, assets fs.FS) {
 	tray, err := mygo.NewTray(mygo.TrayOptions{
 		ID:             "microlight-chat",
 		Icon:           trayIcon,
-		IconIsTemplate: true,
+		IconIsTemplate: template,
 		ToolTip:        locales.AppName(),
 		Menu:           menu(),
 	})

@@ -127,13 +127,14 @@ func TestAnsweredClarificationSitsBetweenReasoningSegments(t *testing.T) {
 	const after = "根据补充信息继续思考。"
 	const question = "接下来怎么处理？"
 	const answer = "直接按当前信息继续处理"
-	offset := 3
+	offset := 4
 	entry := &turn{
 		message: message{Role: "assistant"},
 		State:   "done", Activity: []timeline.Entry{
 			{Text: before},
 			{Tool: localtools.List, Target: "/tmp/project", Arguments: `{"path":"/tmp/project"}`},
 			{Tool: "run_command", Target: "printf '%s' hello", Arguments: `{"command":"printf '%s' hello"}`},
+			{Tool: timeline.AskUserTool, Target: question},
 			{Text: after},
 		},
 		Clarifications: []clarification{{Question: question, Answer: answer, ActivityOffset: &offset}},
@@ -145,7 +146,7 @@ func TestAnsweredClarificationSitsBetweenReasoningSegments(t *testing.T) {
 		t.Fatal(err)
 	}
 	first, firstShown := surface.Find(before)
-	prompt, promptShown := surface.Find(locales.ClarificationRecord())
+	prompt, promptShown := surface.Find(locales.AskUserTool())
 	last, lastShown := surface.Find(after)
 	Label := locales.ListFolder() + " project"
 	tool, toolShown := surface.Find(Label)
@@ -169,7 +170,7 @@ func TestAnsweredClarificationSitsBetweenReasoningSegments(t *testing.T) {
 		t.Fatal(err)
 	}
 	details, detailsShown := surface.Find(commandText)
-	prompt, _ = surface.Find(locales.ClarificationRecord())
+	prompt, _ = surface.Find(locales.AskUserTool())
 	if !detailsShown || !(tool.Y < details.Y && details.Y < prompt.Y) {
 		t.Fatalf("tool arguments did not expand in place: %v", surface.Texts())
 	}
@@ -179,14 +180,14 @@ func TestAnsweredClarificationSitsBetweenReasoningSegments(t *testing.T) {
 	if _, shown := surface.Find(commandText); shown {
 		t.Fatal("second click did not collapse the tool details")
 	}
-	prompt, _ = surface.Find(locales.ClarificationRecord())
+	prompt, _ = surface.Find(locales.AskUserTool())
 	if _, shown := surface.Find(question); shown {
 		t.Fatal("question starts expanded")
 	}
 	if _, shown := surface.Find(answer); shown {
 		t.Fatal("answer starts expanded")
 	}
-	if err := surface.Click(locales.ClarificationRecord()); err != nil {
+	if err := surface.Click(locales.AskUserTool()); err != nil {
 		t.Fatal(err)
 	}
 	detail, shown := surface.Find(answer)
@@ -195,7 +196,7 @@ func TestAnsweredClarificationSitsBetweenReasoningSegments(t *testing.T) {
 	if !shown || !originalShown || !(prompt.Y < original.Y && original.Y < detail.Y && detail.Y < last.Y) {
 		t.Fatalf("answer did not expand in place: %v", surface.Texts())
 	}
-	if err := surface.Click(locales.ClarificationRecord()); err != nil {
+	if err := surface.Click(locales.AskUserTool()); err != nil {
 		t.Fatal(err)
 	}
 	if _, shown := surface.Find(answer); shown {
@@ -330,11 +331,11 @@ func TestMCPApprovalPrecedesRunningTool(t *testing.T) {
 }
 
 func TestBuiltInToolDetailsShowArgumentsAndResult(t *testing.T) {
-	const id = "search-call"
-	const arguments = `{"query":"Microlight"}`
+	const id = "ocr-call"
+	const arguments = `{"path":"/tmp/scan.png"}`
 	output := `{"status":"error","error":{"code":"QUOTA_USER_DAILY_FREE"}}`
 	entry := &turn{
-		Activity: []timeline.Entry{{Tool: localtools.WebSearch, Target: "Microlight", Arguments: arguments, CallID: id}},
+		Activity: []timeline.Entry{{Tool: localtools.OCR, Target: "scan.png", Arguments: arguments, CallID: id}},
 	}
 	entry.appendDelta(replyDelta{toolFinished: id, toolOutput: &output})
 	app := &chatApp{}

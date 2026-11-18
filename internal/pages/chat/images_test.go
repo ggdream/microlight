@@ -28,6 +28,7 @@ func TestImagesStayInConversationAfterReopen(t *testing.T) {
 	// Recreate the schema that an existing installation upgrades from.
 	if _, err := store.Exec(`
 		DROP TABLE turn_images;
+		ALTER TABLE turns DROP COLUMN metrics;
 		ALTER TABLE turns DROP COLUMN activity;
         ALTER TABLE turns DROP COLUMN a2ui;
 		ALTER TABLE turns DROP COLUMN reasoning;

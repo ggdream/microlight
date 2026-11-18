@@ -115,7 +115,7 @@ func (app *chatApp) startReply(chat *conversation, reply *turn, index int, answe
 	ctx, cancel := context.WithCancel(parent)
 	if backend.config.BrowserUse {
 		if reply.browser == nil {
-			reply.browser = localtools.NewBrowserSession(parent, backend.config.Proxy)
+			reply.browser = localtools.NewBrowserSession(parent, backend.config.Proxy, backend.config.BrowserMode)
 		}
 		ctx = localtools.WithBrowserSession(ctx, reply.browser)
 	} else {
@@ -163,7 +163,7 @@ func (app *chatApp) startReply(chat *conversation, reply *turn, index int, answe
 					if len(part.interfaceUpdates) != 0 {
 						chat.commitInterface(reply, len(reply.Content)-len(part.text), part.interfaceUpdates)
 					}
-					if len(part.interfaceUpdates) != 0 || part.toolResult != nil || part.toolFinished != "" || part.activity != nil {
+					if len(part.interfaceUpdates) != 0 || part.toolResult != nil || part.toolFinished != "" || part.activity != nil || part.metrics.Requests != 0 {
 						app.save(chat)
 					}
 				}
@@ -251,6 +251,7 @@ func historyTurns(turns []*turn) []*turn {
 }
 
 func (entry *turn) appendDelta(delta replyDelta) {
+	entry.Metrics.add(delta.metrics)
 	switch delta.compression {
 	case compressionStarted:
 		entry.compressing = true

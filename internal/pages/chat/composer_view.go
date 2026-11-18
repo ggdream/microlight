@@ -124,5 +124,6 @@ func (app *chatApp) composer(c *ui.Context, selected *conversation) {
 				}
 			})
 		})
+		app.conversationStatistics(c.Key("conversation-statistics"), selected)
 	})
 }

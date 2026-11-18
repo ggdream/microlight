@@ -55,6 +55,7 @@ type replyDelta struct {
 	compression      compressionUpdate
 	preview          string
 	messageDone      bool
+	metrics          usageMetrics
 	activity         *[]timeline.Entry
 	toolResult       *localtools.Result
 	toolStarted      string
@@ -247,7 +248,7 @@ func newChat(config modelSettings) *Chat {
 		return &Chat{configErr: errors.New(locales.ClientInitFailed())}
 	}
 	buildExtendedAgent := func(ctx context.Context, ext *agentExtensions) (adk.TypedAgent[*schema.AgenticMessage], error) {
-		return newConversationAgent(ctx, conversationAgentName, client, summaryOptions, config, network, ext)
+		return newConversationAgent(ctx, conversationAgentName, meteredModel{client}, summaryOptions, config, network, ext)
 	}
 	agent, err := buildExtendedAgent(context.Background(), nil)
 	if err != nil {

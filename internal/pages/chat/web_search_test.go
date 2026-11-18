@@ -52,12 +52,13 @@ func TestWebSearchIsOptInAndRunsAfterApproval(t *testing.T) {
 				if !strings.Contains(message.Content, "https://example.test/eino") {
 					t.Errorf("model received incorrect search result: %s", message.Content)
 				}
-				writeTestStream(w, "Done")
+				fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"Done\"}}]}\n\n"+
+					"data: {\"choices\":[],\"usage\":{\"prompt_tokens\":30,\"completion_tokens\":5,\"total_tokens\":35}}\n\ndata: [DONE]\n\n")
 				return
 			}
 			if message.Role == "user" {
 				args := `{"query":"Eino tool"}`
-				fmt.Fprintf(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"tool_calls\":[{\"index\":0,\"id\":\"search-1\",\"type\":\"function\",\"function\":{\"name\":\"web_search\",\"arguments\":%q}}]}}]}\n\ndata: [DONE]\n\n", args)
+				fmt.Fprintf(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"tool_calls\":[{\"index\":0,\"id\":\"search-1\",\"type\":\"function\",\"function\":{\"name\":\"web_search\",\"arguments\":%q}}]}}]}\n\ndata: {\"choices\":[],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":3,\"total_tokens\":13}}\n\ndata: [DONE]\n\n", args)
 				return
 			}
 		}
@@ -77,9 +78,11 @@ func TestWebSearchIsOptInAndRunsAfterApproval(t *testing.T) {
 		Options:  map[websearch.ID]websearch.Options{websearch.SearXNG: {BaseURL: search.URL}},
 	}
 	var body strings.Builder
+	var metrics usageMetrics
 	var started []string
 	emit := func(delta replyDelta) error {
 		body.WriteString(delta.text)
+		metrics.add(delta.metrics)
 		if delta.toolStarted != "" {
 			started = append(started, delta.toolStarted)
 		}
@@ -92,6 +95,7 @@ func TestWebSearchIsOptInAndRunsAfterApproval(t *testing.T) {
 		t.Fatalf("disabled search: %q, %+v, %v", body.String(), pending, err)
 	}
 	body.Reset()
+	metrics = usageMetrics{}
 	config.WebSearch.Enabled = true
 	backend = newChat(config)
 	backend.skillsHome = skills
@@ -104,6 +108,20 @@ func TestWebSearchIsOptInAndRunsAfterApproval(t *testing.T) {
 	pending, err = backend.runSession(t.Context(), store, "enabled", nil, pending, localtools.AllowOnce, emit)
 	if err != nil || pending != nil || body.String() != "Done" || calls.Load() != 1 || !slices.Equal(started, []string{"search-1"}) {
 		t.Fatalf("approved search: %q, %+v, %v, searches %d", body.String(), pending, err, calls.Load())
+	}
+	if metrics.Requests != 2 || metrics.UsageSamples != 2 || metrics.Input != 40 || metrics.Output != 8 ||
+		metrics.FirstTokens != 2 || metrics.ModelTime <= 0 {
+		t.Fatalf("expected usage across the interrupted tool flow: %+v", metrics)
+	}
+	savedChat := &conversation{ID: newID(), Turns: []*turn{userTurn("Search"), {
+		message: message{Role: "assistant", Content: body.String()}, State: "done", Metrics: metrics,
+	}}}
+	if err := store.saveHistory(history{Selected: savedChat.ID, Chats: []*conversation{savedChat}}, savedChat); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.loadHistory()
+	if err != nil || len(loaded.Chats) != 1 || loaded.Chats[0].metrics() != metrics {
+		t.Fatalf("usage did not survive reloading the conversation: %+v, %v", loaded, err)
 	}
 }
 

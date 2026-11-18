@@ -34,13 +34,14 @@ func TestSettingsTransferExportsDisabledWebSearchAndReadsOlderFiles(t *testing.T
 		t.Fatal("export must explicitly include disabled web search")
 	}
 	delete(fields, "web_search")
+	delete(fields, "browser_mode")
 	legacy, err := json.Marshal(fields)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, config, err := readSettingsFile(bytes.NewReader(legacy))
-	if err != nil || config.WebSearch.Enabled {
-		t.Fatalf("expected search to be disabled for older settings files: %v", err)
+	if err != nil || config.WebSearch.Enabled || config.BrowserMode.Effective() != localtools.BrowserForeground {
+		t.Fatalf("expected older files to disable search and default to foreground browsing: %v", err)
 	}
 }
 
@@ -52,10 +53,10 @@ func TestSettingsTransferPreservesSecretsAndKeepsConversationData(t *testing.T) 
 	defer store.Close()
 	app := &chatApp{
 		store: store, language: settings.Chinese, busySend: busySendSteer,
-		systemPrompt: "Test instruction", desktop: desktopPreferences{Shortcut: "CmdOrCtrl+Shift+Space", Notification: notifyAction},
+		systemPrompt: "Test instruction", desktop: desktopPreferences{Shortcut: "CmdOrCtrl+Shift+Space", Notification: notifyAction, HideStatistics: true},
 		settings: modelSettings{
-			BrowserUse: true,
-			Proxy:      proxy.Config{Mode: proxy.Custom, URL: "http://user:proxy-test-key@localhost:8080"},
+			BrowserUse: true, BrowserMode: localtools.BrowserBackground,
+			Proxy: proxy.Config{Mode: proxy.Custom, URL: "http://user:proxy-test-key@localhost:8080"},
 			WebSearch: localtools.SearchConfig{
 				Enabled: true, Provider: websearch.DeepSeek,
 				Options: map[websearch.ID]websearch.Options{
@@ -111,7 +112,7 @@ func TestSettingsTransferPreservesSecretsAndKeepsConversationData(t *testing.T) 
 	if config.Model != "alternate" || file.Models.Providers[0].Model != "default" ||
 		config.APIKey != "model-test-key" || config.Proxy != app.settings.Proxy ||
 		!reflect.DeepEqual(config.MCPServers, app.settings.MCPServers) ||
-		!reflect.DeepEqual(config.WebSearch, app.settings.WebSearch) || config.OCR != app.settings.OCR || !config.BrowserUse {
+		!reflect.DeepEqual(config.WebSearch, app.settings.WebSearch) || config.OCR != app.settings.OCR || !config.BrowserUse || config.BrowserMode != localtools.BrowserBackground {
 		t.Fatal("provider, proxy, model, or built-in tool settings failed to round-trip")
 	}
 	for _, bad := range []string{string(data) + " null", strings.Replace(string(data), `"version": 1`, `"version": 42`, 1)} {
@@ -148,7 +149,7 @@ func TestSettingsTransferPreservesSecretsAndKeepsConversationData(t *testing.T) 
 	reloaded.loadHistory()
 	if reloaded.settings.APIKey != config.APIKey || reloaded.settings.Proxy != config.Proxy ||
 		!reflect.DeepEqual(reloaded.settings.MCPServers, config.MCPServers) ||
-		!reflect.DeepEqual(reloaded.settings.WebSearch, config.WebSearch) || reloaded.settings.OCR != config.OCR || !reloaded.settings.BrowserUse ||
+		!reflect.DeepEqual(reloaded.settings.WebSearch, config.WebSearch) || reloaded.settings.OCR != config.OCR || !reloaded.settings.BrowserUse || reloaded.settings.BrowserMode != config.BrowserMode ||
 		reloaded.busySend != app.busySend ||
 		reloaded.systemPrompt != app.systemPrompt || reloaded.desktop != app.desktop {
 		t.Fatal("imported settings did not persist")

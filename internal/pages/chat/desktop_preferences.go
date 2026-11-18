@@ -15,8 +15,9 @@ import (
 const desktopConfigKey = "desktop_preferences"
 
 type desktopPreferences struct {
-	Shortcut     string `json:"shortcut"`
-	Notification int    `json:"notification"`
+	Shortcut       string `json:"shortcut"`
+	Notification   int    `json:"notification"`
+	HideStatistics bool   `json:"hide_statistics,omitempty"`
 }
 
 const (

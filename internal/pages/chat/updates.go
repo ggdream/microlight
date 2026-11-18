@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"path"
+	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -21,19 +23,17 @@ import (
 
 const releasePage = "https://github.com/ggdream/microlight/releases"
 
+// The release script sets this for multi-architecture packages.
+var updateTarget = runtime.GOOS + "-" + runtime.GOARCH
+
 type updateCheck struct {
 	checking bool
-	version  string
-	failed   bool
 }
 
 func (app *chatApp) versionSettings(c *ui.Context) {
 	check := app.updateCheck
 	version := buildinfo.Version()
-	row := settings.AboutRow(ui.Column(c)).AlignItems(ui.Stretch).Gap(4).PaddingY(5)
-	if check.failed || check.version != "" {
-		row.PaddingY(12)
-	}
+	row := settings.AboutRow(ui.Column(c)).AlignItems(ui.Stretch).PaddingY(5)
 	row.Children(func() {
 		ui.Row(c).Wrap().AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(12).Children(func() {
 			ui.Text(c, locales.AppVersion()).FontSize(15).FontWeight(660)
@@ -57,37 +57,6 @@ func (app *chatApp) versionSettings(c *ui.Context) {
 				}).OnClick(app.checkForUpdates)
 			})
 		})
-		if !check.failed && check.version == "" {
-			return
-		}
-		ui.Row(c).Wrap().AlignItems(ui.Center).Justify(ui.End).Gap(8).Children(func() {
-			switch {
-			case check.failed:
-				ui.Text(c, locales.UpdateCheckFailed()).FontSize(12).TextColor(errorFG)
-			case check.version != "":
-				label := locales.AppUpToDate()
-				color := muted
-				if current, latest := releaseParts(version), releaseParts(check.version); current == nil {
-					label = locales.LatestRelease(check.version)
-				} else if slices.Compare(latest[:], current[:]) > 0 {
-					label = locales.UpdateAvailable(check.version)
-					color = accent
-				}
-				ui.Text(c, label).FontSize(12).TextColor(color)
-
-				release := pointerButton(c.Key("release"), false).Label(locales.ViewRelease()).
-					AlignItems(ui.Center).Gap(5).Height(24).Radius(4).
-					FocusRingColor(accent)
-				color = muted
-				if release.Hovered() {
-					color = accent
-				}
-				release.Children(func() {
-					ui.Text(c, locales.ViewRelease()).FontSize(12).TextColor(color)
-					icon(c, "open", color, 12)
-				}).OnClick(func() { c.OpenURL(releasePage + "/tag/" + check.version) })
-			}
-		})
 	})
 }
 
@@ -95,22 +64,100 @@ func (app *chatApp) checkForUpdates() {
 	if app.updateCheck.checking {
 		return
 	}
+	proxyConfig := app.settings.Proxy
 	if mygo.Updater.Enabled() {
+		source, err := newReleaseSource(proxyConfig)
+		if err != nil {
+			go app.showUpdateResult("", err)
+			return
+		}
+		mygo.Updater.SetSource(source)
 		updater.CheckForUpdates()
 		return
 	}
 	app.updateCheck = updateCheck{checking: true}
-	proxyConfig := app.settings.Proxy
 	go func() {
 		ctx, cancel := context.WithTimeout(app.appContext(), 12*time.Second)
 		defer cancel()
 		version, err := latestRelease(ctx, proxyConfig)
 		if app.appContext().Err() == nil {
-			app.win.Update(func() {
-				app.updateCheck = updateCheck{version: version, failed: err != nil}
-			})
+			app.showUpdateResult(version, err)
+			app.win.Update(func() { app.updateCheck = updateCheck{} })
 		}
 	}()
+}
+
+func (app *chatApp) showUpdateResult(version string, checkErr error) {
+	options := mygo.MessageOptions{
+		Parent: app.win, Title: locales.CheckForUpdates(), Type: mygo.MessageInfo,
+	}
+	if checkErr != nil {
+		options.Type = mygo.MessageWarning
+		options.Message = locales.UpdateCheckFailed()
+	} else if current := releaseParts(buildinfo.Version()); current == nil {
+		options.Message = locales.LatestRelease(version)
+		options.Buttons = []string{locales.CloseChatInfo(), locales.ViewRelease()}
+	} else if latest := releaseParts(version); latest != nil && slices.Compare(latest[:], current[:]) > 0 {
+		options.Message = locales.UpdateAvailable(version)
+		options.Buttons = []string{locales.CloseChatInfo(), locales.ViewRelease()}
+	} else {
+		options.Message = locales.AppUpToDate()
+	}
+	result, err := mygo.Dialog.Message(options)
+	if err == nil && len(options.Buttons) == 2 && result.Button == 1 {
+		_ = mygo.Shell.OpenExternal(releasePage + "/tag/" + version)
+	}
+}
+
+type releaseSource struct {
+	client *http.Client
+}
+
+func newReleaseSource(config proxy.Config) (*releaseSource, error) {
+	transport, err := proxy.NewTransport(config)
+	if err != nil {
+		return nil, err
+	}
+	return &releaseSource{client: &http.Client{
+		Transport: transport,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if req.URL.Scheme != "https" || len(via) >= 10 {
+				return errors.New("invalid update redirect")
+			}
+			return nil
+		},
+	}}, nil
+}
+
+func (s *releaseSource) Manifest(ctx context.Context, _ bool) (io.ReadCloser, error) {
+	// Microlight publishes only stable releases.
+	client := *s.client
+	client.Timeout = 30 * time.Second
+	return downloadReleaseFile(ctx, &client, releasePage+"/latest/download/update-"+updateTarget+".json")
+}
+
+func (s *releaseSource) Open(ctx context.Context, rawURL string) (io.ReadCloser, error) {
+	return downloadReleaseFile(ctx, s.client, rawURL)
+}
+
+func downloadReleaseFile(ctx context.Context, client *http.Client, rawURL string) (io.ReadCloser, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	if req.URL.Scheme != "https" || req.URL.Host == "" || req.URL.User != nil {
+		return nil, errors.New("update files require an HTTPS URL")
+	}
+	req.Header.Set("User-Agent", "Microlight-Updater")
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode != http.StatusOK {
+		res.Body.Close()
+		return nil, fmt.Errorf("update file request returned HTTP %d", res.StatusCode)
+	}
+	return res.Body, nil
 }
 
 func latestRelease(ctx context.Context, config proxy.Config) (string, error) {

@@ -2,6 +2,7 @@ package chat
 
 import (
 	"encoding/binary"
+	"math"
 	"time"
 	"uuid"
 
@@ -105,14 +106,28 @@ func (app *chatApp) conversationInfoDialog(c *ui.Context, chat *conversation) {
 func conversationInfoTitle(c *ui.Context, title string) {
 	row := ui.Row(c).Grow(1).MinWidth(0).AlignItems(ui.Start).Gap(8)
 	expanded := ui.Local(row, "expanded", func() bool { return false })
+	width := row.LayoutBounds().W
+	// LayoutBounds is available after the dialog's first frame.
+	if width == 0 {
+		c.After(time.Millisecond)
+	}
+	const fontSize = 12
+	textWidth, _ := c.MeasureText(0, ui.Span{Text: title, Size: fontSize})
+	overflow := width > 0 && math.Ceil(float64(textWidth)) > float64(width)
+	if !overflow {
+		*expanded = false
+	}
 	row.Children(func() {
 		if *expanded {
 			scroll, offset := elastic.Scroll(c.Key("full-title"))
 			scroll.Grow(1).MinWidth(0).MaxHeight(124).Children(func() {
-				offset.Apply(ui.Text(c, title)).FillWidth().FontSize(12).Selectable()
+				offset.Apply(ui.Text(c, title)).FillWidth().FontSize(fontSize).Selectable()
 			})
 		} else {
-			ui.Text(c, title).Grow(1).MinWidth(0).FontSize(12).SingleLine().Ellipsis("…")
+			ui.Text(c, title).Grow(1).MinWidth(0).FontSize(fontSize).SingleLine().Ellipsis("…")
+		}
+		if !overflow {
+			return
 		}
 		label := locales.ChatTitleView()
 		if *expanded {
@@ -123,7 +138,7 @@ func conversationInfoTitle(c *ui.Context, title string) {
 		if button.Hovered() {
 			button.Background(hover)
 		}
-		button.Children(func() { ui.Text(c, label).FontSize(12).TextColor(accent) }).
+		button.Children(func() { ui.Text(c, label).FontSize(fontSize).TextColor(accent) }).
 			OnClick(func() { *expanded = !*expanded })
 	})
 }

@@ -54,6 +54,7 @@ func TestConfigMigrationKeepsModelSettingsAndStoresLanguage(t *testing.T) {
 		DROP TABLE adk_session_owners;
 		DROP INDEX adk_checkpoints_by_session;
 		ALTER TABLE adk_checkpoints DROP COLUMN session_id;
+		ALTER TABLE turns DROP COLUMN metrics;
 		ALTER TABLE turns DROP COLUMN activity;
 		ALTER TABLE turns DROP COLUMN a2ui;
 		ALTER TABLE turn_images DROP COLUMN path;

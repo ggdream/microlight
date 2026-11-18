@@ -49,7 +49,7 @@ func (p modelProvider) config(model string, shared modelSettings) modelSettings 
 	config.Proxy, config.MCPServers = shared.Proxy, shared.MCPServers
 	config.WebSearch = shared.WebSearch
 	config.OCR = shared.OCR
-	config.BrowserUse = shared.BrowserUse
+	config.BrowserUse, config.BrowserMode = shared.BrowserUse, shared.BrowserMode
 	config.AccessMode, config.Workspace = shared.AccessMode, shared.Workspace
 	return config
 }
@@ -92,7 +92,7 @@ func (app *chatApp) loadModelProviders() error {
 	config.Proxy, config.MCPServers = proxy.Config{}, nil
 	config.WebSearch = localtools.SearchConfig{}
 	config.OCR = localtools.OCRConfig{}
-	config.BrowserUse = false
+	config.BrowserUse, config.BrowserMode = false, ""
 	config.AccessMode, config.Workspace = "", ""
 	endpoint, _ := url.Parse(config.BaseURL)
 	name := config.Model
@@ -129,7 +129,7 @@ func (app *chatApp) saveProviderCatalog(catalog providerCatalog) error {
 		config = modelSettings{
 			BaseURL: defaultBaseURL, Model: defaultModel,
 			Proxy: app.settings.Proxy, MCPServers: app.settings.MCPServers,
-			WebSearch: app.settings.WebSearch, OCR: app.settings.OCR, BrowserUse: app.settings.BrowserUse,
+			WebSearch: app.settings.WebSearch, OCR: app.settings.OCR, BrowserUse: app.settings.BrowserUse, BrowserMode: app.settings.BrowserMode,
 		}
 	}
 	if err := app.commitSettings(config, &catalog); err != nil {
@@ -221,7 +221,7 @@ func (app *chatApp) providerFromForm(config modelSettings) (modelProvider, error
 	config.Proxy, config.MCPServers = proxy.Config{}, nil
 	config.WebSearch = localtools.SearchConfig{}
 	config.OCR = localtools.OCRConfig{}
-	config.BrowserUse = false
+	config.BrowserUse, config.BrowserMode = false, ""
 	config.AccessMode, config.Workspace = "", ""
 	return modelProvider{ID: id, Name: name, Models: models, modelSettings: config}, nil
 }

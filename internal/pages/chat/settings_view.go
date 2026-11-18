@@ -96,6 +96,7 @@ func (app *chatApp) generalSettings(c *ui.Context) {
 		app.languageSettings(c)
 		app.busySendSettings(c.Key("busy-send"))
 		app.desktopSettings(c.Key("desktop"))
+		app.statisticsSettings(c.Key("statistics"))
 		settings.Proxy(c, icons, &app.form.proxy, app.form.proxyError, app.saveProxySettings, app.openProxySettingsControl)
 		app.systemPromptSettings(c.Key("system-prompt"))
 		app.settingsTransfer(c.Key("transfer"))

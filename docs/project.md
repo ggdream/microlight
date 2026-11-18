@@ -48,7 +48,7 @@ Enter 发送，Shift + Enter 换行。可停止生成，也可编辑消息后重
 
 网页搜索也支持 Tavily、Firecrawl、英文维基百科和 Google Custom Search。Tavily 与 Firecrawl 需要各自的 API Key。Google 需要 API Key 和搜索引擎 ID（cx），且仅限已开通 Custom Search JSON API 的账号。微软已停用 Eino 扩展所用的 Bing Search API。
 
-「设置 → 工具 → 内置工具」也可启用浏览器操作，默认关闭。智能体通过 Eino BrowserUse 启动本机的 Chrome 或 Chromium，并为每条回复使用独立会话，审批等待期间保留标签页。浏览器可导航、查看页面状态、点击、输入和提取可见文字。普通网页读取仍走只读的 HTTP GET，保留响应限长和文本校验。
+「设置 → 工具 → 内置工具」也可启用浏览器操作，默认关闭。运行方式默认「前台」。前台直接打开网站时交由系统默认浏览器，标签页在回复结束后保留；网页交互会打开可见的独立 Chrome 或 Chromium。选择「后台」时，浏览和交互都在隐藏的独立浏览器中进行。独立浏览器按回复创建，审批等待期间保留标签页，回复结束后关闭。运行方式随配置导入导出。普通网页读取仍走只读的 HTTP GET，保留响应限长和文本校验。
 
 为会话选择工作区后，每次发送或继续执行都会读取从 Git 仓库根到工作区目录这一段路径上的 `AGENTS.md`；非 Git 目录只读工作区自身。更具体的目录说明优先，进入更深的子目录时 Agent 按需通过文件工具查看说明。项目说明仅用于指导相关任务，不会改变文件、网络或工具的审批规则。可复用流程放在项目的 `.agents/skills/<名称>/SKILL.md` 或全局的 `~/.agents/skills/`；设置页的技能列表只显示全局技能。
 
@@ -92,7 +92,7 @@ CGO_ENABLED=0 go test ./pkg/a2ui ./pkg/a2uiagent ./pkg/a2uimygo -run TestOfficia
 
 推送 `vX.Y.Z` tag 后，三个系统的测试通过才会打包并发布到对应的 GitHub Release。MyGo CLI 版本来自 `go.mod`，安装包内部版本来自 tag。Go 测试和打包统一设置 `CGO_ENABLED=0`。发布文件从 `dist/` 顶层上传。详见 [GitHub Actions workflow](../.github/workflows/ci.yml)。
 
-设置页的「关于」可以检查 GitHub Release 并打开安装包下载页。启用应用内安装更新时，用 `mygo keygen` 创建更新签名密钥。将公钥放在 GitHub Actions 仓库变量 `MYGO_UPDATER_PUBLIC_KEY`，将对应私钥放在仓库 Secret `MYGO_UPDATER_PRIVATE_KEY`。配置这两个值后，标签构建会随安装包发布签名归档和更新清单。支持应用内更新的安装版本会使用 MyGo 的原生更新窗口。
+设置页的「关于」可以检查 GitHub Release 并打开安装包下载页。启用应用内安装更新时，用 `mygo keygen` 创建更新签名密钥。将公钥放在 GitHub Actions 仓库变量 `MYGO_UPDATER_PUBLIC_KEY`，将对应私钥放在仓库 Secret `MYGO_UPDATER_PRIVATE_KEY`。配置这两个值后，标签构建会随安装包发布签名归档和更新清单。支持应用内更新的安装版本会使用 MyGo 的原生更新窗口。 版本检查和应用内更新下载均使用微光的代理配置。
 
 | 平台 | 架构 | 发布文件 |
 | --- | --- | --- |

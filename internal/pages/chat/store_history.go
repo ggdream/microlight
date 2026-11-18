@@ -61,15 +61,23 @@ func putConversation(tx *sql.Tx, chat *conversation, position int) error {
 				return err
 			}
 		}
+		var metrics []byte
+		if entry.Metrics.Requests != 0 {
+			var err error
+			metrics, err = json.Marshal(entry.Metrics)
+			if err != nil {
+				return err
+			}
+		}
 		if _, err := tx.Exec(`
-			INSERT INTO turns (conversation_id, ordinal, role, content, state, error, reasoning, started_at, finished_at, clarifications, activity, a2ui)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO turns (conversation_id, ordinal, role, content, state, error, reasoning, started_at, finished_at, clarifications, activity, a2ui, metrics)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (conversation_id, ordinal) DO UPDATE SET
 				role = excluded.role, content = excluded.content, state = excluded.state, error = excluded.error,
 				reasoning = excluded.reasoning, started_at = excluded.started_at, finished_at = excluded.finished_at,
-				clarifications = excluded.clarifications, activity = excluded.activity, a2ui = excluded.a2ui
+				clarifications = excluded.clarifications, activity = excluded.activity, a2ui = excluded.a2ui, metrics = excluded.metrics
 		`, chat.ID, index, entry.Role, entry.Content, entry.State, entry.Error,
-			entry.Reasoning, encodeTurnTime(entry.StartedAt), encodeTurnTime(entry.FinishedAt), questions, activity, interfaceData); err != nil {
+			entry.Reasoning, encodeTurnTime(entry.StartedAt), encodeTurnTime(entry.FinishedAt), questions, activity, interfaceData, metrics); err != nil {
 			return err
 		}
 	}
@@ -191,7 +199,7 @@ func (store *localStore) loadHistory() (history, error) {
 		return history{}, err
 	}
 	rows, err := store.Query(`
-		SELECT c.id, c.title, c.session_id, c.session_model, c.branch_id, c.access_mode, c.workspace, c.pinned, c.archived, t.role, t.content, t.state, t.error, t.reasoning, t.started_at, t.finished_at, t.clarifications, t.activity, t.a2ui
+		SELECT c.id, c.title, c.session_id, c.session_model, c.branch_id, c.access_mode, c.workspace, c.pinned, c.archived, t.role, t.content, t.state, t.error, t.reasoning, t.started_at, t.finished_at, t.clarifications, t.activity, t.a2ui, t.metrics
 		FROM conversations c LEFT JOIN turns t ON t.conversation_id = c.id
 		ORDER BY c.position DESC, c.id, t.ordinal
 	`)
@@ -208,8 +216,8 @@ func (store *localStore) loadHistory() (history, error) {
 		var pinned, archived bool
 		var role, content, state, messageErr, reasoning sql.NullString
 		var started, finished sql.NullInt64
-		var questions, activity, interfaceData []byte
-		if err := rows.Scan(&id, &title, &sessionID, &sessionModel, &branchID, &mode, &workspace, &pinned, &archived, &role, &content, &state, &messageErr, &reasoning, &started, &finished, &questions, &activity, &interfaceData); err != nil {
+		var questions, activity, interfaceData, metrics []byte
+		if err := rows.Scan(&id, &title, &sessionID, &sessionModel, &branchID, &mode, &workspace, &pinned, &archived, &role, &content, &state, &messageErr, &reasoning, &started, &finished, &questions, &activity, &interfaceData, &metrics); err != nil {
 			return history{}, err
 		}
 		if chat == nil || chat.ID != id {
@@ -240,6 +248,11 @@ func (store *localStore) loadHistory() (history, error) {
 				if err := json.Unmarshal(interfaceData, &saved); err == nil {
 					entry.Interface, entry.InterfaceAction, entry.RecoveryOffset = saved.Updates, saved.Action, saved.RecoveryOffset
 					entry.RecoveryModel = saved.RecoveryModel
+				}
+			}
+			if len(metrics) != 0 {
+				if err := json.Unmarshal(metrics, &entry.Metrics); err != nil {
+					return history{}, err
 				}
 			}
 			chat.Turns = append(chat.Turns, entry)

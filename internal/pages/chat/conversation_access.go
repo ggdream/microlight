@@ -208,7 +208,7 @@ func (app *chatApp) workspaceControl(c *ui.Context, chat *conversation) {
 	if chat != nil || app.draftWorkspace != "" {
 		return
 	}
-	label := locales.Workspace()
+	label := locales.ChooseWorkspace()
 	button := pointerButton(c.Key("conversation-workspace"), app.pickingWorkspace).Label(label).
 		Tooltip(label).Gap(5).AlignItems(ui.Center).Height(30).PaddingX(7).Radius(6).Shrink(0)
 	if button.Hovered() {
@@ -216,7 +216,7 @@ func (app *chatApp) workspaceControl(c *ui.Context, chat *conversation) {
 	}
 	button.Children(func() {
 		icon(c, "folder", muted, 15)
-		ui.Text(c, locales.NoWorkspace()).FontSize(11).TextColor(muted)
+		ui.Text(c, label).FontSize(11).TextColor(muted)
 	}).OnClick(app.pickWorkspace)
 }
 

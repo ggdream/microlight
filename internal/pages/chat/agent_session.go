@@ -24,7 +24,7 @@ import (
 
 func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID string, input []*turn, resume *clarification, answer string, emit func(replyDelta) error) (*clarification, error) {
 	if chat.config.BrowserUse && !localtools.HasBrowserSession(ctx) {
-		session := localtools.NewBrowserSession(ctx, chat.config.Proxy)
+		session := localtools.NewBrowserSession(ctx, chat.config.Proxy, chat.config.BrowserMode)
 		defer session.Close()
 		ctx = localtools.WithBrowserSession(ctx, session)
 	}
@@ -41,6 +41,9 @@ func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID s
 		defer emitMu.Unlock()
 		return deliver(delta)
 	}
+	ctx = context.WithValue(ctx, metricsReporterKey{}, func(sample usageMetrics) {
+		_ = emit(replyDelta{metrics: sample})
+	})
 	ctx = localtools.WithToolStartReporter(ctx, func(callID string) error {
 		return emit(replyDelta{toolStarted: callID})
 	})

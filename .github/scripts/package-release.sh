@@ -33,6 +33,8 @@ jq --arg version "${tag#v}" --arg key "$public_key" '
   if $key != "" then .updates = {publicKey: $key, github: "ggdream/microlight", deltas: 0} else . end
 ' "$backup" > mygo.json
 
+export MYGO_LDFLAGS="${MYGO_LDFLAGS:+$MYGO_LDFLAGS }-X github.com/ggdream/microlight/internal/pages/chat.updateTarget=$target"
+
 MICROLIGHT_BUILD_VERSION="$version" bash scripts/build.sh \
   -platform "$RELEASE_PLATFORM/$RELEASE_ARCH" -o dist
 
