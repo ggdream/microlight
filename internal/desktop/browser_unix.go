@@ -13,7 +13,7 @@ import (
 // OpenBrowser hands a validated HTTP(S) URL to the desktop's default browser.
 func OpenBrowser(ctx context.Context, target string) error {
 	switch runtime.GOOS {
-	case "ios", "android":
+	case "ios", "android", "js":
 		return mygo.Shell.OpenExternal(target)
 	case "darwin":
 		return exec.CommandContext(ctx, "/usr/bin/open", target).Run()

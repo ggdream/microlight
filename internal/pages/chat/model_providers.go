@@ -124,6 +124,13 @@ func (app *chatApp) loadModelProviders() error {
 }
 
 func (app *chatApp) saveProviderCatalog(catalog providerCatalog) error {
+	if app.deferBrowserAction(func() {
+		if err := app.saveProviderCatalog(catalog); err != nil {
+			app.providerError = err.Error()
+		}
+	}) {
+		return nil
+	}
 	config := catalog.activeConfig(app.settings)
 	if len(catalog.Providers) == 0 {
 		config = modelSettings{
@@ -141,6 +148,13 @@ func (app *chatApp) saveProviderCatalog(catalog providerCatalog) error {
 }
 
 func (app *chatApp) deleteProvider(id string) error {
+	if app.deferBrowserAction(func() {
+		if err := app.deleteProvider(id); err != nil {
+			app.providerError = err.Error()
+		}
+	}) {
+		return nil
+	}
 	catalog := app.providers
 	index := slices.IndexFunc(catalog.Providers, func(p modelProvider) bool { return p.ID == id })
 	if index < 0 {
@@ -164,6 +178,9 @@ func (app *chatApp) deleteProvider(id string) error {
 }
 
 func (app *chatApp) selectProvider(choice modelChoice) {
+	if app.deferBrowserAction(func() { app.selectProvider(choice) }) {
+		return
+	}
 	if choice == app.providers.Selected {
 		return
 	}

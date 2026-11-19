@@ -14,7 +14,7 @@
   · <a href="docs/project.md#ci-与发布">Build and Release</a>
 </p>
 
-Microlight runs on macOS, Windows, and Linux. Connect it to an OpenAI-compatible model provider, keep conversations and drafts on your device, and control how the agent accesses files, runs commands, and uses the network.
+Microlight runs on macOS, Windows, Linux, Android, iOS, and the Web. Connect it to an OpenAI-compatible model provider, keep conversations and drafts on your device, and control how the agent accesses files, runs commands, and uses the network.
 
 ## Features
 
@@ -50,6 +50,22 @@ If your terminal can't find the executable, add the directory returned by `go en
 Open **Settings → Model** and enter your provider's Base URL, Model ID, and API key. Select **Test Connection**, then **Save Settings**. To send images, choose a model that supports image input.
 
 Microlight stores conversation history in a local SQLite database. Model requests go to your selected provider, and MCP tool calls can communicate with the servers you configure. [Local data and model requests (Chinese)](docs/project.md#本地数据与模型请求)
+
+## Web
+
+Releases include a `web-static.tar.gz` for static hosting and a
+`web-servers.tar.gz` containing standalone HTTP servers for Windows amd64,
+Linux amd64/arm64, and macOS amd64/arm64. Extract the server archive and run
+the binary matching your system, for example:
+
+```sh
+./microlight-web-linux-amd64 -addr :8080
+```
+
+Open `http://localhost:8080/`. Assets are embedded in the executable. For remote
+access, use an HTTPS reverse proxy. Browser conversations remain in local
+IndexedDB-backed SQLite; model endpoints must permit CORS. Native-only tools
+are hidden in the browser. [Web deployment and storage](docs/web-storage.md)
 
 ## Development
 

@@ -12,7 +12,7 @@
 
 Android 日常检查和版本标签统一构建 arm64（`arm64-v8a`）。Eino 间接依赖 Sonic，后者不支持 32 位，因此不使用 MyGo 默认包含 `armeabi-v7a` 的全 ABI 构建；当前也不发布 x86_64 APK。NDK 固定为 28.2.13676358，JDK 17，Android SDK 36，缓存 Gradle 依赖。iOS 未配置签名时，使用 SDK 的 arm64 simulator 目标完成编译检查，不运行模拟器；配置签名后，发版额外构建真机 IPA。使用标准 `macos-15` Apple Silicon runner。
 
-Android 仅发布一个 arm64 APK，不生成 universal 发布包。MyGo v0.10.0 的构建命令仍会同时生成 AAB，但 CI 不收集或上传它；未来需要上架 Google Play 时再启用。
+Android 仅发布一个 arm64 APK，不生成 universal 发布包。CI 默认设置 `MICROLIGHT_ANDROID_COMPRESS_LIBS=1` 压缩 APK 中的原生库，可显式设为 `0` 关闭；本地也可使用 `MICROLIGHT_ANDROID_COMPRESS_LIBS=1 bash scripts/build.sh -platform android/arm64`。设为 `0` 或不设置时保留 MyGo 默认的未压缩打包。MyGo v0.10.0 本身没有对应开关，项目通过临时、限定项目路径的 Gradle init script，在 AGP `finalizeDsl` 中设置 `useLegacyPackaging=true`，构建结束自动清理；不修改 SDK 源码或生成的 Gradle 文件。压缩模式安装时需解压原生库，以减少下载文件大小。MyGo v0.10.0 的构建命令仍会同时生成 AAB，但 CI 不收集或上传它；未来需要上架 Google Play 时再启用。
 
 ## 发布产物与签名
 

@@ -41,12 +41,14 @@ case "$platform" in
   android)
     # Eino depends on Sonic, which does not support 32-bit ARM. Keep the
     # checked target and release target identical; publish phone arm64 only.
-    bash scripts/build.sh -platform android/arm64
-    files=(dist/android/*.apk)
-    [[ ${#files[@]} == 1 && -f ${files[0]} ]] || { echo 'Expected one Android APK' >&2; exit 1; }
+    MICROLIGHT_ANDROID_COMPRESS_LIBS=${MICROLIGHT_ANDROID_COMPRESS_LIBS:-1} bash scripts/build.sh -platform android/arm64
+    package_slug=$(jq -er '.slug' mygo.json)
+    package_version=$(jq -er '.version' mygo.json)
+    apk="dist/android/$package_slug-$package_version.apk"
+    [[ -f "$apk" ]] || { echo "Missing Android APK: $apk" >&2; exit 1; }
     # MyGo also generates an AAB; only stage the directly installable APK.
     # Without an upload keystore MyGo uses its debug key: label that honestly.
-    cp "${files[0]}" "dist/mobile/microlight-$version-android-arm64-$android_signing.apk"
+    cp "$apk" "dist/mobile/microlight-$version-android-arm64-$android_signing.apk"
     ;;
   *) echo "Unsupported mobile platform: $platform" >&2; exit 1 ;;
 esac

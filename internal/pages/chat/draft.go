@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"slices"
 
-	"github.com/ggdream/microlight/internal/attachment"
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/attachment"
 	"github.com/ggdream/microlight/internal/pages/chat/composer"
 	"github.com/ggdream/microlight/internal/storage"
 )
@@ -56,6 +56,9 @@ func (app *chatApp) persistDraft() bool {
 	imagesChanged := !slices.Equal(saved.images, app.draftAttachments)
 	if text == saved.text && !imagesChanged {
 		saved.version = version
+		return true
+	}
+	if app.deferBrowserAction(func() { app.persistDraft() }) {
 		return true
 	}
 

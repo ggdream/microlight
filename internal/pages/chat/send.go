@@ -19,6 +19,9 @@ func (app *chatApp) clearDraft() {
 }
 
 func (app *chatApp) send(text string, steer bool) bool {
+	if app.deferBrowserAction(func() { app.send(text, steer) }) {
+		return true
+	}
 	text = strings.TrimSpace(text)
 	if app.loadingAttachments || (text == "" && len(app.draftAttachments) == 0) || app.backend.configErr != nil {
 		return false

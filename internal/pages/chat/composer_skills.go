@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/desktop"
 	"github.com/ggdream/microlight/internal/pages/chat/composer"
 	"github.com/ggdream/microlight/internal/skills"
 	"github.com/ggdream/microlight/internal/theme"
@@ -112,6 +113,9 @@ func composerSkillRows(index *skillIndex, globalRoot, query string) []composerSk
 }
 
 func (app *chatApp) composerSkills(c *ui.Context, editor ui.Element, workspace string) bool {
+	if desktop.Web {
+		return false
+	}
 	picker := &app.skillPicker
 	if picker.focusEditor {
 		editor.Focus()

@@ -4,3 +4,8 @@
 *.exe
 *.syso
 /.mygo/
+
+/scripts/sqlitewebcheck/node_modules/
+
+/cmd/webserver/site/*
+!/cmd/webserver/site/.keep

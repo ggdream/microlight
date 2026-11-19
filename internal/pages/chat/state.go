@@ -83,6 +83,7 @@ type history struct {
 }
 
 type chatApp struct {
+	browserActions         *browserActions
 	ctx                    context.Context
 	skillsHome             string
 	backend                *Chat

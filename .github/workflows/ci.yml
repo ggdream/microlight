@@ -60,6 +60,49 @@ jobs:
           XDG_CURRENT_DESKTOP: GNOME
         run: dbus-run-session -- go test -mod=readonly -count=1 ./...
 
+  web:
+    name: Web test and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: scripts/sqlitewebcheck/package-lock.json
+      - name: Install browser test dependencies
+        working-directory: scripts/sqlitewebcheck
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Test browser storage and production UI
+        env:
+          MICROLIGHT_WEB_OUTPUT: ${{ runner.temp }}/microlight-web
+        run: node scripts/sqlitewebcheck/check.mjs
+      - name: Test HTTP server and package Web assets
+        env:
+          MICROLIGHT_WEB_SITE: ${{ runner.temp }}/microlight-web
+        run: |
+          go test -mod=readonly -count=1 ./cmd/webserver
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then export MICROLIGHT_BUILD_VERSION="$GITHUB_REF_NAME"; fi
+          bash scripts/package-web.sh
+          mkdir -p "$RUNNER_TEMP/web-servers"
+          tar -xzf dist/microlight-*-web-servers.tar.gz -C "$RUNNER_TEMP/web-servers"
+          node scripts/sqlitewebcheck/server.mjs "$RUNNER_TEMP/web-servers/microlight-web-linux-amd64"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: microlight-web
+          path: dist/microlight-*-web-*.tar.gz
+          if-no-files-found: error
+
   mobile:
     name: Mobile build (${{ matrix.platform }})
     needs: platforms
@@ -123,13 +166,14 @@ jobs:
   package:
     name: Package (${{ matrix.platform }}-${{ matrix.arch }})
     if: github.event_name == 'push' && github.ref_type == 'tag'
-    needs: [test, mobile]
+    needs: [test, mobile, web]
     strategy:
       fail-fast: false
       matrix:
         include:
           - { runner: ubuntu-24.04, platform: linux, arch: amd64 }
-          - { runner: macos-15, platform: darwin, arch: universal }
+          - { runner: macos-15-intel, platform: darwin, arch: amd64 }
+          - { runner: macos-15, platform: darwin, arch: arm64 }
           - { runner: windows-2025, platform: windows, arch: amd64 }
     runs-on: ${{ matrix.runner }}
     steps:
@@ -160,7 +204,7 @@ jobs:
   release:
     name: Publish GitHub Release
     if: github.event_name == 'push' && github.ref_type == 'tag'
-    needs: [package, mobile]
+    needs: [package, mobile, web]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

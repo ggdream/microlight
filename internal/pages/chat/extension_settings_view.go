@@ -33,7 +33,7 @@ func (app *chatApp) toolsSettings(c *ui.Context) {
 			config.OCR = ocr
 			return app.applySettings(config)
 		})
-		if !desktop.Mobile {
+		if desktop.Desktop {
 			app.browserSettings(c.Key("browser-use"))
 		}
 		app.extensionsForm.mcp.View(c.Key("mcp"), icons, app.settings.MCPServers, func(servers []mcptools.Server) error {

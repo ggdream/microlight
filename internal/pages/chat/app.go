@@ -31,29 +31,35 @@ func Run(assets fs.FS) {
 			os.RemoveAll(app.previewDirectory)
 		}
 	}()
-	parent, err := mygo.App.Path(mygo.PathAppData)
+	var err error
 	var dir string
-	if err == nil {
-		dir, err = storage.PrepareAppDataDir(parent)
-	}
-	if err == nil {
-		mygo.App.SetPath(mygo.PathUserData, dir)
-		mygo.App.SetPath(mygo.PathLogs, filepath.Join(dir, "logs"))
-		closeLogs, logErr := openAppLogs(dir)
-		if logErr != nil {
-			slog.Error("打开日志文件失败", "error", logErr)
-		} else {
-			defer closeLogs()
-		}
-		err = storage.MigrateAppDatabase(dir)
+	if desktop.Web {
+		app.store, err = openLocalStore("")
+	} else {
+		var parent string
+		parent, err = mygo.App.Path(mygo.PathAppData)
 		if err == nil {
-			app.store, err = openLocalStore(dir)
-			if desktop.Mobile && err == nil {
-				workspace := filepath.Join(dir, "workspace")
-				if mkdirErr := os.MkdirAll(workspace, 0o700); mkdirErr != nil {
-					slog.Error("initialize mobile workspace", "error", mkdirErr)
-				} else {
-					app.mobileWorkspace = workspace
+			dir, err = storage.PrepareAppDataDir(parent)
+		}
+		if err == nil {
+			mygo.App.SetPath(mygo.PathUserData, dir)
+			mygo.App.SetPath(mygo.PathLogs, filepath.Join(dir, "logs"))
+			closeLogs, logErr := openAppLogs(dir)
+			if logErr != nil {
+				slog.Error("打开日志文件失败", "error", logErr)
+			} else {
+				defer closeLogs()
+			}
+			err = storage.MigrateAppDatabase(dir)
+			if err == nil {
+				app.store, err = openLocalStore(dir)
+				if desktop.Mobile && err == nil {
+					workspace := filepath.Join(dir, "workspace")
+					if mkdirErr := os.MkdirAll(workspace, 0o700); mkdirErr != nil {
+						slog.Error("initialize mobile workspace", "error", mkdirErr)
+					} else {
+						app.mobileWorkspace = workspace
+					}
 				}
 			}
 		}
@@ -61,7 +67,7 @@ func Run(assets fs.FS) {
 	if app.store != nil {
 		defer app.store.Close()
 	}
-	if !desktop.Mobile {
+	if desktop.Desktop {
 		mygo.Use(updatenative.New(updater.Options{DisableAutomaticChecks: true}))
 	}
 	loadedIcons, iconErr := asseticon.Load(assets)
@@ -80,7 +86,7 @@ func Run(assets fs.FS) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	app.ctx = ctx
-	if !desktop.Mobile {
+	if desktop.Desktop {
 		tasks, taskErr := background.New(ctx)
 		if taskErr != nil {
 			slog.Error("initialize background tasks", "error", taskErr)
@@ -139,7 +145,7 @@ func Run(assets fs.FS) {
 			mygo.App.SetBadgeCount(0)
 			app.win.Invalidate()
 		})
-		if !desktop.Mobile {
+		if desktop.Desktop {
 			desktop.SetupTray(app.win, assets)
 			app.startDesktopShortcut()
 		}

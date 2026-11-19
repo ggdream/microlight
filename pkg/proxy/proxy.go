@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
+	"runtime"
 	"strings"
 	"sync/atomic"
 )
@@ -58,6 +59,18 @@ type Transport struct {
 }
 
 func NewTransport(config Config) (*Transport, error) {
+	if runtime.GOOS == "js" {
+		switch config.EffectiveMode() {
+		case System, Direct:
+		case Custom:
+			if _, err := parseURL(config.URL); err != nil {
+				return nil, err
+			}
+		default:
+			return nil, errors.New("invalid proxy mode")
+		}
+		return newTransport(nil), nil
+	}
 	switch config.EffectiveMode() {
 	case System:
 		return newTransport(systemRoutes), nil
@@ -78,6 +91,11 @@ func NewTransport(config Config) (*Transport, error) {
 
 func newTransport(resolve resolver) *Transport {
 	base := http.DefaultTransport.(*http.Transport).Clone()
+	if runtime.GOOS == "js" {
+		// Go uses browser Fetch only when no custom socket dialer is installed.
+		// Routing, system proxy and CORS are controlled by the browser.
+		base.Dial, base.DialContext, base.DialTLS, base.DialTLSContext = nil, nil, nil, nil
+	}
 	base.Proxy = func(req *http.Request) (*url.URL, error) {
 		u, _ := req.Context().Value(proxyKey{}).(*url.URL)
 		return u, nil
@@ -90,6 +108,9 @@ func (t *Transport) CloseIdleConnections() { t.base.CloseIdleConnections() }
 // RestrictDirectDial replaces the dialer for direct routes. Configure it
 // before using the transport. Proxy connections still use the normal dialer.
 func (t *Transport) RestrictDirectDial(dial func(context.Context, string, string) (net.Conn, error)) {
+	if runtime.GOOS == "js" {
+		return
+	}
 	original := t.base.DialContext
 	t.base.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
 		if route, _ := ctx.Value(proxyKey{}).(*url.URL); route != nil {

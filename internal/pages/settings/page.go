@@ -2,6 +2,7 @@ package settings
 
 import (
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/desktop"
 	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/internal/theme"
 
@@ -38,6 +39,14 @@ func Page(c *ui.Context, icons asseticon.Set, selected Tab, back func(), selectT
 		{Tools, locales.SettingsTools(), "plug_connected"},
 		{Archive, locales.ArchivedChats(), "archive"},
 		{About, locales.AppAbout(), "info"},
+	}
+	if desktop.Web {
+		for i := range items {
+			if items[i].tab == Skills {
+				items = append(items[:i], items[i+1:]...)
+				break
+			}
+		}
 	}
 	body := func() {
 		column := ui.Column(c.Key("content")).Grow(1).MinHeight(0).MinWidth(0).AlignItems(ui.Stretch)

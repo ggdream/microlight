@@ -24,7 +24,7 @@ import (
 )
 
 func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID string, input []*turn, resume *clarification, answer string, emit func(replyDelta) error) (*clarification, error) {
-	if !desktop.Mobile && chat.config.BrowserUse && !localtools.HasBrowserSession(ctx) {
+	if desktop.Desktop && chat.config.BrowserUse && !localtools.HasBrowserSession(ctx) {
 		session := localtools.NewBrowserSession(ctx, chat.config.Proxy, chat.config.BrowserMode)
 		defer session.Close()
 		ctx = localtools.WithBrowserSession(ctx, session)
@@ -34,7 +34,9 @@ func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID s
 	}
 	agent := chat.agent
 	workspace := localtools.Workspace(ctx, chat.config.Workspace)
-	ctx = project.WithInstructions(ctx, workspace)
+	if !desktop.Web {
+		ctx = project.WithInstructions(ctx, workspace)
+	}
 	var emitMu sync.Mutex
 	deliver := emit
 	emit = func(delta replyDelta) error {
@@ -52,7 +54,10 @@ func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID s
 	ctx = localtools.WithResultReporter(ctx, func(result localtools.Result) {
 		toolResults.Store(result.CallID, result)
 	})
-	skills := skillset.Discover(ctx, skillset.Roots(chat.skillsHome, workspace))
+	skills := &skillset.Catalog{}
+	if !desktop.Web {
+		skills = skillset.Discover(ctx, skillset.Roots(chat.skillsHome, workspace))
+	}
 	if resume == nil && len(input) > 0 {
 		prompt := input[len(input)-1].Content
 		if original, ok := ctx.Value(recoveryPromptKey{}).(string); ok {

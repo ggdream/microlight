@@ -12,6 +12,9 @@ import (
 )
 
 func (app *chatApp) quickLookAttachment(file *attachment.File) error {
+	if desktop.Web {
+		return desktop.PreviewBrowserFile(file.Data, file.MIME)
+	}
 	if app.previewDirectory == "" {
 		directory, err := os.MkdirTemp("", "microlight-preview-")
 		if err != nil {

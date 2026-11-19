@@ -41,7 +41,7 @@ func (e *extensionError) Error() string { return e.cause.Error() }
 func (e *extensionError) Unwrap() error { return e.cause }
 
 func (ext *agentExtensions) load(ctx context.Context, config modelSettings, skills *skillset.Catalog, network http.RoundTripper) error {
-	if len(skills.Entries) != 0 {
+	if !desktop.Web && len(skills.Entries) != 0 {
 		var err error
 		ext.skills, err = skill.NewTyped(ctx, &skill.TypedConfig[*schema.AgenticMessage]{Backend: skills})
 		if err != nil {
@@ -50,7 +50,7 @@ func (ext *agentExtensions) load(ctx context.Context, config modelSettings, skil
 	}
 	ext.targets = make(map[string]localtools.MCPTarget)
 	for _, server := range config.MCPServers {
-		if desktop.Mobile && server.Transport == mcptools.Stdio {
+		if !desktop.Desktop && server.Transport == mcptools.Stdio {
 			continue
 		}
 		if err := ext.loadMCP(ctx, server, network); err != nil {

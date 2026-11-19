@@ -55,6 +55,9 @@ func (app *chatApp) loadBusySendMode() {
 }
 
 func (app *chatApp) chooseBusySendMode(mode busySendMode) {
+	if app.deferBrowserAction(func() { app.chooseBusySendMode(mode) }) {
+		return
+	}
 	if app.store == nil || storage.PutConfig(app.store.DB, busySendConfigKey, string(mode)) != nil {
 		app.form.generalStatus.message, app.form.generalStatus.failed = locales.SettingsSaveFailed(), true
 		return
@@ -85,6 +88,9 @@ func (app *chatApp) enqueueDraft(chat *conversation, text string) bool {
 }
 
 func (app *chatApp) updateQueuedMessage(chat *conversation, id string, text *string) bool {
+	if app.deferBrowserAction(func() { app.updateQueuedMessage(chat, id, text) }) {
+		return true
+	}
 	index := slices.IndexFunc(chat.queue, func(entry queuedMessage) bool { return entry.ID == id })
 	if index < 0 {
 		return false
@@ -116,6 +122,9 @@ func (app *chatApp) startNextQueued(chat *conversation) {
 }
 
 func (app *chatApp) startQueuedMessage(chat *conversation, id string, steer bool) {
+	if app.deferBrowserAction(func() { app.startQueuedMessage(chat, id, steer) }) {
+		return
+	}
 	if chat.archived ||
 		(app.queueEdit != nil && app.queueEdit.id == id) {
 		return

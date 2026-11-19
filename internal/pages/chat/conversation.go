@@ -40,6 +40,9 @@ func (app *chatApp) loadHistory() {
 }
 
 func (app *chatApp) save(changed *conversation) {
+	if app.deferBrowserAction(func() { app.save(changed) }) {
+		return
+	}
 	if app.store == nil {
 		return
 	}
@@ -67,6 +70,9 @@ func (app *chatApp) visibleChat(id string) *conversation {
 }
 
 func (app *chatApp) selectChat(id string) {
+	if app.deferBrowserAction(func() { app.selectChat(id) }) {
+		return
+	}
 	app.compactHistory = false
 	if id != "" && app.visibleChat(id) == nil {
 		return

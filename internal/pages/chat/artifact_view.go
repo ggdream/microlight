@@ -186,7 +186,7 @@ func (app *chatApp) fileDeliverableRow(c *ui.Context, entry *turn, file preview.
 		return
 	}
 	items := []theme.PopupItem{{Label: desktop.PreviewLabel(), Icon: icons.Menu("open"), OnSelect: quickLook}}
-	if !desktop.Mobile {
+	if desktop.Desktop {
 		items = append(items, theme.PopupItem{Label: locales.ArtifactReveal(), Icon: icons.Menu("folder_open"), OnSelect: func() {
 			mygo.Shell.ShowItemInFolder(path)
 		}})

@@ -11,6 +11,7 @@ import (
 	"github.com/cloudwego/eino/schema"
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/desktop"
 	"github.com/ggdream/microlight/internal/pages/settings"
 	"github.com/ggdream/microlight/internal/storage"
 	"github.com/ggdream/microlight/internal/theme"
@@ -31,11 +32,17 @@ func (app *chatApp) loadSystemPrompt() {
 }
 
 func (app *chatApp) saveSystemPrompt(prompt string) {
+	if app.deferBrowserAction(func() { app.saveSystemPrompt(prompt) }) {
+		app.systemPrompt = prompt
+		return
+	}
 	if app.store == nil || storage.PutConfig(app.store.DB, systemPromptConfigKey, prompt) != nil {
 		app.form.generalStatus = settingsStatus{message: locales.SettingsSaveFailed(), failed: true}
 		return
 	}
-	app.systemPrompt = prompt
+	if !desktop.Web {
+		app.systemPrompt = prompt
+	}
 	app.form.generalStatus = settingsStatus{}
 }
 

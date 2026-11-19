@@ -45,6 +45,9 @@ func (app *chatApp) loadDesktopPreferences() {
 }
 
 func (app *chatApp) saveDesktopPreferences(preferences desktopPreferences) bool {
+	if app.deferBrowserAction(func() { app.saveDesktopPreferences(preferences) }) {
+		return true
+	}
 	raw, err := json.Marshal(preferences)
 	if err == nil && app.store != nil {
 		err = storage.PutConfig(app.store.DB, desktopConfigKey, string(raw))
@@ -76,7 +79,7 @@ func (app *chatApp) registerShortcut(keys string) (string, error) {
 }
 
 func (app *chatApp) startDesktopShortcut() {
-	if desktop.Mobile {
+	if !desktop.Desktop {
 		return
 	}
 	if keys := app.desktop.Shortcut; keys != "" {
@@ -149,7 +152,10 @@ func (app *chatApp) showComposer() {
 }
 
 func (app *chatApp) desktopSettings(c *ui.Context) {
-	if !desktop.Mobile {
+	if desktop.Web {
+		return
+	}
+	if desktop.Desktop {
 		app.shortcutSettings(c.Key("shortcut"))
 	}
 	settings.Card(c.Key("notifications"), locales.DesktopNotifications(), func() {

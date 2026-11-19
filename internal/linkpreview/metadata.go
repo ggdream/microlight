@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"runtime"
 	"strings"
 	"time"
 
@@ -81,6 +82,23 @@ func publicTransport(config proxy.Config) (*proxy.Transport, error) {
 }
 
 func previewTargetCheck(config proxy.Config) func(context.Context, *url.URL) error {
+	if runtime.GOOS == "js" {
+		return func(ctx context.Context, target *url.URL) error {
+			if _, ok := URL(target.String()); !ok {
+				return errors.New("invalid preview URL")
+			}
+			host := strings.TrimSuffix(strings.ToLower(target.Hostname()), ".")
+			if _, err := netip.ParseAddr(host); err == nil {
+				return checkPublic(ctx, target)
+			}
+			if !strings.Contains(host, ".") || strings.HasSuffix(host, ".localhost") || strings.HasSuffix(host, ".local") {
+				return errors.New("preview destination is local")
+			}
+			// Browsers own DNS, redirects and private-network/CORS policy. Go
+			// cannot perform a separate DNS lookup or install a socket dialer.
+			return nil
+		}
+	}
 	if config.EffectiveMode() == proxy.Direct {
 		return checkPublic
 	}

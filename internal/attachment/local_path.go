@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/ggdream/microlight/internal/storage"
@@ -15,6 +16,9 @@ import (
 // LocalPath uses an available original file or materializes the saved bytes.
 // A system picker may provide a temporary copy that disappears after launch.
 func (file *File) LocalPath() (string, error) {
+	if runtime.GOOS == "js" {
+		return "", nil
+	}
 	if filepath.IsAbs(file.Path) {
 		if info, err := os.Stat(file.Path); err == nil && info.Mode().IsRegular() {
 			return file.Path, nil

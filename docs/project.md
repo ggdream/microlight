@@ -22,6 +22,8 @@ bash scripts/build.sh -skip-dmg
 
 ## 模型与网络
 
+Web 正式构建使用 `CGO_ENABLED=0 bash scripts/build.sh -platform web`，部署整个 `dist/web/`。Web 存储沿用应用的 SQL 和表结构，使用独立 Worker 中的 wa-sqlite 与 IndexedDB 分页 VFS，不使用整库快照。桌面与移动端保留原有 SQLite 驱动。浏览器的能力差异、同源资源和验收方法见 [Web 存储](web-storage.md)。
+
 打开「设置 → 模型」，可添加命名的 Provider，为每组配置 Base URL、API Key、可选模型和生成参数，并指定默认模型。聊天顶部切换 Provider，输入框右下角选择具体模型。Base URL 填接口根地址，例如 `https://api.openai.com/v1`。生成参数留空时使用模型默认值，保存后的配置从下一次发送开始生效。
 
 「设置 → 通用」的语言、忙碌时发送方式和代理设置会自动保存。「网络」默认使用系统代理，也可选择直连或填写自定义 HTTP、HTTPS、SOCKS5 代理地址。自定义地址通过校验后会自动应用。代理保存在 SQLite 的 `config.proxy` 配置项，聊天、上下文压缩、测试连接、HTTP MCP 和网页工具共用这套配置。模型连接测试使用模型表单的当前值。Linux 桌面的系统代理与 PAC 由 GIO 的桌面代理后端解析，常见发行版通过 `glib-networking` 提供。无桌面代理后端时读取 `HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY` 和 `NO_PROXY`。
@@ -96,6 +98,7 @@ CGO_ENABLED=0 go test ./pkg/a2ui ./pkg/a2uiagent ./pkg/a2uimygo -run TestOfficia
 
 | 平台 | 架构 | 发布文件 |
 | --- | --- | --- |
-| macOS | Universal（Apple Silicon 和 Intel） | `microlight-vX.Y.Z-darwin-universal.dmg` |
+| macOS | arm64（Apple Silicon） | `microlight-vX.Y.Z-darwin-arm64.dmg` |
+| macOS | amd64（Intel） | `microlight-vX.Y.Z-darwin-amd64.dmg` |
 | Windows | amd64 | `microlight-vX.Y.Z-windows-amd64.exe` |
 | Linux | amd64 | `microlight-vX.Y.Z-linux-amd64.deb`、`.rpm`、`.tar.gz` |

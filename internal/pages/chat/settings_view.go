@@ -5,6 +5,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/desktop"
 	"github.com/ggdream/microlight/internal/pages/settings"
 	"github.com/ggdream/microlight/internal/theme"
 
@@ -109,7 +110,9 @@ func (app *chatApp) generalSettings(c *ui.Context) {
 		app.busySendSettings(c.Key("busy-send"))
 		app.desktopSettings(c.Key("desktop"))
 		app.statisticsSettings(c.Key("statistics"))
-		settings.Proxy(c, icons, &app.form.proxy, app.form.proxyError, app.saveProxySettings, app.openProxySettingsControl)
+		if !desktop.Web {
+			settings.Proxy(c, icons, &app.form.proxy, app.form.proxyError, app.saveProxySettings, app.openProxySettingsControl)
+		}
 		app.systemPromptSettings(c.Key("system-prompt"))
 		app.settingsTransfer(c.Key("transfer"))
 		if app.form.generalStatus.failed {

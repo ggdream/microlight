@@ -41,7 +41,7 @@ func (app *chatApp) versionSettings(c *ui.Context) {
 			ui.Text(c, locales.AppVersion()).FontSize(viewport.Font(c, 15)).FontWeight(660)
 			ui.Row(c).AlignItems(ui.Center).Gap(12).Shrink(0).Children(func() {
 				ui.Text(c, version).FontSize(viewport.Font(c, 13)).TextColor(muted).Selectable()
-				if desktop.Mobile {
+				if !desktop.Desktop {
 					return
 				}
 				label := locales.CheckForUpdates()

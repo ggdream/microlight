@@ -44,6 +44,9 @@ func (app *chatApp) confirmFullAccess() {
 }
 
 func (app *chatApp) applyAccess(chat *conversation, mode localtools.Mode) {
+	if app.deferBrowserAction(func() { app.applyAccess(chat, mode) }) {
+		return
+	}
 	app.accessError = ""
 	if chat == nil {
 		app.draftAccess = mode
@@ -215,7 +218,7 @@ func (app *chatApp) accessControl(c *ui.Context, chat *conversation) {
 }
 
 func (app *chatApp) workspaceControl(c *ui.Context, chat *conversation) {
-	if desktop.Mobile || chat != nil || app.draftWorkspace != "" {
+	if !desktop.Desktop || chat != nil || app.draftWorkspace != "" {
 		return
 	}
 	label := locales.ChooseWorkspace()

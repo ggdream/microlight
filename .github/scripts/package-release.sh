@@ -12,7 +12,7 @@ version=$(git describe --tags --exact-match --match "$tag" HEAD)
 
 target="$RELEASE_PLATFORM-$RELEASE_ARCH"
 case "$target" in
-  darwin-universal) extensions=(dmg) ;;
+  darwin-amd64|darwin-arm64) extensions=(dmg) ;;
   linux-amd64) extensions=(deb rpm tar.gz) ;;
   windows-amd64) extensions=(exe) ;;
   *) printf 'Unsupported release target %s\n' "$target" >&2; exit 1 ;;
@@ -42,10 +42,13 @@ shopt -s nullglob
 for extension in "${extensions[@]}"; do
   if [[ "$RELEASE_PLATFORM" == windows ]]; then
     matches=(dist/"$target"/*-setup-*."$extension")
+  elif [[ "$RELEASE_PLATFORM" == darwin ]]; then
+    package_slug=$(jq -er '.slug' mygo.json)
+    matches=("dist/$target/$package_slug-${tag#v}-$RELEASE_ARCH.$extension")
   else
     matches=(dist/"$target"/*."$extension")
   fi
-  if [[ ${#matches[@]} != 1 ]]; then
+  if [[ ${#matches[@]} != 1 || ! -f ${matches[0]} ]]; then
     printf 'Expected one %s package in dist/%s, found %s\n' "$extension" "$target" "${#matches[@]}" >&2
     exit 1
   fi

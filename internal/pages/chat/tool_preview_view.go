@@ -232,6 +232,11 @@ func (app *chatApp) toolPreviewTab(c *ui.Context, tab *toolPreview) {
 
 func (app *chatApp) composerMenu(c *ui.Context, workspace string) {
 	unavailable := app.loadingAttachments || len(app.draftAttachments) >= attachment.MaxPerMessage
+	items := []theme.PopupItem{{Label: locales.UploadFile(), Icon: icons.Menu("document_text"), Disabled: unavailable, OnSelect: app.pickAttachments}}
+	if !desktop.Web {
+		items = append(items, theme.PopupItem{Label: locales.ChooseSkill(), Icon: icons.Menu("skill"), OnSelect: func() { app.openComposerSkills(workspace, true) }})
+	}
+	items = append(items, theme.PopupItem{Label: locales.PlanMode(), Icon: icons.Menu("update_tasks")})
 	theme.PopupMenu(c, func(c *ui.Context) ui.Element {
 		add := pointerButton(c, false).Label(locales.AddAttachment()).Tooltip(locales.AddAttachment()).
 			Size(34, 34).Radius(17).AlignItems(ui.Center).Justify(ui.Center)
@@ -240,9 +245,5 @@ func (app *chatApp) composerMenu(c *ui.Context, workspace string) {
 			add.Background(hover)
 		}
 		return add
-	},
-		theme.PopupItem{Label: locales.UploadFile(), Icon: icons.Menu("document_text"), Disabled: unavailable, OnSelect: app.pickAttachments},
-		theme.PopupItem{Label: locales.ChooseSkill(), Icon: icons.Menu("skill"), OnSelect: func() { app.openComposerSkills(workspace, true) }},
-		theme.PopupItem{Label: locales.PlanMode(), Icon: icons.Menu("update_tasks")},
-	)
+	}, items...)
 }

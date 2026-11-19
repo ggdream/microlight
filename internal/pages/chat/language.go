@@ -41,6 +41,9 @@ func (app *chatApp) applyLanguage() {
 }
 
 func (app *chatApp) chooseLanguage(language settings.LanguagePreference) {
+	if app.deferBrowserAction(func() { app.chooseLanguage(language) }) {
+		return
+	}
 	if app.store == nil || storage.PutConfig(app.store.DB, "language", string(language)) != nil {
 		app.form.generalStatus.message, app.form.generalStatus.failed = locales.LanguageSaveFailed(), true
 		return

@@ -71,6 +71,9 @@ func (app *chatApp) canEditMessage(chat *conversation, index int) bool {
 }
 
 func (app *chatApp) resendMessage(chat *conversation, index int, edit *messageEdit, text string) bool {
+	if app.deferBrowserAction(func() { app.resendMessage(chat, index, edit, text) }) {
+		return true
+	}
 	if app.selected() != chat || app.edit != edit || index < 0 || index >= len(chat.Turns) ||
 		chat.Turns[index] != edit.entry || !app.canEditMessage(chat, index) {
 		return false
@@ -93,6 +96,9 @@ func (app *chatApp) resendMessage(chat *conversation, index int, edit *messageEd
 }
 
 func (app *chatApp) forkReply(chat *conversation, forkIndex int, prefix []*turn, now time.Time) bool {
+	if app.deferBrowserAction(func() { app.forkReply(chat, forkIndex, prefix, now) }) {
+		return true
+	}
 	original := messageBranch{id: chat.branchID, sessionID: chat.sessionID, turns: chat.Turns}
 	if original.id == "" {
 		original.id = chat.ID

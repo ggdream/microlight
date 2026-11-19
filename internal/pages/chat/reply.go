@@ -114,7 +114,7 @@ func (app *chatApp) startReply(chat *conversation, reply *turn, index int, answe
 	chat.list.ScrollToEnd()
 	parent := app.appContext()
 	ctx, cancel := context.WithCancel(parent)
-	if !desktop.Mobile && backend.config.BrowserUse {
+	if desktop.Desktop && backend.config.BrowserUse {
 		if reply.browser == nil {
 			reply.browser = localtools.NewBrowserSession(parent, backend.config.Proxy, backend.config.BrowserMode)
 		}

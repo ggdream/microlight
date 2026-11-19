@@ -53,7 +53,7 @@ func (form *MCPForm) View(c *ui.Context, icons asseticon.Set, servers []mcptools
 		ui.Column(c).Gap(settingGap(c, 4)).Children(func() {
 			ui.Text(c, "MCP").FontSize(viewport.Font(c, 18)).FontWeight(660)
 			hint := locales.McpSettingsHint()
-			if desktop.Mobile {
+			if !desktop.Desktop {
 				hint = locales.McpMobileSettingsHint()
 			}
 			ui.Text(c, hint).FontSize(viewport.Font(c, 13)).TextColor(theme.Muted)
@@ -103,7 +103,7 @@ func (form *MCPForm) transportControl(c *ui.Context, icons asseticon.Set) {
 		selected = mcptools.HTTP
 	}
 	options := []mcptools.Transport{mcptools.HTTP}
-	if !desktop.Mobile || selected == mcptools.Stdio {
+	if desktop.Desktop || selected == mcptools.Stdio {
 		options = append(options, mcptools.Stdio)
 	}
 	settingsSelect(c.Key("mcp-transport"), icons, locales.McpTransport(), &selected,

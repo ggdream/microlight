@@ -32,6 +32,9 @@ func (app *chatApp) historyChange(err error) bool {
 }
 
 func (app *chatApp) renameChat(chat *conversation, title string) bool {
+	if app.deferBrowserAction(func() { app.renameChat(chat, title) }) {
+		return true
+	}
 	title = strings.TrimSpace(title)
 	if title == "" || app.store == nil {
 		return false
@@ -44,6 +47,9 @@ func (app *chatApp) renameChat(chat *conversation, title string) bool {
 }
 
 func (app *chatApp) togglePin(chat *conversation) {
+	if app.deferBrowserAction(func() { app.togglePin(chat) }) {
+		return
+	}
 	if app.store != nil && app.historyChange(updateChat(app.store, "UPDATE conversations SET pinned = ? WHERE id = ?", !chat.pinned, chat.ID)) {
 		chat.pinned = !chat.pinned
 	}
@@ -62,6 +68,9 @@ func updateChat(db storage.Writer, query string, args ...any) error {
 }
 
 func (app *chatApp) setChatArchived(chat *conversation, archived bool) {
+	if app.deferBrowserAction(func() { app.setChatArchived(chat, archived) }) {
+		return
+	}
 	selected := archived && app.history.Selected == chat.ID
 	if app.store == nil || chat.archived == archived || (selected && !app.persistDraft()) {
 		return
@@ -93,6 +102,9 @@ func (store *localStore) archiveChat(id string, archived, clearSelection bool) e
 }
 
 func (app *chatApp) deleteChat(chat *conversation) bool {
+	if app.deferBrowserAction(func() { app.deleteChat(chat) }) {
+		return true
+	}
 	if app.store == nil || chat.isRunning() {
 		return false
 	}

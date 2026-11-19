@@ -1,7 +1,9 @@
 package chat
 
 import (
+	"bytes"
 	"github.com/ggdream/microlight/pkg/viewport"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -43,6 +45,9 @@ func (app *chatApp) settingsTransfer(c *ui.Context) {
 }
 
 func (app *chatApp) chooseSettingsExport() {
+	if app.deferBrowserAction(app.chooseSettingsExport) {
+		return
+	}
 	if app.transferBusy || app.win == nil || app.store == nil {
 		return
 	}
@@ -98,16 +103,26 @@ func (app *chatApp) chooseSettingsImport() {
 }
 
 func chooseSettingsFile(win *mygo.Window) (*settingsFile, modelSettings, error) {
-	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
-		Parent: win, Title: locales.ImportSettings(),
-		Filters: []mygo.FileFilter{{Name: locales.SettingsFileFilter(), Extensions: []string{"json"}}},
-	})
-	if err != nil || len(paths) == 0 {
-		return nil, modelSettings{}, err
-	}
-	source, err := os.Open(paths[0])
-	if err != nil {
-		return nil, modelSettings{}, err
+	var source io.ReadCloser
+	if desktop.Web {
+		files, err := desktop.OpenBrowserFiles(false, ".json,application/json", 8<<20)
+		if err != nil || len(files) == 0 {
+			return nil, modelSettings{}, err
+		}
+		source = io.NopCloser(bytes.NewReader(files[0].Data))
+	} else {
+		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
+			Parent: win, Title: locales.ImportSettings(),
+			Filters: []mygo.FileFilter{{Name: locales.SettingsFileFilter(), Extensions: []string{"json"}}},
+		})
+		if err != nil || len(paths) == 0 {
+			return nil, modelSettings{}, err
+		}
+		file, err := os.Open(paths[0])
+		if err != nil {
+			return nil, modelSettings{}, err
+		}
+		source = file
 	}
 	defer source.Close()
 	file, config, err := readSettingsFile(source)
@@ -126,6 +141,13 @@ func chooseSettingsFile(win *mygo.Window) (*settingsFile, modelSettings, error) 
 }
 
 func (app *chatApp) applySettingsImport(file settingsFile, config modelSettings) error {
+	if app.deferBrowserAction(func() {
+		if err := app.applySettingsImport(file, config); err != nil {
+			app.transferStatus = settingsStatus{message: locales.ImportSettingsFailed(), failed: true}
+		}
+	}) {
+		return nil
+	}
 	backend := newChat(config)
 	if backend.configErr != nil {
 		return backend.configErr

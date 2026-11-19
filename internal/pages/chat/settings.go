@@ -386,6 +386,9 @@ func optionalNumber(raw string) *float32 {
 }
 
 func (app *chatApp) saveSettings() {
+	if app.deferBrowserAction(app.saveSettings) {
+		return
+	}
 	form := &app.form
 	config := app.connectionConfig()
 	config.MCPServers = app.settings.MCPServers
@@ -441,6 +444,9 @@ func (app *chatApp) saveSettings() {
 }
 
 func (app *chatApp) saveProxySettings() {
+	if app.deferBrowserAction(app.saveProxySettings) {
+		return
+	}
 	config := app.settings
 	config.Proxy = app.form.proxyConfig()
 	app.form.proxyError = ""
@@ -456,6 +462,13 @@ func (app *chatApp) saveProxySettings() {
 }
 
 func (app *chatApp) applySettings(config modelSettings) error {
+	if app.deferBrowserAction(func() {
+		if err := app.applySettings(config); err != nil {
+			app.form.generalStatus = settingsStatus{message: err.Error(), failed: true}
+		}
+	}) {
+		return nil
+	}
 	return app.commitSettings(config, nil)
 }
 

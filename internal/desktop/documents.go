@@ -11,6 +11,10 @@ import (
 // SaveDocument writes a file selected on desktop or exports a copy through
 // the system document picker on mobile.
 func SaveDocument(options mygo.SaveDialogOptions, data []byte) (string, error) {
+	if Web {
+		name := filepath.Base(options.DefaultPath)
+		return name, DownloadBrowserFile(name, data)
+	}
 	if Mobile {
 		dir, err := os.MkdirTemp("", "microlight-export-")
 		if err != nil {
