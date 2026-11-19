@@ -4,6 +4,7 @@ package a2uimygo
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/ggdream/microlight/pkg/viewport"
 	"strconv"
 	"strings"
 
@@ -103,15 +104,20 @@ func (r renderer) node(c *ui.Context, id, scope string, depth int) {
 	}
 	prop := func(key string) string { return r.surface.String(node.Props[key], scope) }
 	children := func() { r.children(c, node.Props["children"], scope, depth+1) }
+	layout := viewport.Available(c)
 	switch node.Type {
 	case "Text":
 		r.text(c, node, scope)
 	case "Column":
-		r.decorate(c, node, scope, ui.Column(c).FillWidth().Gap(8).AlignItems(alignment(prop("align"), ui.Stretch)).Justify(alignment(prop("justify"), ui.Start)), "").Children(children)
+		r.decorate(c, node, scope, ui.Column(c).FillWidth().Gap(layout.Density(8, 6)).AlignItems(alignment(prop("align"), ui.Stretch)).Justify(alignment(prop("justify"), ui.Start)), "").Children(children)
 	case "Row":
-		r.decorate(c, node, scope, ui.Row(c).FillWidth().Gap(8).AlignItems(alignment(prop("align"), ui.Center)).Justify(alignment(prop("justify"), ui.Start)), "").Children(children)
+		row := ui.Row(c).FillWidth().Gap(layout.Density(8, 6)).AlignItems(alignment(prop("align"), ui.Center)).Justify(alignment(prop("justify"), ui.Start))
+		if layout.Compact() {
+			row.Wrap()
+		}
+		r.decorate(c, node, scope, row, "").Children(children)
 	case "Card":
-		r.decorate(c, node, scope, ui.Column(c).FillWidth().Padding(12).Radius(10).Background(r.Style.Surface).Border(1, r.Style.Border), "").Children(func() { r.node(c, prop("child"), scope, depth+1) })
+		r.decorate(c, node, scope, ui.Column(c).FillWidth().Padding(layout.Density(12, 8)).Radius(10).Background(r.Style.Surface).Border(1, r.Style.Border), "").Children(func() { r.node(c, prop("child"), scope, depth+1) })
 	case "Image", "Video", "AudioPlayer":
 		r.media(c, node, scope)
 	case "Icon":
@@ -202,6 +208,8 @@ func (r renderer) write(node a2ui.Component, scope string, value any) {
 }
 
 func (r renderer) textField(c *ui.Context, node a2ui.Component, scope string) {
+	layout := viewport.Available(c)
+	controlHeight := layout.Target(r.Style.ControlHeight)
 	value := a2ui.Text(r.property(node, scope, "value"))
 	label := r.surface.String(node.Props["label"], scope)
 	placeholder := r.surface.String(node.Props["placeholder"], scope)
@@ -209,11 +217,11 @@ func (r renderer) textField(c *ui.Context, node a2ui.Component, scope string) {
 	var input ui.Element
 	switch r.surface.String(node.Props["variant"], scope) {
 	case "obscured":
-		input = ui.TextInputBase(c, &value).Height(r.Style.ControlHeight).Password()
+		input = ui.TextInputBase(c, &value).Height(controlHeight).Password()
 	case "longText":
-		input = ui.TextAreaBase(c, &value).Height(85)
+		input = ui.TextAreaBase(c, &value).Height(max(controlHeight, layout.Y(85)))
 	default:
-		input = ui.TextInputBase(c, &value).Height(r.Style.ControlHeight)
+		input = ui.TextInputBase(c, &value).Height(controlHeight)
 	}
 	input = theme.InputFrame(input, 9, 6, r.Style.Border)
 	r.decorate(c, node, scope, input.Label(label), label).Invalid(!r.surface.IsValid(node, scope)).Placeholder(placeholder).Grow(1).MinWidth(0).
@@ -251,8 +259,9 @@ func (r renderer) button(c *ui.Context, node a2ui.Component, scope string, depth
 		event, err := r.surface.Action(node.ID, scope, c.Now())
 		disabled = err != nil || !r.CanActivate(event)
 	}
-	button := ui.ButtonBase(c).Label(label).Height(r.Style.ControlHeight).
-		PaddingX(10).Shrink(0).Radius(7).AlignItems(ui.Center).Justify(ui.Center).
+	layout := viewport.Available(c)
+	button := ui.ButtonBase(c).Label(label).MinHeight(layout.Target(r.Style.ControlHeight)).MaxWidthPercent(100).
+		Padding(layout.Y(4), layout.X(10)).Shrink(0).Radius(7).AlignItems(ui.Center).Justify(ui.Center).
 		Disabled(disabled).Cursor(ui.CursorPointer)
 	action, pending := r.actionRPC(button)
 	if pending {
@@ -271,7 +280,7 @@ func (r renderer) button(c *ui.Context, node a2ui.Component, scope string, depth
 	}
 	button.Children(func() {
 		if label != "" {
-			ui.Text(c, label).FontSize(12).FontWeight(620).TextColor(r.Style.Accent)
+			ui.Text(c, label).MinWidth(0).FontSize(layout.Text(12)).FontWeight(620).TextColor(r.Style.Accent)
 		} else {
 			r.node(c, child, scope, depth+1)
 		}

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ggdream/microlight/internal/desktop"
+	"github.com/ggdream/microlight/pkg/viewport"
 	"io"
 	"net/http"
 	"path"
@@ -33,12 +35,15 @@ type updateCheck struct {
 func (app *chatApp) versionSettings(c *ui.Context) {
 	check := app.updateCheck
 	version := buildinfo.Version()
-	row := settings.AboutRow(ui.Column(c)).AlignItems(ui.Stretch).PaddingY(5)
+	row := settings.AboutRow(c, ui.Column(c)).AlignItems(ui.Stretch).PaddingY(5)
 	row.Children(func() {
 		ui.Row(c).Wrap().AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(12).Children(func() {
-			ui.Text(c, locales.AppVersion()).FontSize(15).FontWeight(660)
+			ui.Text(c, locales.AppVersion()).FontSize(viewport.Font(c, 15)).FontWeight(660)
 			ui.Row(c).AlignItems(ui.Center).Gap(12).Shrink(0).Children(func() {
-				ui.Text(c, version).FontSize(13).TextColor(muted).Selectable()
+				ui.Text(c, version).FontSize(viewport.Font(c, 13)).TextColor(muted).Selectable()
+				if desktop.Mobile {
+					return
+				}
 				label := locales.CheckForUpdates()
 				color := accent
 				if check.checking {
@@ -53,7 +58,7 @@ func (app *chatApp) versionSettings(c *ui.Context) {
 				}
 				button.Children(func() {
 					icon(c, "retry", color, 14)
-					ui.Text(c, label).FontSize(13).TextColor(color)
+					ui.Text(c, label).FontSize(viewport.Font(c, 13)).TextColor(color)
 				}).OnClick(app.checkForUpdates)
 			})
 		})

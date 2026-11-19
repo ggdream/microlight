@@ -3,6 +3,8 @@ package a2uimygo
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/ggdream/microlight/pkg/elastic"
+	"github.com/ggdream/microlight/pkg/viewport"
 	"html"
 	"math"
 	"strings"
@@ -115,7 +117,7 @@ func (r renderer) checkHint(c *ui.Context, node a2ui.Component, scope string) {
 			ID, Scope string
 			Check     int
 		}{node.ID, scope, i}
-		ui.Text(c.Key(key), result.Message).FontSize(11).TextColor(color)
+		ui.Text(c.Key(key), result.Message).FontSize(viewport.Font(c, 11)).TextColor(color)
 	}
 }
 
@@ -200,7 +202,7 @@ func (r renderer) dateTime(c *ui.Context, node a2ui.Component, scope string) {
 			ui.Text(c, label).TextColor(r.Style.Text)
 		}
 		changed := false
-		ui.Row(c).Gap(6).Children(func() {
+		ui.Row(c).Wrap().Gap(6).Children(func() {
 			if useDate {
 				date := r.decorate(c, node, scope, ui.DateInput(c.Key("date"), &value).Label(label).Disabled(disabled), label)
 				changed = date.Changed()
@@ -236,7 +238,8 @@ func (r renderer) tabs(c *ui.Context, node a2ui.Component, scope string, depth i
 	if json.Unmarshal(node.Props["tabs"], &tabs) != nil || len(tabs) == 0 {
 		return
 	}
-	column := r.decorate(c, node, scope, ui.Column(c).FillWidth().Gap(8), "")
+	layout := viewport.Available(c)
+	column := r.decorate(c, node, scope, ui.Column(c).FillWidth().MinWidth(0).Gap(layout.Y(8)), "")
 	selected := ui.Local(column, "selected", func() int { return 0 })
 	*selected = max(0, min(*selected, len(tabs)-1))
 	labels := make([]string, len(tabs))
@@ -244,7 +247,11 @@ func (r renderer) tabs(c *ui.Context, node a2ui.Component, scope string, depth i
 		labels[i] = r.surface.String(tab.Title, scope)
 	}
 	column.Children(func() {
-		ui.Tabs(c.Key("tab-list"), selected, labels...).Disabled(r.Disabled)
+		scroll, offset := elastic.Horizontal(c.Key("tab-strip"))
+		scroll.FillWidth().MinWidth(0).Children(func() {
+			offset.Apply(ui.Tabs(c.Key("tab-list"), selected, labels...)).
+				Disabled(r.Disabled).MinHeight(layout.Target(32)).AlignItems(ui.Stretch).Shrink(0)
+		})
 		r.node(c, tabs[*selected].Child, scope, depth+1)
 	})
 }
@@ -284,11 +291,19 @@ func (r renderer) modal(c *ui.Context, node a2ui.Component, scope string, depth 
 		}
 	})
 	ui.DialogBase(c.Key("dialog"), open, func(backdrop, panel ui.Element) {
-		backdrop.Background(ui.RGBA(0, 0, 0, .35))
-		panel.Background(r.Style.Surface).Padding(16).Radius(10).Gap(8).MinWidth(220).MaxWidth(560).
+		top, right, bottom, left := c.SafeArea()
+		backdrop.Padding(top, right, bottom, left).Background(ui.RGBA(0, 0, 0, .35))
+		layout := viewport.Available(c)
+		panel.Background(r.Style.Surface).Padding(layout.Density(16, 10)).Radius(10).Gap(8).
+			MinWidth(layout.FitWidth(220, 12)).MaxWidth(layout.FitWidth(560, 12)).MaxHeight(layout.FitHeight(620, 10)).
 			Children(func() {
-				r.node(c, content, scope, depth+1)
-				ui.ButtonBase(c.Key("dismiss")).Label("Close").Children(func() { ui.Text(c, "Close") }).OnClick(func() { *open = false })
+				scroll, offset := elastic.Scroll(c.Key("content"))
+				scroll.FillWidth().MinHeight(0).Shrink(1).Children(func() {
+					offset.Apply(ui.Column(c)).FillWidth().Children(func() {
+						r.node(c, content, scope, depth+1)
+					})
+				})
+				ui.ButtonBase(c.Key("dismiss")).Shrink(0).Label("Close").Children(func() { ui.Text(c, "Close") }).OnClick(func() { *open = false })
 			})
 	})
 }
@@ -316,5 +331,5 @@ func (r renderer) icon(c *ui.Context, node a2ui.Component, scope string) {
 	if glyph == "" {
 		glyph = strings.ToUpper(name[:min(1, len(name))])
 	}
-	r.decorate(c, node, scope, ui.Text(c, glyph).Label(name).FontSize(17).TextColor(r.Style.Text), name)
+	r.decorate(c, node, scope, ui.Text(c, glyph).Label(name).FontSize(viewport.Font(c, 17)).TextColor(r.Style.Text), name)
 }

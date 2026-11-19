@@ -48,12 +48,22 @@ func Run(assets fs.FS) {
 		err = storage.MigrateAppDatabase(dir)
 		if err == nil {
 			app.store, err = openLocalStore(dir)
+			if desktop.Mobile && err == nil {
+				workspace := filepath.Join(dir, "workspace")
+				if mkdirErr := os.MkdirAll(workspace, 0o700); mkdirErr != nil {
+					slog.Error("initialize mobile workspace", "error", mkdirErr)
+				} else {
+					app.mobileWorkspace = workspace
+				}
+			}
 		}
 	}
 	if app.store != nil {
 		defer app.store.Close()
 	}
-	mygo.Use(updatenative.New(updater.Options{DisableAutomaticChecks: true}))
+	if !desktop.Mobile {
+		mygo.Use(updatenative.New(updater.Options{DisableAutomaticChecks: true}))
+	}
 	loadedIcons, iconErr := asseticon.Load(assets)
 	if iconErr != nil {
 		slog.Error("读取应用图标失败", "error", iconErr)
@@ -70,18 +80,20 @@ func Run(assets fs.FS) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	app.ctx = ctx
-	tasks, taskErr := background.New(ctx)
-	if taskErr != nil {
-		slog.Error("initialize background tasks", "error", taskErr)
-	} else {
-		app.tasks = tasks
-		defer func() {
-			shutdown, stop := context.WithTimeout(context.Background(), 5*time.Second)
-			defer stop()
-			if err := tasks.Close(shutdown); err != nil {
-				slog.Error("close background tasks", "error", err)
-			}
-		}()
+	if !desktop.Mobile {
+		tasks, taskErr := background.New(ctx)
+		if taskErr != nil {
+			slog.Error("initialize background tasks", "error", taskErr)
+		} else {
+			app.tasks = tasks
+			defer func() {
+				shutdown, stop := context.WithTimeout(context.Background(), 5*time.Second)
+				defer stop()
+				if err := tasks.Close(shutdown); err != nil {
+					slog.Error("close background tasks", "error", err)
+				}
+			}()
+		}
 	}
 	defer cancel()
 	offQuit := mygo.App.OnQuit(cancel)
@@ -105,8 +117,11 @@ func Run(assets fs.FS) {
 	mygo.App.WhenReady(func() {
 		app.win = mygo.NewWindow(mygo.WindowOptions{
 			Title: locales.AppName(), Width: 1120, Height: 760,
-			MinWidth: 660, MinHeight: 540, Content: ui.View(app.view),
+			MinWidth: 320, MinHeight: 360, Content: ui.View(app.view),
 		})
+		if desktop.Mobile {
+			mygo.SystemBars.SetStyle(mygo.BarStyleDark)
+		}
 		mygo.App.OnLocaleChanged(func(tag string) { app.win.SetTitle(locales.In(tag).AppName()) })
 		app.win.OnClosed(func() {
 			app.persistDraft()
@@ -124,8 +139,10 @@ func Run(assets fs.FS) {
 			mygo.App.SetBadgeCount(0)
 			app.win.Invalidate()
 		})
-		desktop.SetupTray(app.win, assets)
-		app.startDesktopShortcut()
+		if !desktop.Mobile {
+			desktop.SetupTray(app.win, assets)
+			app.startDesktopShortcut()
+		}
 	})
 	if err := mygo.App.Run(); err != nil {
 		slog.Error("运行应用失败", "error", err)

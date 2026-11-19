@@ -9,8 +9,8 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/desktop"
 	"github.com/ggdream/microlight/internal/linkpreview"
-	"github.com/ggdream/microlight/internal/storage"
 )
 
 func imageFilename(source, format string) string {
@@ -38,14 +38,11 @@ func (app *chatApp) downloadImage(image *markdownImage) {
 		defer app.savingImage.Store(false)
 		dir, _ := mygo.App.Path(mygo.PathDownloads)
 		label := locales.DownloadImage()
-		output, err := mygo.Dialog.Save(mygo.SaveDialogOptions{
+		_, err := desktop.SaveDocument(mygo.SaveDialogOptions{
 			Parent: app.win, Title: label, DefaultPath: filepath.Join(dir, image.filename),
 			CreateDirectories: true,
 			Filters:           []mygo.FileFilter{{Name: locales.ImageFilter(), Extensions: []string{strings.TrimPrefix(filepath.Ext(image.filename), ".")}}},
-		})
-		if err == nil && output != "" {
-			err = storage.WritePrivateFile(output, image.original)
-		}
+		}, image.original)
 		if err != nil {
 			slog.Error("save chat image", "error", err)
 			_, _ = mygo.Dialog.Message(mygo.MessageOptions{

@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"github.com/ggdream/microlight/pkg/viewport"
 	"net/http"
 	"strings"
 
@@ -87,5 +88,5 @@ func (app *chatApp) renderInterfaceAnswer(c *ui.Context, chat *conversation, ent
 }
 
 func interfaceFallback(c *ui.Context, _ error) {
-	ui.Text(c, locales.A2uiRenderFailed()).FontSize(12).TextColor(muted)
+	ui.Text(c, locales.A2uiRenderFailed()).FontSize(viewport.Font(c, 12)).TextColor(muted)
 }

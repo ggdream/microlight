@@ -2,6 +2,7 @@ package chat
 
 import (
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/pkg/viewport"
 
 	"github.com/egoist/mygo/ui"
 )
@@ -13,7 +14,7 @@ func quietButton(c *ui.Context, label, glyph string) ui.Element {
 	}
 	return button.Children(func() {
 		icon(c, glyph, muted, 13)
-		ui.Text(c, label).FontSize(11).TextColor(muted)
+		ui.Text(c, label).FontSize(viewport.Font(c, 11)).TextColor(muted)
 	})
 }
 
@@ -29,7 +30,8 @@ func actionButton(c *ui.Context, label, glyph string, disabled bool) ui.Element 
 
 func stopButton(c *ui.Context) ui.Element {
 	label := locales.Stop()
-	button := pointerButton(c, false).Label(label).Tooltip(label).Size(replyControlHeight, replyControlHeight).Shrink(0).
+	size := windowLayout(c).Target(replyControlHeight)
+	button := pointerButton(c, false).Label(label).Tooltip(label).Size(size, size).Shrink(0).
 		Radius(replyControlRadius).AlignItems(ui.Center).Justify(ui.Center)
 	background := ui.Hex("#FCEDEE")
 	if button.Hovered() {

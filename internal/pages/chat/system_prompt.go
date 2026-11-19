@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"github.com/ggdream/microlight/pkg/viewport"
 	"log/slog"
 	"slices"
 
@@ -40,12 +41,13 @@ func (app *chatApp) saveSystemPrompt(prompt string) {
 
 func (app *chatApp) systemPromptSettings(c *ui.Context) {
 	label := locales.SystemPrompt()
+	layout := windowLayout(c)
 	settings.Card(c, label, func() {
 		value := app.systemPrompt
-		ui.Text(c, locales.SystemPromptDescription()).FontSize(13).TextColor(theme.Muted)
+		ui.Text(c, locales.SystemPromptDescription()).FontSize(viewport.Font(c, 13)).TextColor(theme.Muted)
 		theme.InputFrame(ui.TextAreaBase(c.Key("content"), &value), 12, 7, theme.Border).
-			Label(label).Placeholder(locales.SystemPromptPlaceholder()).FillWidth().Height(108).PaddingY(10).
-			Background(theme.Canvas).FontSize(13).CaretColor(theme.CaretColor).
+			Label(label).Placeholder(locales.SystemPromptPlaceholder()).FillWidth().Height(layout.Y(108)).PaddingY(layout.Y(10)).
+			Background(theme.Canvas).FontSize(viewport.Font(c, 13)).CaretColor(theme.CaretColor).
 			OnChange(func() { app.saveSystemPrompt(value) })
 	})
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/ggdream/microlight/internal/desktop"
 	"io"
 	"strings"
 	"sync"
@@ -23,7 +24,7 @@ import (
 )
 
 func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID string, input []*turn, resume *clarification, answer string, emit func(replyDelta) error) (*clarification, error) {
-	if chat.config.BrowserUse && !localtools.HasBrowserSession(ctx) {
+	if !desktop.Mobile && chat.config.BrowserUse && !localtools.HasBrowserSession(ctx) {
 		session := localtools.NewBrowserSession(ctx, chat.config.Proxy, chat.config.BrowserMode)
 		defer session.Close()
 		ctx = localtools.WithBrowserSession(ctx, session)

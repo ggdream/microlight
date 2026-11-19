@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.select.outputs.matrix }}
+      mobile: ${{ steps.select.outputs.mobile }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -59,10 +60,70 @@ jobs:
           XDG_CURRENT_DESKTOP: GNOME
         run: dbus-run-session -- go test -mod=readonly -count=1 ./...
 
+  mobile:
+    name: Mobile build (${{ matrix.platform }})
+    needs: platforms
+    if: needs.platforms.outputs.mobile == 'true'
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: ios, runner: macos-15 }
+          - { platform: android, runner: ubuntu-24.04 }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - uses: actions/setup-java@v5
+        if: matrix.platform == 'android'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android build tools
+        if: matrix.platform == 'android'
+        shell: bash
+        run: |
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358'
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+      - uses: actions/cache@v5
+        if: matrix.platform == 'android'
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: android-gradle-${{ runner.os }}-${{ hashFiles('go.sum', '**/*.kts') }}
+          restore-keys: android-gradle-${{ runner.os }}-
+      - name: Build mobile packages
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ github.event_name == 'push' && github.ref_type == 'tag' && secrets.IOS_CERTIFICATE_BASE64 || '' }}
+          IOS_CERTIFICATE_PASSWORD: ${{ github.event_name == 'push' && github.ref_type == 'tag' && secrets.IOS_CERTIFICATE_PASSWORD || '' }}
+          IOS_PROFILE_BASE64: ${{ github.event_name == 'push' && github.ref_type == 'tag' && secrets.IOS_PROFILE_BASE64 || '' }}
+          ANDROID_KEYSTORE_BASE64: ${{ github.event_name == 'push' && github.ref_type == 'tag' && secrets.ANDROID_KEYSTORE_BASE64 || '' }}
+          ANDROID_KEY_ALIAS: ${{ github.event_name == 'push' && github.ref_type == 'tag' && secrets.ANDROID_KEY_ALIAS || '' }}
+          MYGO_ANDROID_KEYSTORE_PASSWORD: ${{ github.event_name == 'push' && github.ref_type == 'tag' && secrets.MYGO_ANDROID_KEYSTORE_PASSWORD || '' }}
+          MYGO_ANDROID_KEY_PASSWORD: ${{ github.event_name == 'push' && github.ref_type == 'tag' && secrets.MYGO_ANDROID_KEY_PASSWORD || '' }}
+        run: bash .github/scripts/build-mobile.sh "${{ matrix.platform }}"
+      - uses: actions/upload-artifact@v7
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        with:
+          name: microlight-${{ matrix.platform }}
+          path: |
+            dist/mobile/*.apk
+            dist/mobile/*.ipa
+            dist/mobile/*.zip
+          if-no-files-found: error
+
   package:
     name: Package (${{ matrix.platform }}-${{ matrix.arch }})
     if: github.event_name == 'push' && github.ref_type == 'tag'
-    needs: test
+    needs: [test, mobile]
     strategy:
       fail-fast: false
       matrix:
@@ -99,7 +160,7 @@ jobs:
   release:
     name: Publish GitHub Release
     if: github.event_name == 'push' && github.ref_type == 'tag'
-    needs: package
+    needs: [package, mobile]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

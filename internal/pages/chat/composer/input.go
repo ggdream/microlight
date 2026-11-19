@@ -1,6 +1,7 @@
 package composer
 
 import (
+	"github.com/ggdream/microlight/pkg/viewport"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -51,7 +52,7 @@ func (input *Input) DiscardFilePasteText() {
 }
 
 func (input *Input) View(c *ui.Context, label, placeholder string, height float32, md *markdown.Options) ui.Element {
-	font := ui.Font{Size: composerFontSize, Family: c.Theme().Font}
+	font := ui.Font{Size: viewport.Font(c, composerFontSize), Family: c.Theme().Font}
 	editor := richtext.EditorBase(c, &input.Document, richtext.EditorOptions{
 		Label: label, Placeholder: placeholder, Font: font,
 		Theme: &richtext.Theme{Caret: theme.CaretColor},
@@ -61,7 +62,7 @@ func (input *Input) View(c *ui.Context, label, placeholder string, height float3
 				span.BaselineShift = -font.Metrics().Descent
 			}
 		},
-	}).FillWidth().MinWidth(0).Height(height).AutoFocus().FocusRingColor(theme.Accent).FocusRingOffset(3)
+	}).FillWidth().MinWidth(0).Height(height).FocusRingColor(theme.Accent).FocusRingOffset(3)
 
 	version := input.Document.Version()
 	if editor.Shortcut(ui.Alt, ui.KeyEnter) || editor.DoubleClicked() {
@@ -69,7 +70,7 @@ func (input *Input) View(c *ui.Context, label, placeholder string, height float3
 	}
 	if input.scanned != version || input.editingMath {
 		input.restorePastedSkillChips()
-		input.renderFormatting(md)
+		input.renderFormatting(md, font.Size)
 		input.scanned = input.Document.Version()
 	}
 	if input.Document.Version() != version {
@@ -133,7 +134,7 @@ func (input *Input) editFormula() {
 	}
 }
 
-func (input *Input) renderFormatting(md *markdown.Options) {
+func (input *Input) renderFormatting(md *markdown.Options, fontSize float32) {
 	t := input.Document.Text()
 	raw := t.String()
 	if md == nil || raw == input.lastConverted || !strings.ContainsAny(raw, "$\\*_~`[") {
@@ -174,7 +175,7 @@ func (input *Input) renderFormatting(md *markdown.Options) {
 		if display {
 			source = `\displaystyle ` + source
 		}
-		draw, ok := md.InlineMath(source, composerFontSize)
+		draw, ok := md.InlineMath(source, fontSize)
 		if !ok {
 			return
 		}

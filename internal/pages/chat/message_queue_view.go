@@ -1,6 +1,9 @@
 package chat
 
 import (
+	"github.com/ggdream/microlight/internal/pages/settings"
+	"github.com/ggdream/microlight/internal/theme"
+	"github.com/ggdream/microlight/pkg/viewport"
 	"strings"
 
 	"github.com/ggdream/microlight/assets/locales"
@@ -11,26 +14,27 @@ import (
 
 func (app *chatApp) busySendSettings(c *ui.Context) {
 	title := locales.BusySendSetting()
+	layout := windowLayout(c)
 	labels := map[busySendMode]string{
 		busySendQueue: locales.QueueMessage(),
 		busySendSteer: locales.DirectSteer(),
 	}
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).
-		Background(white).Radius(13).Border(1, border).Padding(12, 16).Children(func() {
-		ui.Text(c, title).Grow(1).MinWidth(0).FontSize(15).FontWeight(660)
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(layout.Density(12, 8)).
+		Background(white).Radius(13).Border(1, border).Padding(layout.Y(layout.Density(12, 5)), layout.X(layout.Density(16, 11))).Children(func() {
+		ui.Text(c, title).Grow(1).MinWidth(0).FontSize(viewport.Font(c, 15)).FontWeight(660)
 		selected := app.busySend
 		if selected != busySendSteer {
 			selected = busySendQueue
 		}
 		dropdown := ui.SelectBase(c.Key("busy-send-select"), &selected)
-		trigger := dropdown.Trigger.Label(title).Value(labels[selected]).Width(148).Height(34).Shrink(0).
+		trigger := dropdown.Trigger.Label(title).Value(labels[selected]).Width(layout.Density(148, 120)).MaxWidthPercent(50).Height(settings.SelectHeight(c)).Shrink(0).
 			PaddingX(10).AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(8).
 			Border(1, border).Radius(7).Background(canvas).Cursor(ui.CursorPointer).FocusRingColor(accent)
 		if trigger.Hovered() {
 			trigger.Background(side)
 		}
 		trigger.Children(func() {
-			ui.Text(c, labels[selected]).FontSize(12).TextColor(ink)
+			ui.Text(c, labels[selected]).FontSize(viewport.Font(c, 12)).TextColor(ink)
 			ui.Icon(c, icons.SVG("ios_chevron_right")).Size(14, 14).Shrink(0).Rotate(90).TextColor(muted)
 		}).OnChange(func() { app.chooseBusySendMode(selected) })
 		dropdown.Popup(func(panel ui.Element) {
@@ -42,7 +46,7 @@ func (app *chatApp) busySendSettings(c *ui.Context) {
 					item.Background(tint)
 				}
 				item.Children(func() {
-					ui.Text(c, labels[option]).FontSize(12).TextColor(ink)
+					ui.Text(c, labels[option]).FontSize(viewport.Font(c, 12)).TextColor(ink)
 					if option == selected {
 						icon(c, "check", accent, 14)
 					}
@@ -59,7 +63,7 @@ func (app *chatApp) messageQueue(c *ui.Context, chat *conversation) {
 	ui.Column(c).FillWidth().MaxWidth(conversationWidth).Gap(2).Padding(4, 8).
 		Background(white).Radius(13).Border(1, border).Children(func() {
 		scroll, offset := elastic.Scroll(c)
-		scroll.FillWidth().MaxHeight(168).Children(func() {
+		scroll.FillWidth().MaxHeight(min(168, windowLayout(c).Height*.23)).Children(func() {
 			offset.Apply(ui.Column(c)).FillWidth().Children(func() {
 				for _, entry := range chat.queue {
 					if edit := app.queueEdit; edit != nil && edit.id == entry.ID {
@@ -83,7 +87,7 @@ func (app *chatApp) messageQueue(c *ui.Context, chat *conversation) {
 			}
 			button.Children(func() {
 				icon(c, "queue_continue", color, 15)
-				ui.Text(c, label).FontSize(12).TextColor(color)
+				ui.Text(c, label).FontSize(viewport.Font(c, 12)).TextColor(color)
 			}).OnClick(func() { app.startNextQueued(chat) })
 		}
 	})
@@ -98,10 +102,10 @@ func (app *chatApp) queueMessageRow(c *ui.Context, chat *conversation, entry que
 		}
 		label = strings.Join(names, ", ")
 	}
-	ui.Row(c).FillWidth().Height(32).Gap(8).PaddingX(4).AlignItems(ui.Center).Children(func() {
+	ui.Row(c).FillWidth().MinHeight(windowLayout(c).Target(32)).Gap(windowLayout(c).X(6)).PaddingX(4).AlignItems(ui.Center).Children(func() {
 		icon(c, "queue_item", muted, 15)
 		ui.Text(c, label).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").Clip().
-			FontSize(13).TextColor(ink).Tooltip(label)
+			FontSize(viewport.Font(c, 13)).TextColor(ink).Tooltip(label)
 		if chat.isRunning() {
 			steerLabel := locales.Steer()
 			steer := pointerButton(c.Key("steer"), false).Label(steerLabel).
@@ -113,16 +117,16 @@ func (app *chatApp) queueMessageRow(c *ui.Context, chat *conversation, entry que
 			}
 			steer.Children(func() {
 				icon(c, "queue_steer", color, 15)
-				ui.Text(c, locales.QueueSteerAction()).FontSize(12).TextColor(color)
+				ui.Text(c, locales.QueueSteerAction()).FontSize(viewport.Font(c, 12)).TextColor(color)
 			}).OnClick(func() { app.startQueuedMessage(chat, entry.ID, true) })
 		}
 		ui.Row(c).Shrink(0).AlignItems(ui.Center).Children(func() {
 			messageIcon(c.Key("remove"), locales.RemoveQueuedMessage(), "delete", false, func() {
 				app.updateQueuedMessage(chat, entry.ID, nil)
 			})
-			ui.Themed(c.Key("actions"), conversationMenuTheme).Background(ui.Transparent).Children(func() {
+			ui.Themed(c.Key("actions"), theme.PopupTheme(c)).Background(ui.Transparent).Children(func() {
 				label := locales.QueuedMessageActions()
-				button := pointerButton(c, false).Label(label).Tooltip(label).Size(25, 25).
+				button := pointerButton(c, false).Label(label).Tooltip(label).Size(windowLayout(c).Target(25), windowLayout(c).Target(25)).
 					Radius(6).AlignItems(ui.Center).Justify(ui.Center)
 				if button.Hovered() {
 					button.Background(side)
@@ -144,7 +148,7 @@ func (app *chatApp) queueMessageEditor(c *ui.Context, chat *conversation, entry 
 		var editor ui.Element
 		ui.Column(c.Key("editor")).FillWidth().Padding(4).ClipX().
 			Background(canvas).Border(1, border).Radius(6).Children(func() {
-			editor = edit.input.View(c.Key("text"), locales.EditMessageBody(), "", 52, app.md)
+			editor = edit.input.View(c.Key("text"), locales.EditMessageBody(), "", 52, app.md).AutoFocus()
 		})
 		if editor.Shortcut(0, ui.KeyEscape) {
 			app.queueEdit = nil

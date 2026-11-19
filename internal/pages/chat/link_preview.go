@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"github.com/ggdream/microlight/pkg/viewport"
 	"net/url"
 	"sync"
 	"time"
@@ -85,7 +86,7 @@ func (app *chatApp) linkPreview(c *ui.Context, root ui.Element) {
 	ui.Overlay(c, func() {
 		anchor := ui.Box(c.Key("web-preview-anchor")).Absolute().Left(p.x).Top(p.y).
 			Size(1, 1).IgnoreInput(true)
-		panel := ui.Column(c.Key("web-preview-card")).Width(350).
+		panel := ui.Column(c.Key("web-preview-card")).Width(windowLayout(c).FitWidth(350, 10)).
 			AttachTo(anchor, ui.AnchorTopLeft, ui.AnchorBottomLeft).AttachEdgeMargin(10).
 			Margin(0, 0, 6, 0).Background(white).Radius(12).Border(1, border).
 			Shadow(0, 6, 20, 0, ui.RGBA(0, 0, 0, .14))
@@ -109,15 +110,15 @@ func (app *chatApp) linkPreview(c *ui.Context, root ui.Element) {
 		panel.Children(func() {
 			p.cardHeader(c, target, panel)
 			ui.Box(c).FillWidth().Height(1).Background(border)
-			ui.Column(c).FillWidth().Padding(13, 15).Gap(5).Children(func() {
+			ui.Column(c).FillWidth().Padding(windowLayout(c).Density(13, 8), windowLayout(c).Density(15, 10)).Gap(5).Children(func() {
 				if metadata.Title != "" {
-					ui.Text(c, metadata.Title).FontSize(14).FontWeight(640).TextColor(ink).MaxLines(2)
+					ui.Text(c, metadata.Title).FontSize(viewport.Font(c, 14)).FontWeight(640).TextColor(ink).MaxLines(2)
 				}
 				switch {
 				case metadata.Description != "":
-					ui.Text(c, metadata.Description).FontSize(13).TextColor(muted).MaxLines(3)
+					ui.Text(c, metadata.Description).FontSize(viewport.Font(c, 13)).TextColor(muted).MaxLines(3)
 				case metadata.Title == "":
-					ui.Text(c, p.target).FontSize(13).TextColor(muted).MaxLines(3)
+					ui.Text(c, p.target).FontSize(viewport.Font(c, 13)).TextColor(muted).MaxLines(3)
 				}
 			})
 		})
@@ -136,14 +137,14 @@ func (p *linkPreviews) cardHeader(c *ui.Context, target *url.URL, panel ui.Eleme
 			glyph = "github"
 		}
 		icon(c, glyph, muted, 15)
-		ui.Text(c, target.Host).Grow(1).MinWidth(0).FontSize(13).TextColor(muted).SingleLine().Ellipsis("…")
+		ui.Text(c, target.Host).Grow(1).MinWidth(0).FontSize(viewport.Font(c, 13)).TextColor(muted).SingleLine().Ellipsis("…")
 		label := locales.LinkPreviewOpen()
 		button := pointerButton(c, false).Label(label).AlignItems(ui.Center).Shrink(0).Gap(5).Padding(5, 6).Radius(6)
 		if button.Hovered() {
 			button.Background(hover)
 		}
 		button.Children(func() {
-			ui.Text(c, label).FontSize(13).TextColor(ink)
+			ui.Text(c, label).FontSize(viewport.Font(c, 13)).TextColor(ink)
 			icon(c, "open", ink, 14)
 		}).OnClick(func() {
 			c.OpenURL(p.target)

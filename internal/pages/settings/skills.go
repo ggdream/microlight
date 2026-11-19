@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"github.com/ggdream/microlight/pkg/viewport"
 	"strings"
 
 	"github.com/ggdream/microlight/assets/locales"
@@ -13,15 +14,15 @@ import (
 
 func SkillList(c *ui.Context, icons asseticon.Set, catalog *skills.Catalog, roots []string, query, expanded *string, refresh func()) {
 	loading := catalog == nil
-	Section(c, locales.SettingsSkills(), locales.SkillsSettingsHint(), func() {
-		ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
+	scroll := Section(c, locales.SettingsSkills(), locales.SkillsSettingsHint(), func() {
+		ui.Row(c).FillWidth().Gap(settingGap(c, 10)).AlignItems(ui.Center).Children(func() {
 			label := locales.SearchSkills()
 			TextField(c.Key("skill-search"), label, label, query).
-				Grow(1).MinWidth(0).Background(theme.White)
+				Grow(1).MinWidth(0).Background(theme.White).ReturnKey(ui.ReturnSearch)
 			ActionButton(c.Key("rescan"), icons, locales.RefreshSkills(), "retry", loading).OnClick(refresh)
 		})
 		if loading {
-			ui.Text(c, locales.ScanningSkills()).FontSize(12).TextColor(theme.Muted)
+			ui.Text(c, locales.ScanningSkills()).FontSize(viewport.Font(c, 12)).TextColor(theme.Muted)
 			return
 		}
 		filter := strings.ToLower(strings.TrimSpace(*query))
@@ -36,7 +37,7 @@ func SkillList(c *ui.Context, icons asseticon.Set, catalog *skills.Catalog, root
 			if filter != "" {
 				label = locales.NoMatchingSkills()
 			}
-			ui.Text(c, label).FontSize(13).TextColor(theme.Muted)
+			ui.Text(c, label).FontSize(viewport.Font(c, 13)).TextColor(theme.Muted)
 		} else {
 			ui.Column(c.Key("skill-list")).FillWidth().Background(theme.White).Radius(11).Border(1, theme.Border).Clip().Children(func() {
 				for i, entry := range matches {
@@ -49,33 +50,47 @@ func SkillList(c *ui.Context, icons asseticon.Set, catalog *skills.Catalog, root
 				}
 			})
 		}
-		for _, path := range roots {
-			ui.Text(c, path).FontSize(11).TextColor(theme.Muted).Selectable()
+		paths := func() {
+			for _, path := range roots {
+				ui.Text(c, path).FillWidth().FontSize(viewport.Font(c, 11)).TextColor(theme.Muted).Selectable()
+			}
+		}
+		if settingsLayout(c).Compact() && len(roots) > 0 {
+			state := ui.Box(c.Key("directory-state"))
+			open := ui.Local(state, "expanded", func() bool { return false })
+			ui.Collapsible(c.Key("directories"), locales.SkillDirectories(), open, paths)
+		} else {
+			paths()
 		}
 		if len(catalog.Issues) != 0 {
 			Card(c, locales.SkillScanIssues(), func() {
 				for _, issue := range catalog.Issues {
-					ui.Text(c, issue.Error()).FontSize(12).TextColor(theme.Muted).Selectable()
+					ui.Text(c, issue.Error()).FontSize(viewport.Font(c, 12)).TextColor(theme.Muted).Selectable()
 				}
 			})
 		}
 	})
+	refreshState := ui.Local(scroll, "pull-to-refresh", func() ui.RefreshState { return ui.RefreshState{} })
+	refreshState.Refreshing = loading
+	if scroll.PullToRefresh(refreshState) && !loading {
+		refresh()
+	}
 }
 
 func SkillRow(c *ui.Context, icons asseticon.Set, entry skills.Entry, selected *string) {
 	expanded := *selected == entry.Name
-	button := theme.PointerButton(c.Key("details"), false).Label(entry.Name).Expanded(expanded).FillWidth().Height(56).
-		PaddingX(13).Gap(11).Justify(ui.Start).AlignItems(ui.Center)
+	button := theme.PointerButton(c.Key("details"), false).Label(entry.Name).Expanded(expanded).FillWidth().MinHeight(settingsLayout(c).Target(56)).
+		PaddingX(13).Gap(settingGap(c, 11)).Justify(ui.Start).AlignItems(ui.Center)
 	if expanded || button.Hovered() {
 		button.Background(theme.Side)
 	}
 	button.Children(func() {
 		ui.Box(c).Size(30, 30).Radius(7).Shrink(0).Background(theme.Tint).AlignItems(ui.Center).Justify(ui.Center).
 			Children(func() { ui.Icon(c, icons.SVG("document_text")).Size(16, 16).Shrink(0).TextColor(theme.Accent) })
-		ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
-			ui.Text(c, entry.Name).FontSize(13).FontWeight(630).SingleLine().Ellipsis("…")
+		ui.Column(c).Grow(1).MinWidth(0).Gap(settingGap(c, 3)).Children(func() {
+			ui.Text(c, entry.Name).FontSize(viewport.Font(c, 13)).FontWeight(630).SingleLine().Ellipsis("…")
 			if !expanded {
-				ui.Text(c, strings.Join(strings.Fields(entry.Description), " ")).FontSize(12).
+				ui.Text(c, strings.Join(strings.Fields(entry.Description), " ")).FontSize(viewport.Font(c, 12)).
 					TextColor(theme.Muted).SingleLine().Ellipsis("…")
 			}
 		})
@@ -91,9 +106,9 @@ func SkillRow(c *ui.Context, icons asseticon.Set, entry skills.Entry, selected *
 		}
 	})
 	if expanded {
-		ui.Column(c.Key("description")).FillWidth().Gap(8).Padding(0, 14, 14, 54).Background(theme.Side).Children(func() {
-			ui.Text(c, entry.Description).FontSize(13).TextColor(theme.Ink).Selectable()
-			ui.Text(c, entry.Path).FontSize(11).TextColor(theme.Muted).Selectable()
+		ui.Column(c.Key("description")).FillWidth().Gap(settingGap(c, 8)).Padding(0, settingX(c, 14), settingY(c, 14), settingX(c, 54)).Background(theme.Side).Children(func() {
+			ui.Text(c, entry.Description).FontSize(viewport.Font(c, 13)).TextColor(theme.Ink).Selectable()
+			ui.Text(c, entry.Path).FontSize(viewport.Font(c, 11)).TextColor(theme.Muted).Selectable()
 		})
 	}
 }

@@ -1,11 +1,13 @@
 package chat
 
 import (
+	"github.com/ggdream/microlight/pkg/viewport"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown/parser"
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/desktop"
 	"github.com/ggdream/microlight/internal/linkpreview"
 	"github.com/ggdream/microlight/internal/theme"
 	"github.com/ggdream/microlight/pkg/proxy"
@@ -121,7 +123,7 @@ func imagePlaceholder(c *ui.Context, alt string, failed bool) {
 	if failed {
 		label = locales.PreviewUnavailable()
 	}
-	ui.Text(c, label).Description(alt).FontSize(12).TextColor(muted).
+	ui.Text(c, label).Description(alt).FontSize(viewport.Font(c, 12)).TextColor(muted).
 		Background(side).Padding(6, 10).Radius(6)
 }
 
@@ -131,16 +133,25 @@ func (app *chatApp) chatImage(c *ui.Context, image *markdownImage, alt string) {
 	ratio := float32(w) / float32(h)
 	label := locales.ImagePreview()
 	preview := func() { app.imagePreview = chatImagePreview{image: image, alt: alt} }
-	ui.Themed(c, theme.MenuTheme).Background(ui.Transparent).MaxWidthPercent(100).Children(func() {
+	ui.Themed(c, theme.PopupTheme(c)).Background(ui.Transparent).MaxWidthPercent(100).Children(func() {
 		button := pointerButton(c, false).Label(label).Description(alt).Tooltip(label).
 			Width(height * ratio).MaxWidthPercent(100).AspectRatio(ratio).MaxHeight(chatImageMaxHeight).
 			Radius(7).Clip().FocusRingColor(accent).Children(func() {
 			ui.Image(c, image.bitmap).Fill().Fit(ui.Contain).Label(alt)
 		}).OnClick(preview)
-		theme.PopupContextMenu(button,
-			theme.PopupItem{Label: label, Icon: icons.Menu("open"), OnSelect: preview},
-			theme.PopupItem{Label: locales.DownloadImage(), Icon: icons.Menu("download"), OnSelect: func() { app.downloadImage(image) }},
+		previewLabel, saveLabel := label, locales.DownloadImage()
+		if windowLayout(c).Compact() {
+			previewLabel, saveLabel = locales.PreviewImageAction(), locales.SaveImageAction()
+		}
+		var items []theme.PopupItem
+		if desktop.Mobile {
+			items = append(items, theme.PopupItem{Label: locales.ShareImage(), Icon: icons.Menu("share"), OnSelect: func() { app.shareImage(image.filename, image.original) }})
+		}
+		items = append(items,
+			theme.PopupItem{Label: previewLabel, Icon: icons.Menu("open"), OnSelect: preview},
+			theme.PopupItem{Label: saveLabel, Icon: icons.Menu("download"), OnSelect: func() { app.downloadImage(image) }},
 		)
+		theme.PopupContextMenu(button, items...)
 	})
 }
 
@@ -156,21 +167,38 @@ func (app *chatApp) renderImagePreview(c *ui.Context) {
 	}
 	bitmap := preview.image.bitmap
 	w, h := bitmap.Size()
-	width, height := c.Size()
-	scale := min(max(1, width-56)/float32(w), max(1, height-96)/float32(h))
+	layout := windowLayout(c)
+	actionSize := layout.Target(34)
+	gap := layout.Y(8)
+	imageWidth := layout.FitWidth(layout.Width, layout.X(layout.Density(28, 10)))
+	imageHeight := layout.FitHeight(layout.Height, layout.Y(layout.Density(24, 10))) - actionSize - gap
+	scale := min(max(1, imageWidth)/float32(w), max(1, imageHeight)/float32(h))
 	open := true
 	ui.DialogBase(c, &open, func(backdrop, panel ui.Element) {
-		backdrop.Background(ui.RGBA(10, 18, 15, .88))
+		insetDialog(c, backdrop).Background(ui.RGBA(10, 18, 15, .88))
 		panel.Label(locales.ImagePreview()).Description(preview.alt).Background(ui.Transparent)
-		ui.Column(c).Gap(8).AlignItems(ui.End).Children(func() {
-			ui.Row(c.Key("actions")).AlignItems(ui.Center).Gap(8).Children(func() {
-				imagePreviewAction(c.Key("download"), locales.DownloadImage(), "download").
+		content := ui.Column(c).Gap(gap).AlignItems(ui.End)
+		if layout.Compact() {
+			panel.Width(layout.Width).Height(layout.Height).MaxWidthPercent(100).MaxHeightPercent(100).
+				Padding(layout.Y(8), layout.X(10))
+			content.Fill()
+		}
+		content.Children(func() {
+			ui.Row(c.Key("actions")).FillWidth().Shrink(0).Justify(ui.End).AlignItems(ui.Center).Gap(layout.X(8)).Children(func() {
+				imagePreviewAction(c.Key("download"), locales.DownloadImage(), "download", actionSize).
 					OnClick(func() { app.downloadImage(preview.image) })
-				imagePreviewAction(c.Key("close"), locales.ClosePreview(), "close").AutoFocus().
-					OnClick(func() { open = false })
+				imagePreviewAction(c.Key("close"), locales.ClosePreview(), "close", actionSize).AutoFocus().
+					OnClick(func() { app.imagePreview = chatImagePreview{} })
 			})
-			ui.Image(c.Key("picture"), bitmap).Size(float32(w)*scale, float32(h)*scale).
-				Fit(ui.Contain).Radius(7).Label(preview.alt)
+			picture := func() {
+				ui.Image(c.Key("picture"), bitmap).Size(float32(w)*scale, float32(h)*scale).
+					MaxWidthPercent(100).MaxHeightPercent(100).Fit(ui.Contain).Radius(7).Label(preview.alt)
+			}
+			if layout.Compact() {
+				ui.Box(c.Key("image-area")).FillWidth().Grow(1).MinHeight(0).Center().Children(picture)
+			} else {
+				picture()
+			}
 		})
 	})
 	if !open {
@@ -178,9 +206,9 @@ func (app *chatApp) renderImagePreview(c *ui.Context) {
 	}
 }
 
-func imagePreviewAction(c *ui.Context, label, glyph string) ui.Element {
-	button := pointerButton(c, false).Label(label).Tooltip(label).Size(34, 34).
-		Radius(17).Center().Background(ink)
+func imagePreviewAction(c *ui.Context, label, glyph string, size float32) ui.Element {
+	button := pointerButton(c, false).Label(label).Tooltip(label).Size(size, size).
+		Radius(size / 2).Center().Background(ink)
 	if button.Hovered() {
 		button.Background(muted)
 	}

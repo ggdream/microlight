@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"github.com/ggdream/microlight/pkg/viewport"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -144,7 +145,7 @@ func (app *chatApp) composerSkills(c *ui.Context, editor ui.Element, workspace s
 	}
 	ui.PopoverBase(c, editor, &picker.open, func(panel ui.Element) {
 		panel.AttachTo(editor, ui.AnchorTopStart, ui.AnchorBottomStart).Margin(0, 0, 6, 0).
-			Width(390).Padding(6).Gap(4).Radius(11).Background(white).Border(1, border).
+			Width(windowLayout(c).FitWidth(390, 8)).MaxHeight(popoverHeight(c, editor, 310)).Padding(6).Gap(4).Radius(11).Background(white).Border(1, border).
 			Shadow(0, 5, 18, 0, ui.RGBA(29, 49, 38, .12)).Label(locales.ChooseSkill())
 		if picker.manual {
 			label := locales.SearchSkills()
@@ -176,7 +177,7 @@ func (app *chatApp) composerSkills(c *ui.Context, editor ui.Element, workspace s
 			} else if strings.TrimSpace(query) == "" {
 				label = locales.NoSkillsFound()
 			}
-			ui.Text(c, label).FontSize(12).TextColor(muted).Padding(7, 8)
+			ui.Text(c, label).FontSize(viewport.Font(c, 12)).TextColor(muted).Padding(7, 8)
 			// Keep Enter from submitting an unfinished slash token.
 			if !picker.manual {
 				editor.Shortcut(0, ui.KeyEnter)
@@ -207,7 +208,7 @@ func (app *chatApp) composerSkills(c *ui.Context, editor ui.Element, workspace s
 			row := rows[i]
 			if row.entry == nil {
 				offset.Apply(ui.Row(c).Height(24).AlignItems(ui.Center).PaddingX(8)).Children(func() {
-					ui.Text(c, row.title).FontSize(11).FontWeight(620).TextColor(muted)
+					ui.Text(c, row.title).FontSize(viewport.Font(c, 11)).FontWeight(620).TextColor(muted)
 				})
 				return
 			}
@@ -221,9 +222,9 @@ func (app *chatApp) composerSkills(c *ui.Context, editor ui.Element, workspace s
 			button.Children(func() {
 				icon(c, "document_text", muted, 16)
 				ui.Column(c).Grow(1).MinWidth(0).Gap(1).Children(func() {
-					ui.Text(c, entry.Name).SingleLine().Ellipsis("…").Clip().FontSize(13).FontWeight(620)
+					ui.Text(c, entry.Name).SingleLine().Ellipsis("…").Clip().FontSize(viewport.Font(c, 13)).FontWeight(620)
 					ui.Text(c, strings.Join(strings.Fields(entry.Description), " ")).SingleLine().
-						Ellipsis("…").Clip().FontSize(11).TextColor(muted)
+						Ellipsis("…").Clip().FontSize(viewport.Font(c, 11)).TextColor(muted)
 				})
 			}).OnClick(func() { app.insertComposerSkill(entry.Name) })
 		}).FillWidth().Shrink(1).MinHeight(0).Height(min(264, height))

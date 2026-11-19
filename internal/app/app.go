@@ -2,6 +2,7 @@
 package app
 
 import (
+	"github.com/ggdream/microlight/internal/desktop"
 	"io/fs"
 
 	"github.com/ggdream/microlight/internal/pages/chat"
@@ -13,7 +14,7 @@ func Run(assets fs.FS) {
 	// Keep the single-instance lock shared with earlier releases.
 	// The chat page sets the data path and localized display name separately.
 	mygo.App.SetName("微光")
-	if mygo.App.RequestSingleInstanceLock() {
+	if desktop.Mobile || mygo.App.RequestSingleInstanceLock() {
 		chat.Run(assets)
 	}
 }

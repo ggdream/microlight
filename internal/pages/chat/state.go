@@ -113,6 +113,8 @@ type chatApp struct {
 	previewDirectory       string
 	updateCheck            updateCheck
 	sidebarWidth           float32
+	compactHistory         bool
+	mobileWorkspace        string
 	tasks                  *background.Tasks
 	backgroundOpen         bool
 	backgroundError        string

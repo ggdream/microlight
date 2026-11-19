@@ -4,6 +4,7 @@ set -euo pipefail
 all=false
 macos=false
 windows=false
+mobile=false
 
 if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch || "$GITHUB_REF_TYPE" == tag ]]; then
   all=true
@@ -26,6 +27,10 @@ else
     git diff --name-only --no-renames -z "$base" "$head" > "$changes"
     platform_suffix='_(darwin|linux|windows)(_(386|amd64|arm|arm64|loong64|mips|mips64|mips64le|mipsle|ppc64|ppc64le|riscv64|s390x|wasm))?(_test)?\.go$'
     while IFS= read -r -d '' path; do
+      case "$path" in
+        *.go|go.mod|go.sum|mygo.json|.github/*|scripts/*|assets/*|*.kt|*.swift|*.kts|*.xml)
+          mobile=true ;;
+      esac
       case "$path" in
         go.mod|go.sum|go.work|go.work.sum|mygo.json|mygo.config.ts|mygo-plugin.json|Makefile|.github/*|resources/*|scripts/*|build/*|assets/icon.*)
           all=true
@@ -77,3 +82,5 @@ matrix=$(jq -cn --argjson all "$all" --argjson macos "$macos" --argjson windows 
 ')
 printf 'matrix=%s\n' "$matrix" >> "$GITHUB_OUTPUT"
 printf 'Test matrix: %s\n' "$matrix"
+
+printf 'mobile=%s\n' "$([[ "$all" == true || "$mobile" == true ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"

@@ -1,10 +1,12 @@
 package chat
 
 import (
+	"github.com/ggdream/microlight/pkg/viewport"
 	"os"
 	"path/filepath"
 
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/desktop"
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/theme"
 
@@ -82,27 +84,30 @@ func (app *chatApp) fullAccessDialog(c *ui.Context) {
 	label := locales.ConfirmFullAccess()
 	open := true
 	ui.DialogBase(c, &open, func(backdrop, panel ui.Element) {
-		backdrop.Background(ui.RGBA(0, 0, 0, .38))
-		panel.Label(title).Width(384).MaxWidthPercent(90).Padding(20).Gap(12).
+		insetDialog(c, backdrop).Background(ui.RGBA(0, 0, 0, .38))
+		panel.Label(title).Width(384).MaxWidthPercent(90).MaxHeight(dialogMaxHeight(c)).Padding(windowLayout(c).Density(20, 14)).Gap(windowLayout(c).Density(12, 8)).
 			Background(white).Border(1, border).Radius(13).Shadow(0, 10, 30, 0, ui.RGBA(0, 0, 0, .22))
-		ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
-			accessModeIcon(c, localtools.Full)
-			ui.Text(c, title).FontSize(16).FontWeight(680).TextColor(ink)
-		})
-		ui.Text(c, locales.FullAccessBody()).FontSize(13).TextColor(muted)
-		ui.Themed(c, theme.MenuTheme).Background(ui.Transparent).Children(func() {
-			ui.Checkbox(c, &request.acknowledged, locales.FullAccessAcknowledgement()).
-				FillWidth().FontSize(13).Cursor(ui.CursorPointer).FocusRingColor(accent)
+		mobileDialog(c, backdrop, panel)
+		dialogBody(c, func() {
+			ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
+				accessModeIcon(c, localtools.Full)
+				ui.Text(c, title).FontSize(viewport.Font(c, 16)).FontWeight(680).TextColor(ink)
+			})
+			ui.Text(c, locales.FullAccessBody()).FontSize(viewport.Font(c, 13)).TextColor(muted)
+			ui.Themed(c, theme.PopupTheme(c)).Background(ui.Transparent).Children(func() {
+				ui.Checkbox(c, &request.acknowledged, locales.FullAccessAcknowledgement()).
+					FillWidth().FontSize(viewport.Font(c, 13)).Cursor(ui.CursorPointer).FocusRingColor(accent)
+			})
 		})
 		disabled := !request.acknowledged
-		ui.Row(c).Justify(ui.End).Gap(8).Margin(5, 0, 0).Children(func() {
+		dialogActions(c).Children(func() {
 			cancel := pointerButton(c, false).Label(locales.Cancel()).AutoFocus().Height(34).PaddingX(13).
 				AlignItems(ui.Center).Radius(7).Background(side).Border(1, border)
 			if cancel.Hovered() {
 				cancel.Background(hover)
 			}
 			cancel.Children(func() {
-				ui.Text(c, locales.Cancel()).FontSize(13).TextColor(ink)
+				ui.Text(c, locales.Cancel()).FontSize(viewport.Font(c, 13)).TextColor(ink)
 			}).OnClick(func() { app.fullAccess = nil })
 			bg, fg := errorFG, white
 			if disabled {
@@ -114,7 +119,7 @@ func (app *chatApp) fullAccessDialog(c *ui.Context) {
 				button.Background(ui.Hex("#833339"))
 			}
 			button.Children(func() {
-				ui.Text(c, label).FontSize(13).FontWeight(620).TextColor(fg)
+				ui.Text(c, label).FontSize(viewport.Font(c, 13)).FontWeight(620).TextColor(fg)
 			}).OnClick(func() {
 				if open && app.fullAccess == request {
 					app.confirmFullAccess()
@@ -152,20 +157,25 @@ func (app *chatApp) accessControl(c *ui.Context, chat *conversation) {
 		selected = chat.accessMode
 	}
 	title := locales.AgentPermissions()
+	layout := app.composerLayout(c)
 	dropdown := ui.SelectBase(c.Key("conversation-access"), &selected)
 	trigger := dropdown.Trigger.Label(title).Value(selected.Label()).Tooltip(locales.ModelDataHint()).
-		Height(30).PaddingX(8).Shrink(0).AlignItems(ui.Center).Gap(5).Radius(6).Cursor(ui.CursorPointer)
+		Height(composerControlHeight(layout, 30)).PaddingX(layout.Density(8, 4)).Shrink(0).AlignItems(ui.Center).Gap(5).Radius(6).Cursor(ui.CursorPointer)
+	if layout.Compact() {
+		trigger.MinWidth(34).Justify(ui.Center)
+	}
 	if trigger.Hovered() {
 		trigger.Background(side)
 	}
 	trigger.Children(func() {
 		accessModeIcon(c, selected)
-		ui.Text(c, selected.Label()).FontSize(11).TextColor(muted)
-		ui.Icon(c, icons.SVG("ios_chevron_right")).Size(12, 12).Shrink(0).Rotate(90).TextColor(muted)
+		if !app.composerLayout(c).Compact() {
+			ui.Text(c, selected.Label()).FontSize(viewport.Font(c, 11)).TextColor(muted)
+			ui.Icon(c, icons.SVG("ios_chevron_right")).Size(12, 12).Shrink(0).Rotate(90).TextColor(muted)
+		}
 	}).OnChange(func() { app.chooseAccess(chat, selected) })
 	dropdown.Popup(func(panel ui.Element) {
-		width, _ := c.Size()
-		panel.Width(min(356, max(0, width-24))).Padding(5).Gap(2).Background(white).Border(1, border).Radius(10)
+		panel.Width(windowLayout(c).FitWidth(356, 12)).Padding(5).Gap(2).Background(white).Border(1, border).Radius(10)
 		for _, choice := range []struct {
 			mode localtools.Mode
 			hint string
@@ -191,8 +201,8 @@ func (app *chatApp) accessControl(c *ui.Context, chat *conversation) {
 			item.Children(func() {
 				icon(c, accessModeGlyph(choice.mode), iconColor, 17)
 				ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
-					ui.Text(c, label).FontSize(13).FontWeight(620).TextColor(titleColor)
-					ui.Text(c, choice.hint).FillWidth().FontSize(12).TextColor(hintColor)
+					ui.Text(c, label).FontSize(viewport.Font(c, 13)).FontWeight(620).TextColor(titleColor)
+					ui.Text(c, choice.hint).FillWidth().FontSize(viewport.Font(c, 12)).TextColor(hintColor)
 				})
 				ui.Box(c).Size(15, 15).Shrink(0).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
 					if selectedMode {
@@ -205,18 +215,24 @@ func (app *chatApp) accessControl(c *ui.Context, chat *conversation) {
 }
 
 func (app *chatApp) workspaceControl(c *ui.Context, chat *conversation) {
-	if chat != nil || app.draftWorkspace != "" {
+	if desktop.Mobile || chat != nil || app.draftWorkspace != "" {
 		return
 	}
 	label := locales.ChooseWorkspace()
+	layout := app.composerLayout(c)
 	button := pointerButton(c.Key("conversation-workspace"), app.pickingWorkspace).Label(label).
-		Tooltip(label).Gap(5).AlignItems(ui.Center).Height(30).PaddingX(7).Radius(6).Shrink(0)
+		Tooltip(label).Gap(5).AlignItems(ui.Center).Height(composerControlHeight(layout, 30)).PaddingX(layout.Density(7, 4)).Radius(6).Shrink(0)
+	if layout.Compact() {
+		button.MinWidth(34).Justify(ui.Center)
+	}
 	if button.Hovered() {
 		button.Background(side)
 	}
 	button.Children(func() {
 		icon(c, "folder", muted, 15)
-		ui.Text(c, label).FontSize(11).TextColor(muted)
+		if !app.composerLayout(c).Compact() {
+			ui.Text(c, label).FontSize(viewport.Font(c, 11)).TextColor(muted)
+		}
 	}).OnClick(app.pickWorkspace)
 }
 

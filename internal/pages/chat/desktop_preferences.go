@@ -2,6 +2,8 @@ package chat
 
 import (
 	"encoding/json"
+	"github.com/ggdream/microlight/internal/desktop"
+	"github.com/ggdream/microlight/pkg/viewport"
 	"log/slog"
 
 	"github.com/egoist/mygo"
@@ -74,6 +76,9 @@ func (app *chatApp) registerShortcut(keys string) (string, error) {
 }
 
 func (app *chatApp) startDesktopShortcut() {
+	if desktop.Mobile {
+		return
+	}
 	if keys := app.desktop.Shortcut; keys != "" {
 		if actual, err := app.registerShortcut(keys); err != nil {
 			app.shortcutError = true
@@ -144,29 +149,56 @@ func (app *chatApp) showComposer() {
 }
 
 func (app *chatApp) desktopSettings(c *ui.Context) {
-	app.shortcutSettings(c.Key("shortcut"))
+	if !desktop.Mobile {
+		app.shortcutSettings(c.Key("shortcut"))
+	}
 	settings.Card(c.Key("notifications"), locales.DesktopNotifications(), func() {
 		preferences := app.desktop
 		options := []string{locales.NotifyAllReplies(), locales.NotifyActionOnly(), locales.NotifyOff()}
-		mode := options[clampNotificationMode(preferences.Notification)]
-		ui.Select(c.Key("mode"), &mode, options).Label(locales.DesktopNotifications()).OnChange(func() {
+		mode := clampNotificationMode(preferences.Notification)
+		layout := windowLayout(c)
+		dropdown := ui.SelectBase(c.Key("mode"), &mode)
+		trigger := dropdown.Trigger.Label(locales.DesktopNotifications()).Value(options[mode]).FillWidth().
+			Height(settings.SelectHeight(c)).PaddingX(layout.X(10)).AlignItems(ui.Center).Justify(ui.SpaceBetween).
+			Gap(layout.X(8)).Border(1, border).Radius(7).Background(canvas).Cursor(ui.CursorPointer).FocusRingColor(accent)
+		if trigger.Hovered() {
+			trigger.Background(side)
+		}
+		trigger.Children(func() {
+			ui.Text(c, options[mode]).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 12)).TextColor(ink)
+			ui.Icon(c, icons.SVG("ios_chevron_right")).Size(14, 14).Shrink(0).Rotate(90).TextColor(muted)
+		}).OnChange(func() {
+			preferences.Notification = mode
+			app.saveNotificationSettings(preferences)
+		})
+		dropdown.Popup(func(panel ui.Element) {
+			panel.Padding(layout.Y(4), layout.X(4)).Gap(layout.Y(2)).Background(white).Border(1, border).Radius(8)
 			for index, label := range options {
-				if mode == label {
-					preferences.Notification = index
-					app.saveNotificationSettings(preferences)
-					break
+				item := dropdown.Item(index).Label(label).Padding(layout.Y(6), layout.X(8)).Radius(5).
+					AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(layout.X(8)).Cursor(ui.CursorPointer)
+				if item.Highlighted() {
+					item.Background(tint)
 				}
+				item.Children(func() {
+					ui.Text(c, label).FontSize(viewport.Font(c, 12)).TextColor(ink)
+					if index == mode {
+						icon(c, "check", accent, 14)
+					}
+				})
 			}
 		})
 		ui.Row(c.Key("test")).FillWidth().Wrap().AlignItems(ui.Center).Gap(8).Children(func() {
-			settings.ActionButton(c.Key("send"), icons, locales.SendTestNotification(), "bell", app.testingNotification).
-				OnClick(app.sendTestNotification)
+			button := settings.ActionButton(c.Key("send"), icons, locales.SendTestNotification(), "bell", app.testingNotification)
+			if layout := windowLayout(c); layout.Compact() {
+				button.MinHeight(max(34, layout.Y(34)))
+			}
+			button.OnClick(app.sendTestNotification)
 			if status := app.notificationTestStatus; status.message != "" {
 				color := theme.Muted
 				if status.failed {
 					color = theme.ErrorFG
 				}
-				ui.Text(c, status.message).Grow(1).MinWidth(0).FontSize(12).TextColor(color)
+				ui.Text(c, status.message).Grow(1).MinWidth(0).FontSize(viewport.Font(c, 12)).TextColor(color)
 			}
 		})
 	})

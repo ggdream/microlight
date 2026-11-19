@@ -1,18 +1,16 @@
 package chat
 
 import (
+	"github.com/ggdream/microlight/pkg/viewport"
 	"math"
 	"strings"
 	"time"
 
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/pages/settings"
-	"github.com/ggdream/microlight/internal/theme"
 
 	"github.com/egoist/mygo/ui"
 )
-
-var conversationMenuTheme = theme.MenuTheme
 
 type conversationAction struct {
 	chat     *conversation
@@ -24,7 +22,7 @@ type conversationAction struct {
 
 func (app *chatApp) sidebarChat(c *ui.Context, chat *conversation, selected bool) {
 	menu := func(m *ui.Menu) { app.conversationMenu(m, chat) }
-	row := ui.Row(c).FillWidth().Height(34).PaddingX(4).AlignItems(ui.Center).Radius(7)
+	row := ui.Row(c).FillWidth().Height(windowLayout(c).Target(34)).PaddingX(4).AlignItems(ui.Center).Radius(7)
 	hovered := row.Hovered()
 	color := muted
 	if selected {
@@ -36,6 +34,9 @@ func (app *chatApp) sidebarChat(c *ui.Context, chat *conversation, selected bool
 	row.Children(func() {
 		button := pointerButton(c.Key("select"), false).Label(chat.Title).Tooltip(chat.Title).
 			Grow(1).MinWidth(0).FillHeight().Padding(0, 4).Gap(8).AlignItems(ui.Center)
+		if !chat.isRunning() && button.LongPressed() {
+			chat.menuOpen = true
+		}
 		button.Children(func() {
 			glyph := "chat"
 			if chat.pinned {
@@ -45,12 +46,16 @@ func (app *chatApp) sidebarChat(c *ui.Context, chat *conversation, selected bool
 			sidebarTitle(c.Key("title"), chat.Title, color, hovered && !chat.menuOpen)
 		}).OnClick(func() { app.selectChat(chat.ID) })
 
+		size := float32(24)
+		if windowLayout(c).Compact() {
+			size = 36
+		}
 		if chat.isRunning() {
 			chat.menuOpen = false
-			ui.Box(c.Key("activity")).Size(24, 24).Shrink(0).
+			ui.Box(c.Key("activity")).Size(size, size).Shrink(0).
 				Role(ui.RoleProgress).Label(locales.Thinking()).Draw(drawActivityRing)
-		} else if hovered || chat.menuOpen || button.FocusVisible() {
-			more := pointerButton(c.Key("more"), false).Label(locales.ChatActions()).Size(24, 24).
+		} else if hovered || chat.menuOpen || touchControls(c) || button.FocusVisible() {
+			more := pointerButton(c.Key("more"), false).Label(locales.ChatActions()).Size(size, size).
 				Shrink(0).Radius(5).AlignItems(ui.Center).Justify(ui.Center)
 			if more.Hovered() || chat.menuOpen {
 				more.Background(white)
@@ -60,13 +65,14 @@ func (app *chatApp) sidebarChat(c *ui.Context, chat *conversation, selected bool
 				At: ui.AnchorBottomEnd, Self: ui.AnchorTopEnd, Open: &chat.menuOpen,
 			})
 		} else {
-			ui.Box(c.Key("menu-slot")).Size(24, 24).Shrink(0)
+			ui.Box(c.Key("menu-slot")).Size(size, size).Shrink(0)
 		}
 	}).PopoverMenu(menu)
 }
 
 func sidebarTitle(c *ui.Context, title string, color ui.Color, hovered bool) ui.Element {
-	const fontSize, gap = 12, 24
+	const gap = 24
+	fontSize := windowLayout(c).Text(12)
 	viewport := ui.Row(c).Grow(1).MinWidth(0).AlignItems(ui.Center).Clip().AccessHidden(true)
 	width := viewport.LayoutBounds().W
 	textWidth, _ := c.MeasureText(0, ui.Span{Text: title, Size: fontSize})
@@ -158,22 +164,27 @@ func (app *chatApp) conversationActionDialog(c *ui.Context) {
 	ui.Overlay(c, func() {
 		backdrop := ui.Box(c.Key("backdrop")).Absolute().Left(0).Top(0).Right(0).Bottom(0).
 			Center().Background(ui.RGBA(0, 0, 0, .4)).Modal()
+		insetDialog(c, backdrop)
 		cancel, submit := backdrop.OverlayShortcut(0, ui.KeyEscape), false
 		backdrop.Children(func() {
-			ui.Column(c).Role(role).Label(title).Width(340).MaxWidthPercent(90).Padding(20).
-				Gap(12).Radius(10).Background(white).Shadow(0, 10, 30, 0, ui.RGBA(0, 0, 0, .3)).Children(func() {
-				ui.Text(c, title).FontSize(16).FontWeight(680)
-				if action.deleting {
-					ui.Text(c, action.chat.Title).SingleLine().Ellipsis("…").FontSize(13).FontWeight(610)
-					ui.Text(c, locales.DeleteChatBody()).FontSize(13).TextColor(muted)
-				} else {
-					field := settings.Field(c, locales.ChatTitle(), "", &action.title).AutoFocus()
-					submit = field.Shortcut(0, ui.KeyEnter)
-				}
-				if action.failed {
-					ui.Text(c, app.historyErr).FontSize(12).TextColor(errorFG)
-				}
-				ui.Row(c).Justify(ui.End).Gap(8).Margin(4, 0, 0).Children(func() {
+			panel := ui.Column(c).Role(role).Label(title).Width(340).MaxWidthPercent(90).MaxHeight(dialogMaxHeight(c)).Padding(windowLayout(c).Density(20, 14)).
+				Gap(windowLayout(c).Density(12, 8)).Radius(10).Background(white).Shadow(0, 10, 30, 0, ui.RGBA(0, 0, 0, .3))
+			mobileDialog(c, backdrop, panel)
+			panel.Children(func() {
+				dialogBody(c, func() {
+					ui.Text(c, title).FontSize(viewport.Font(c, 16)).FontWeight(680)
+					if action.deleting {
+						ui.Text(c, action.chat.Title).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 13)).FontWeight(610)
+						ui.Text(c, locales.DeleteChatBody()).FontSize(viewport.Font(c, 13)).TextColor(muted)
+					} else {
+						field := settings.Field(c, locales.ChatTitle(), "", &action.title).AutoFocus()
+						submit = field.Shortcut(0, ui.KeyEnter)
+					}
+					if action.failed {
+						ui.Text(c, app.historyErr).FontSize(viewport.Font(c, 12)).TextColor(errorFG)
+					}
+				})
+				dialogActions(c).Children(func() {
 					back := pointerButton(c.Key("cancel"), false).Label(locales.Cancel()).Height(34).PaddingX(13).
 						AlignItems(ui.Center).Radius(7).Background(side).Border(1, border)
 					if action.deleting {
@@ -182,14 +193,14 @@ func (app *chatApp) conversationActionDialog(c *ui.Context) {
 					if back.Hovered() {
 						back.Background(hover)
 					}
-					back.Children(func() { ui.Text(c, locales.Cancel()).FontSize(13) })
+					back.Children(func() { ui.Text(c, locales.Cancel()).FontSize(viewport.Font(c, 13)) })
 					cancel = back.Clicked() || cancel
 					save := pointerButton(c.Key("confirm"), !action.deleting && strings.TrimSpace(action.title) == "").
 						Label(confirm).Height(34).PaddingX(13).AlignItems(ui.Center).Radius(7).Background(confirmColor)
 					if save.Hovered() {
 						save.Background(confirmColor.Alpha(.88))
 					}
-					save.Children(func() { ui.Text(c, confirm).FontSize(13).FontWeight(620).TextColor(white) })
+					save.Children(func() { ui.Text(c, confirm).FontSize(viewport.Font(c, 13)).FontWeight(620).TextColor(white) })
 					submit = save.Clicked() || submit
 				})
 			})

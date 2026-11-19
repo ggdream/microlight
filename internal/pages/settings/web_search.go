@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"github.com/ggdream/microlight/pkg/viewport"
 	"maps"
 	"strings"
 
@@ -44,14 +45,14 @@ func (form *WebSearchForm) View(c *ui.Context, icons asseticon.Set, saved localt
 		}
 		form.err = ""
 	}
-	ui.Column(c).FillWidth().Gap(12).Children(func() {
-		ui.Text(c, locales.BuiltInTools()).FontSize(18).FontWeight(660)
+	ui.Column(c).FillWidth().Gap(settingGap(c, 12)).Children(func() {
+		ui.Text(c, locales.BuiltInTools()).FontSize(viewport.Font(c, 18)).FontWeight(660)
 		ui.Column(c).FillWidth().Background(theme.White).Radius(13).Border(1, theme.Border).
-			Padding(15, 16).Gap(11).Children(func() {
-			ui.Row(c).AlignItems(ui.Center).Gap(12).Children(func() {
-				ui.Column(c).Grow(1).MinWidth(0).Gap(4).Children(func() {
-					ui.Text(c, locales.WebSearch()).FontSize(15).FontWeight(660)
-					ui.Text(c, locales.WebSearchHint()).FontSize(12).TextColor(theme.Muted)
+			Padding(settingY(c, 15), settingX(c, 16)).Gap(settingGap(c, 11)).Children(func() {
+			ui.Row(c).AlignItems(ui.Center).Gap(settingsLayout(c).Density(12, 8)).Children(func() {
+				ui.Column(c).Grow(1).MinWidth(0).Gap(settingGap(c, 4)).Children(func() {
+					ui.Text(c, locales.WebSearch()).FontSize(viewport.Font(c, 15)).FontWeight(660)
+					ui.Text(c, locales.WebSearchHint()).FontSize(viewport.Font(c, 12)).TextColor(theme.Muted)
 				})
 				theme.Switch(c.Key("enabled"), &draft.Enabled, locales.EnableWebSearch(), func() { form.err = "" })
 			})
@@ -66,17 +67,17 @@ func (form *WebSearchForm) View(c *ui.Context, icons asseticon.Set, saved localt
 			}
 			if definition.SearchEngineID {
 				Field(fields, locales.SearchEngineId(), "", &options.SearchEngineID).OnChange(updateOptions)
-				ui.Text(fields, locales.GoogleSearchAvailability()).FontSize(12).TextColor(theme.Muted)
+				ui.Text(fields, locales.GoogleSearchAvailability()).FontSize(viewport.Font(c, 12)).TextColor(theme.Muted)
 			}
 			if providerID == search.Wikipedia {
-				ui.Text(fields, locales.WikipediaSearchScope()).FontSize(12).TextColor(theme.Muted)
+				ui.Text(fields, locales.WikipediaSearchScope()).FontSize(viewport.Font(c, 12)).TextColor(theme.Muted)
 			}
 			if definition.BaseURL {
 				Field(fields, "Base URL", "http://localhost:8888", &options.BaseURL).OnChange(updateOptions)
-				ui.Text(fields, locales.SearxngJSONHint()).FontSize(12).TextColor(theme.Muted)
+				ui.Text(fields, locales.SearxngJSONHint()).FontSize(viewport.Font(c, 12)).TextColor(theme.Muted)
 			}
 			if form.err != "" {
-				ui.Text(c, form.err).FontSize(12).TextColor(theme.ErrorFG)
+				ui.Text(c, form.err).FontSize(viewport.Font(c, 12)).TextColor(theme.ErrorFG)
 			}
 			if form.HasChanges(saved) {
 				ui.Row(c).Justify(ui.End).Children(func() {

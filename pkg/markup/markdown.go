@@ -8,6 +8,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown"
 	"github.com/egoist/mygo/ui/markdown/parser"
+	"github.com/ggdream/microlight/pkg/viewport"
 	texmath "github.com/go-tex/math"
 )
 
@@ -68,7 +69,8 @@ func New(ink ui.Color) *markdown.Options {
 		}, true
 	}
 	options.Math = func(c *ui.Context, source string) {
-		f := formula(formulaKey{source: source, size: 17, display: true})
+		size := int(math.Round(float64(viewport.Font(c, 17))))
+		f := formula(formulaKey{source: source, size: size, display: true})
 		ui.ScrollHorizontal(c).AlignSelf(ui.Stretch).Children(func() {
 			if f.svg == nil {
 				ui.Text(c, source).Font("monospace").NoWrap().Selectable().Margin(0, ui.Auto)

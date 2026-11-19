@@ -1,32 +1,43 @@
 package chat
 
 import (
+	"github.com/ggdream/microlight/pkg/viewport"
 	"os"
 	"path/filepath"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/desktop"
 	"github.com/ggdream/microlight/internal/pages/settings"
-	"github.com/ggdream/microlight/internal/storage"
 )
 
 func (app *chatApp) settingsTransfer(c *ui.Context) {
+	layout := windowLayout(c)
 	settings.Card(c, locales.SettingsTransfer(), func() {
-		ui.Text(c, locales.SettingsTransferHint()).FontSize(13).TextColor(muted)
-		ui.Row(c).Wrap().AlignItems(ui.Center).Gap(8).Children(func() {
+		ui.Text(c, locales.SettingsTransferHint()).FontSize(viewport.Font(c, 13)).TextColor(muted)
+		ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Gap(layout.X(8)).Children(func() {
 			disabled := app.transferBusy || app.store == nil
-			settings.ActionButton(c.Key("import"), icons, locales.ImportSettings(), "folder_open", disabled).
-				OnClick(app.chooseSettingsImport)
-			settings.ActionButton(c.Key("export"), icons, locales.ExportSettings(), "download", disabled).
-				OnClick(app.chooseSettingsExport)
+			action := func(key, label, glyph string, click func()) {
+				button := settings.ActionButton(c.Key(key), icons, label, glyph, disabled)
+				if layout.Compact() {
+					button.Grow(1).Basis(0).MinWidth(0).Justify(ui.Center).BorderWidth(0).
+						Background(side)
+					if button.Hovered() && !disabled {
+						button.Background(tint)
+					}
+				}
+				button.OnClick(click)
+			}
+			action("import", locales.ImportSettings(), "folder_open", app.chooseSettingsImport)
+			action("export", locales.ExportSettings(), "download", app.chooseSettingsExport)
 		})
 		if status := app.transferStatus; status.message != "" {
 			color := muted
 			if status.failed {
 				color = errorFG
 			}
-			ui.Text(c, status.message).FontSize(12).TextColor(color)
+			ui.Text(c, status.message).FontSize(viewport.Font(c, 12)).TextColor(color)
 		}
 	})
 }
@@ -44,13 +55,10 @@ func (app *chatApp) chooseSettingsExport() {
 	win := app.win
 	go func() {
 		dir, _ := mygo.App.Path(mygo.PathDownloads)
-		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{
+		path, err := desktop.SaveDocument(mygo.SaveDialogOptions{
 			Parent: win, Title: locales.ExportSettings(), DefaultPath: filepath.Join(dir, "microlight-settings.json"),
 			Filters: []mygo.FileFilter{{Name: locales.SettingsFileFilter(), Extensions: []string{"json"}}},
-		})
-		if err == nil && path != "" {
-			err = storage.WritePrivateFile(path, append(data, '\n'))
-		}
+		}, append(data, '\n'))
 		win.Update(func() {
 			app.transferBusy = false
 			switch {

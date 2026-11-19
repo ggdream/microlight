@@ -1,11 +1,12 @@
 package chat
 
 import (
+	"github.com/ggdream/microlight/pkg/viewport"
 	"os/exec"
 	"runtime"
 
-	"github.com/ggdream/microlight/internal/desktop"
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/desktop"
 	"github.com/ggdream/microlight/internal/pages/settings"
 
 	"github.com/egoist/mygo/ui"
@@ -45,6 +46,6 @@ func (app *chatApp) openProxySettingsControl(c *ui.Context) {
 		})
 	})
 	if app.form.proxyLaunchFailed {
-		ui.Text(c, locales.OpenProxySettingsFailed()).FontSize(12).TextColor(errorFG)
+		ui.Text(c, locales.OpenProxySettingsFailed()).FontSize(viewport.Font(c, 12)).TextColor(errorFG)
 	}
 }

@@ -10,6 +10,9 @@ import (
 )
 
 func PreviewLabel() string {
+	if Mobile {
+		return locales.ShareFile()
+	}
 	if runtime.GOOS == "darwin" {
 		return locales.QuickLookFile()
 	}

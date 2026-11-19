@@ -2,6 +2,7 @@ package preview
 
 import (
 	"cmp"
+	"github.com/ggdream/microlight/pkg/viewport"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -83,14 +84,14 @@ func BuildTree(files []Change, workspace string) *Tree {
 
 func (tree *Tree) View(c *ui.Context, roundKey any, icons asseticon.Set, selected int, open func(int), quickLook func(string)) {
 	ui.Column(c).Fill().MinWidth(0).MinHeight(0).Children(func() {
-		ui.Text(c, locales.RoundChanges()).FontSize(12).FontWeight(650).TextColor(theme.Muted).Padding(9, 10, 5)
+		ui.Text(c, locales.RoundChanges()).FontSize(viewport.Font(c, 12)).FontWeight(650).TextColor(theme.Muted).Padding(9, 10, 5)
 		if len(tree.children) == 0 {
-			ui.Text(c, locales.NoRoundChanges()).FontSize(12).TextColor(theme.Muted).Padding(5, 10)
+			ui.Text(c, locales.NoRoundChanges()).FontSize(viewport.Font(c, 12)).TextColor(theme.Muted).Padding(5, 10)
 			return
 		}
 		scroll, offset := elastic.Scroll(c.Key(roundKey))
 		scroll.Grow(1).MinHeight(0).Children(func() {
-			offset.Apply(ui.Themed(c, theme.MenuTheme).Background(ui.Transparent).FillWidth()).Children(func() {
+			offset.Apply(ui.Themed(c, theme.PopupTheme(c)).Background(ui.Transparent).FillWidth()).Children(func() {
 				rows(c, icons, tree.children, 0, selected, open, quickLook)
 			})
 		})
@@ -100,7 +101,7 @@ func (tree *Tree) View(c *ui.Context, roundKey any, icons asseticon.Set, selecte
 func rows(c *ui.Context, icons asseticon.Set, nodes []*Tree, depth, selected int, open func(int), quickLook func(string)) {
 	for _, node := range nodes {
 		rowContext := c.Key(node.key)
-		inset := treeInset(depth)
+		inset := treeInset(c, depth)
 		if node.file == nil {
 			if folderRow(rowContext, icons, node.name, "", inset, true) {
 				rows(c, icons, node.children, depth+1, selected, open, quickLook)
@@ -116,10 +117,14 @@ func rows(c *ui.Context, icons asseticon.Set, nodes []*Tree, depth, selected int
 	}
 }
 
-func treeInset(depth int) float32 { return 8 + float32(min(depth, 8))*12 }
+func treeInset(c *ui.Context, depth int) float32 {
+	layout := viewport.Available(c)
+	step := layout.Density(12, layout.X(10))
+	return 8 + float32(min(depth, 8))*step
+}
 
 func folderRow(c *ui.Context, icons asseticon.Set, name, path string, inset float32, expanded bool) bool {
-	folder := theme.PointerButton(c, false).Label(name).Tooltip(path).FillWidth().MinHeight(28).
+	folder := theme.PointerButton(c, false).Label(name).Tooltip(path).FillWidth().MinHeight(viewport.Available(c).Target(28)).
 		AlignItems(ui.Center).Padding(3, 7, 3, inset).Gap(5).Radius(5)
 	open := ui.Local(folder, "open", func() bool { return expanded })
 	folder.Expanded(*open)
@@ -134,14 +139,14 @@ func folderRow(c *ui.Context, icons asseticon.Set, name, path string, inset floa
 			glyph = "folder_open"
 		}
 		ui.Icon(c, icons.SVG(glyph)).Size(15, 15).Shrink(0).TextColor(theme.Muted)
-		ui.Text(c, name).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(12)
+		ui.Text(c, name).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 12))
 	}).OnClick(func() { *open = !*open })
 	return *open
 }
 
 func fileRow(c *ui.Context, icons asseticon.Set, name string, change Change, inset float32, selected bool, open, quickLook func()) {
 	file := theme.PointerButton(c, open == nil).Label(name).Tooltip(change.Path).
-		FillWidth().MinHeight(28).AlignItems(ui.Center).Padding(3, 7, 3, inset+17).Gap(5).Radius(5)
+		FillWidth().MinHeight(viewport.Available(c).Target(28)).AlignItems(ui.Center).Padding(3, 7, 3, inset+17).Gap(5).Radius(5)
 	if selected {
 		file.Background(theme.Tint)
 	} else if file.Hovered() {
@@ -149,7 +154,7 @@ func fileRow(c *ui.Context, icons asseticon.Set, name string, change Change, ins
 	}
 	file.Children(func() {
 		ui.Icon(c, icons.SVG(change.Icon)).Size(15, 15).Shrink(0).TextColor(theme.Muted)
-		ui.Text(c, name).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(12)
+		ui.Text(c, name).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 12))
 		if change.Diff != nil {
 			DiffCounts(c.Key("tree-counts"), change.Diff)
 		}

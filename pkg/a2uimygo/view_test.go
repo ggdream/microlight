@@ -1,6 +1,7 @@
 package a2uimygo_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +11,71 @@ import (
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
+
+func TestCompactFormKeepsLongOptionInsideCard(t *testing.T) {
+	const surfaceJSON = `{"version":"1.0","createSurface":{"surfaceId":"example","components":[
+		{"id":"root","component":"Card","child":"form"},
+		{"id":"form","component":"Column","children":["option","answer"]},
+		{"id":"option","component":"Button","child":"label","action":{"event":{"name":"select"}}},
+		{"id":"label","component":"Text","text":"OPTION_LABEL"},
+		{"id":"answer","component":"TextField","label":"Answer","value":{"@path":"/answer"}}
+	],"dataModel":{"answer":""}}}`
+	label := strings.TrimSpace(strings.Repeat("A longer choice with detail ", 7))
+	message, err := a2ui.Decode([]byte(strings.Replace(surfaceJSON, "OPTION_LABEL", label, 1)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var processor a2ui.Processor
+	if err := processor.Apply(message); err != nil {
+		t.Fatal(err)
+	}
+	var activated bool
+	window := ui.NewTester(func(c *ui.Context) {
+		a2uimygo.View(c, processor.Surface("example"), a2uimygo.Options{
+			OnAction: func(a2ui.RendererMessage) { activated = true },
+		})
+	}, 320, 300)
+	for _, name := range []string{label, "Answer"} {
+		rect, ok := window.Find(name)
+		if !ok || rect.H < 44 || rect.X < 8 || rect.X+rect.W > 312 {
+			t.Fatalf("form control %q escapes the card or lacks a touch target: %+v", name, rect)
+		}
+	}
+	if err := window.Click(label); err != nil || !activated {
+		t.Fatalf("the long option could not be selected: %v", err)
+	}
+}
+
+func TestNarrowTabsCanScrollToLastTab(t *testing.T) {
+	const surfaceJSON = `{"version":"1.0","createSurface":{"surfaceId":"example","components":[
+		{"id":"root","component":"Tabs","tabs":[
+			{"title":"First tab with a long title","child":"first"},
+			{"title":"Second tab with a long title","child":"second"},
+			{"title":"Last tab","child":"last"}]},
+		{"id":"first","component":"Text","text":"First content"},
+		{"id":"second","component":"Text","text":"Second content"},
+		{"id":"last","component":"Text","text":"Last content"}
+	]}}`
+	message, err := a2ui.Decode([]byte(surfaceJSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var processor a2ui.Processor
+	if err := processor.Apply(message); err != nil {
+		t.Fatal(err)
+	}
+	window := ui.NewTester(func(c *ui.Context) {
+		a2uimygo.View(c, processor.Surface("example"), a2uimygo.Options{})
+	}, 250, 160)
+	if !window.HasText("First content") {
+		t.Fatal("initial tab content is missing")
+	}
+	window.Scroll(170, 20, 400, 0)
+	window.Advance(time.Second)
+	if err := window.Click("Last tab"); err != nil || !window.HasText("Last content") {
+		t.Fatalf("could not open the last tab after scrolling: %v", err)
+	}
+}
 
 func TestFormUsesCurrentValueForClickAndEnter(t *testing.T) {
 	const form = `{"version":"1.0","createSurface":{"surfaceId":"example","components":[

@@ -3284,6 +3284,26 @@ func (msgs Messages) McpSettingsHint() string {
 	return Catalog.Format(msgs.locale, "mcpSettingsHint", nil)
 }
 
+// McpMobileSettingsHint says "Connect tools through a Streamable HTTP endpoint."
+// in the language the app shows.
+func McpMobileSettingsHint() string { return In(i18n.Locale()).McpMobileSettingsHint() }
+
+// McpMobileSettingsHint says "Connect tools through a Streamable HTTP endpoint."
+// in the language of msgs.
+func (msgs Messages) McpMobileSettingsHint() string {
+	return Catalog.Format(msgs.locale, "mcpMobileSettingsHint", nil)
+}
+
+// SkillDirectories says "Skill directories"
+// in the language the app shows.
+func SkillDirectories() string { return In(i18n.Locale()).SkillDirectories() }
+
+// SkillDirectories says "Skill directories"
+// in the language of msgs.
+func (msgs Messages) SkillDirectories() string {
+	return Catalog.Format(msgs.locale, "skillDirectories", nil)
+}
+
 // McpServers says "Servers"
 // in the language the app shows.
 func McpServers() string { return In(i18n.Locale()).McpServers() }
@@ -4194,6 +4214,16 @@ func (msgs Messages) QuickLookFile() string {
 	return Catalog.Format(msgs.locale, "quickLookFile", nil)
 }
 
+// ShareFile says "Share file"
+// in the language the app shows.
+func ShareFile() string { return In(i18n.Locale()).ShareFile() }
+
+// ShareFile says "Share file"
+// in the language of msgs.
+func (msgs Messages) ShareFile() string {
+	return Catalog.Format(msgs.locale, "shareFile", nil)
+}
+
 // OpenWithDefaultApp says "Open with default app"
 // in the language the app shows.
 func OpenWithDefaultApp() string { return In(i18n.Locale()).OpenWithDefaultApp() }
@@ -4806,4 +4836,44 @@ func StatisticsUsagePartial() string { return In(i18n.Locale()).StatisticsUsageP
 // in the language of msgs.
 func (msgs Messages) StatisticsUsagePartial() string {
 	return Catalog.Format(msgs.locale, "statisticsUsagePartial", nil)
+}
+
+// ShareImage says "Share"
+// in the language the app shows.
+func ShareImage() string { return In(i18n.Locale()).ShareImage() }
+
+// ShareImage says "Share"
+// in the language of msgs.
+func (msgs Messages) ShareImage() string {
+	return Catalog.Format(msgs.locale, "shareImage", nil)
+}
+
+// ShareImageFailed says "Could not share the image."
+// in the language the app shows.
+func ShareImageFailed() string { return In(i18n.Locale()).ShareImageFailed() }
+
+// ShareImageFailed says "Could not share the image."
+// in the language of msgs.
+func (msgs Messages) ShareImageFailed() string {
+	return Catalog.Format(msgs.locale, "shareImageFailed", nil)
+}
+
+// PreviewImageAction says "Preview"
+// in the language the app shows.
+func PreviewImageAction() string { return In(i18n.Locale()).PreviewImageAction() }
+
+// PreviewImageAction says "Preview"
+// in the language of msgs.
+func (msgs Messages) PreviewImageAction() string {
+	return Catalog.Format(msgs.locale, "previewImageAction", nil)
+}
+
+// SaveImageAction says "Save"
+// in the language the app shows.
+func SaveImageAction() string { return In(i18n.Locale()).SaveImageAction() }
+
+// SaveImageAction says "Save"
+// in the language of msgs.
+func (msgs Messages) SaveImageAction() string {
+	return Catalog.Format(msgs.locale, "saveImageAction", nil)
 }

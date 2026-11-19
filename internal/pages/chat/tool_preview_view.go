@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"github.com/ggdream/microlight/pkg/viewport"
 	"path/filepath"
 	"slices"
 
@@ -166,10 +167,6 @@ func (app *chatApp) toolPreviewPane(c *ui.Context, width float32, workspace stri
 				ui.Box(c).Width(min(225, width*.42)).Shrink(0).FillHeight().
 					BorderWidth(0, 0, 0, 1).BorderColor(border).Children(treeContent)
 			})
-		case tree.HasChanges():
-			ui.Box(c).FillWidth().Height(145).Shrink(0).
-				BorderWidth(0, 0, 1, 0).BorderColor(border).Children(treeContent)
-			previewContent()
 		default:
 			previewContent()
 		}
@@ -178,26 +175,35 @@ func (app *chatApp) toolPreviewPane(c *ui.Context, width float32, workspace stri
 
 func (app *chatApp) toolPreviewTabs(c *ui.Context) {
 	panel := &app.toolPanel
-	ui.Row(c).FillWidth().Height(40).Shrink(0).AlignItems(ui.Center).Gap(4).Padding(4, 6).
+	layout := windowLayout(c)
+	pad := layout.Y(4)
+	ui.Row(c).FillWidth().Height(max(layout.Y(40), layout.Target(29)+2*pad+1)).Shrink(0).
+		AlignItems(ui.Center).Gap(layout.X(4)).Padding(pad, layout.X(6)).
 		Background(side).BorderWidth(0, 0, 1, 0).BorderColor(border).Children(func() {
 		scroll, offset := elastic.Horizontal(c.Key("tab-strip"))
 		scroll.Grow(1).MinWidth(0).FillHeight().Children(func() {
 			offset.Apply(ui.Row(c)).Role(ui.RoleTabList).Gap(4).AlignItems(ui.Center).Children(func() {
 				changes := pointerButton(c.Key("round"), false).Role(ui.RoleTab).Label(locales.RoundChanges()).
-					AccessSelected(panel.active == nil).Height(29).Shrink(0).PaddingX(7).Gap(5).AlignItems(ui.Center).Radius(5)
+					AccessSelected(panel.active == nil).Height(windowLayout(c).Target(29)).Shrink(0).PaddingX(7).Gap(5).AlignItems(ui.Center).Radius(5)
 				if panel.active == nil || changes.Hovered() {
 					changes.Background(white)
 				}
 				changes.Children(func() {
 					icon(c, "document_sync", muted, 15)
-					ui.Text(c, locales.RoundChanges()).NoWrap().FontSize(12)
+					ui.Text(c, locales.RoundChanges()).NoWrap().FontSize(viewport.Font(c, 12))
 				}).OnClick(func() { panel.active, panel.reveal = nil, nil })
 				for _, tab := range panel.tabs {
 					app.toolPreviewTab(c.Key(tab), tab)
 				}
 			})
 		})
-		messageIcon(c.Key("close-pane"), locales.ClosePreview(), "close", false, func() { panel.visible = false })
+		label := locales.ClosePreview()
+		closePane := messageIconFrame(pointerButton(c.Key("close-pane"), false).Label(label).Tooltip(label)).
+			Size(layout.Target(29), layout.Target(29)).Shrink(0)
+		if closePane.Hovered() {
+			closePane.Background(white)
+		}
+		closePane.Children(func() { icon(c, "close", muted, 14) }).OnClick(func() { panel.visible = false })
 	})
 }
 
@@ -206,7 +212,7 @@ func (app *chatApp) toolPreviewTab(c *ui.Context, tab *toolPreview) {
 	activity := tab.entry.Activity[tab.index]
 	name := previewName(activity)
 	selected := panel.active == tab
-	row := ui.Row(c).Height(29).Shrink(0).AlignItems(ui.Center).Padding(0, 3, 0, 5).Radius(5)
+	row := ui.Row(c).Height(windowLayout(c).Target(29)).Shrink(0).AlignItems(ui.Center).Padding(0, 3, 0, 5).Radius(5)
 	if selected || row.Hovered() {
 		row.Background(white)
 	}
@@ -218,7 +224,7 @@ func (app *chatApp) toolPreviewTab(c *ui.Context, tab *toolPreview) {
 		pointerButton(c.Key("select"), false).Role(ui.RoleTab).Label(name).AccessSelected(selected).
 			Tooltip(activity.DisplayTarget()).FillHeight().Gap(5).AlignItems(ui.Center).Children(func() {
 			icon(c, previewIcon(activity), muted, 14)
-			ui.Text(c, name).MaxWidth(120).SingleLine().Ellipsis("…").FontSize(12)
+			ui.Text(c, name).MaxWidth(120).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 12))
 		}).OnClick(func() { panel.selectTab(tab) })
 		messageIcon(c.Key("close-tab"), locales.CloseFileTab(name), "close", false, func() { panel.closeTab(tab) })
 	})

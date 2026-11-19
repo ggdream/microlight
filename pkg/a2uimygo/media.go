@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/ggdream/microlight/pkg/viewport"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
@@ -81,7 +82,7 @@ func (r renderer) media(c *ui.Context, node a2ui.Component, scope string) {
 	}
 	container.Children(func() {
 		if description != "" && (node.Type == "AudioPlayer" || (activation && !*loaded)) {
-			ui.Text(c, description).FontSize(12).TextColor(r.Style.Text)
+			ui.Text(c, description).FontSize(viewport.Font(c, 12)).TextColor(r.Style.Text)
 		}
 		if activation && !*loaded {
 			label := r.Media.LoadLabel
@@ -100,9 +101,9 @@ func (r renderer) media(c *ui.Context, node a2ui.Component, scope string) {
 		switch {
 		case media.err != nil:
 			r.reportMediaError(media.err)
-			ui.Text(c, r.mediaUnavailable()).Label(description).FontSize(12).TextColor(r.Style.Muted)
+			ui.Text(c, r.mediaUnavailable()).Label(description).FontSize(viewport.Font(c, 12)).TextColor(r.Style.Muted)
 		case !media.ready:
-			ui.Text(c, "Loading…").Label(description).FontSize(12).TextColor(r.Style.Muted)
+			ui.Text(c, "Loading…").Label(description).FontSize(viewport.Font(c, 12)).TextColor(r.Style.Muted)
 		case media.image != nil:
 			view := ui.Image(c, media.image).Label(description).FillWidth().MaxHeight(240)
 			switch r.surface.String(node.Props["fit"], scope) {
@@ -297,7 +298,7 @@ func (r renderer) videoView(c *ui.Context, node a2ui.Component, scope string, me
 	}
 	if err != nil {
 		r.reportMediaError(err)
-		ui.Text(c, r.mediaUnavailable()).FontSize(12).TextColor(r.Style.Muted)
+		ui.Text(c, r.mediaUnavailable()).FontSize(viewport.Font(c, 12)).TextColor(r.Style.Muted)
 		return
 	}
 	started := player != nil && (player.Position() > 0 || player.Playing() || player.Ended())
@@ -320,7 +321,7 @@ func (r renderer) videoView(c *ui.Context, node a2ui.Component, scope string, me
 		}
 	}
 	if player == nil || !player.Ready() {
-		ui.Text(c, "Loading…").FontSize(12).TextColor(r.Style.Muted)
+		ui.Text(c, "Loading…").FontSize(viewport.Font(c, 12)).TextColor(r.Style.Muted)
 		return
 	}
 	r.playButton(c, player.Playing(), player.Play, player.Pause)

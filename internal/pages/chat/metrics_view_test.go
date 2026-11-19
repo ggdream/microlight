@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -8,6 +9,35 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/assets/locales"
 )
+
+func TestCompactStatisticDetailsScrollAboveKeyboard(t *testing.T) {
+	card := statisticCard{title: "Usage detail"}
+	for i := range 18 {
+		card.lines = append(card.lines, statisticLine{fmt.Sprintf("Metric %d", i), "100"})
+	}
+	window := ui.NewTester(func(c *ui.Context) {
+		ui.Column(c).Fill().Justify(ui.End).Children(func() {
+			anchor := ui.Button(c, "Usage")
+			open := true
+			ui.PopoverBase(c, anchor, &open, func(panel ui.Element) {
+				statisticDetail(c, panel, anchor, card)
+			})
+		})
+	}, 320, 570)
+	window.SetInsets(44, 8, 250, 8)
+	window.Frame()
+	first, ok := window.Find("Metric 0")
+	if !ok || first.Y < 44 {
+		t.Fatalf("usage details overlap the safe area: %+v", first)
+	}
+	window.Move(first.X+5, first.Y+5)
+	window.Scroll(first.X+5, first.Y+5, 0, 600)
+	window.Advance(time.Second)
+	last, ok := window.Find("Metric 17")
+	if !ok || last.Y < 44 || last.Y+last.H > 320 {
+		t.Fatalf("the last metric must be reachable above the keyboard: %+v", last)
+	}
+}
 
 func TestStatisticsPopoversSeparateUsageAndTiming(t *testing.T) {
 	app := &chatApp{}
@@ -32,6 +62,9 @@ func TestStatisticsPopoversSeparateUsageAndTiming(t *testing.T) {
 	if view.HasText(locales.StatisticsCache()) || view.HasText(locales.StatisticsGenerationSpeed()) {
 		t.Fatal("detail rows should start closed")
 	}
+	if !view.HasText(reply.Metrics.speed()) || !view.HasText(locales.StatisticsTokenTotal(metricNumber(120))) {
+		t.Fatalf("conversation summary should show only speed and total tokens: %v", view.Texts())
+	}
 	if _, visible := view.Find(locales.Statistics()); visible {
 		t.Fatal("the latest reply should also hide statistics at rest")
 	}
@@ -44,7 +77,10 @@ func TestStatisticsPopoversSeparateUsageAndTiming(t *testing.T) {
 		view.Move(rect.X+rect.W/2, rect.Y+rect.H/2)
 	}
 	moveTo("Sample reply")
-	if slices.Contains(view.Texts(), locales.StatisticsTokenTotal(metricNumber(120))) ||
+	totals := slices.DeleteFunc(view.Texts(), func(text string) bool {
+		return text != locales.StatisticsTokenTotal(metricNumber(120))
+	})
+	if len(totals) != 1 ||
 		view.HasText(locales.Elapsed(metricDuration(3*time.Second))) ||
 		view.HasText(locales.StatisticsReplyTime()) || view.HasText(locales.StatisticsUsagePartial()) {
 		t.Fatalf("hovering a reply should show statistic icons without numbers: %v", view.Texts())
@@ -90,6 +126,13 @@ func TestStatisticsPopoversSeparateUsageAndTiming(t *testing.T) {
 	view.Move(2, 2)
 	if view.HasText(locales.StatisticsReplies()) {
 		t.Fatal("conversation timing should close without clicking after the pointer leaves")
+	}
+
+	compact := ui.NewTester(func(c *ui.Context) { app.conversationStatistics(c, chat) }, 320, 420)
+	timing, timingVisible := compact.Find(locales.StatisticsSessionTiming())
+	usage, usageVisible := compact.Find(locales.StatisticsSessionUsage())
+	if !timingVisible || !usageVisible || timing.Y != usage.Y || timing.H > 28 || usage.H > 28 {
+		t.Fatalf("compact summary should fit on one short line: timing=%+v usage=%+v", timing, usage)
 	}
 
 	app.desktop.HideStatistics = true

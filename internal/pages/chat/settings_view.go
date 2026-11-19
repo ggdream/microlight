@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"github.com/ggdream/microlight/pkg/viewport"
 	"unicode/utf8"
 
 	"github.com/ggdream/microlight/assets/locales"
@@ -11,11 +12,17 @@ import (
 )
 
 func (app *chatApp) settingsPage(c *ui.Context) {
-	settings.Page(c, icons, app.settingsTab, func() {
+	back := func() {
 		if !app.deferSettingsLeave(app.closeSettings) {
 			app.closeSettings()
 		}
-	}, app.selectSettingsTab, func(c *ui.Context, tab settings.Tab) {
+	}
+	if windowLayout(c).Compact() {
+		// Android's system Back is delivered as Escape by MyGo. Open menus
+		// and dialogs take it first; the settings page then returns to chat.
+		c.OnWindowShortcut(0, ui.KeyEscape, back)
+	}
+	settings.Page(c, icons, app.settingsTab, back, app.selectSettingsTab, func(c *ui.Context, tab settings.Tab) {
 		switch tab {
 		case settings.Model:
 			app.modelSettings(c.Key("model-content"))
@@ -54,21 +61,26 @@ func (app *chatApp) settingsLeaveDialog(c *ui.Context) {
 	ui.Overlay(c, func() {
 		backdrop := ui.Box(c.Key("backdrop")).Absolute().Left(0).Top(0).Right(0).Bottom(0).
 			Center().Background(ui.RGBA(0, 0, 0, .4)).Modal()
+		insetDialog(c, backdrop)
 		cancel, discard := backdrop.OverlayShortcut(0, ui.KeyEscape), false
 		backdrop.Children(func() {
-			ui.Column(c).Role(ui.RoleAlertDialog).Label(title).Description(body).
-				Width(340).MaxWidthPercent(90).Padding(20).Gap(12).Radius(10).Background(white).
-				Shadow(0, 10, 30, 0, ui.RGBA(0, 0, 0, .3)).Children(func() {
-				ui.Text(c, title).FontSize(16).FontWeight(680)
-				ui.Text(c, body).FontSize(13).TextColor(muted)
-				ui.Row(c).Wrap().Justify(ui.End).Gap(8).Children(func() {
+			panel := ui.Column(c).Role(ui.RoleAlertDialog).Label(title).Description(body).
+				Width(340).MaxWidthPercent(90).MaxHeight(dialogMaxHeight(c)).Padding(windowLayout(c).Density(20, 14)).Gap(windowLayout(c).Density(12, 8)).Radius(10).Background(white).
+				Shadow(0, 10, 30, 0, ui.RGBA(0, 0, 0, .3))
+			mobileDialog(c, backdrop, panel)
+			panel.Children(func() {
+				dialogBody(c, func() {
+					ui.Text(c, title).FontSize(viewport.Font(c, 16)).FontWeight(680)
+					ui.Text(c, body).FontSize(viewport.Font(c, 13)).TextColor(muted)
+				})
+				dialogActions(c).Children(func() {
 					stayLabel := locales.ContinueEditing()
 					stay := pointerButton(c.Key("stay"), false).Label(stayLabel).AutoFocus().
 						Height(34).PaddingX(13).AlignItems(ui.Center).Radius(7).Background(side).Border(1, border)
 					if stay.Hovered() {
 						stay.Background(hover)
 					}
-					stay.Children(func() { ui.Text(c, stayLabel).FontSize(13) })
+					stay.Children(func() { ui.Text(c, stayLabel).FontSize(viewport.Font(c, 13)) })
 					cancel = cancel || stay.Clicked()
 					leaveLabel := locales.DiscardSettingsAndLeave()
 					leave := pointerButton(c.Key("leave"), false).Label(leaveLabel).
@@ -76,7 +88,7 @@ func (app *chatApp) settingsLeaveDialog(c *ui.Context) {
 					if leave.Hovered() {
 						leave.Background(errorFG.Alpha(.88))
 					}
-					leave.Children(func() { ui.Text(c, leaveLabel).FontSize(13).FontWeight(620).TextColor(white) })
+					leave.Children(func() { ui.Text(c, leaveLabel).FontSize(viewport.Font(c, 13)).FontWeight(620).TextColor(white) })
 					discard = leave.Clicked()
 				})
 			})
@@ -101,7 +113,7 @@ func (app *chatApp) generalSettings(c *ui.Context) {
 		app.systemPromptSettings(c.Key("system-prompt"))
 		app.settingsTransfer(c.Key("transfer"))
 		if app.form.generalStatus.failed {
-			ui.Text(c, app.form.generalStatus.message).FontSize(12).TextColor(theme.ErrorFG)
+			ui.Text(c, app.form.generalStatus.message).FontSize(viewport.Font(c, 12)).TextColor(theme.ErrorFG)
 		}
 	})
 }

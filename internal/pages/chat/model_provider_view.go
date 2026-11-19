@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"github.com/ggdream/microlight/pkg/viewport"
 	"slices"
 	"strings"
 	"time"
@@ -19,26 +20,26 @@ type modelOption struct {
 func modelSelect(c *ui.Context, label, value string, selected *string, options []modelOption, width float32, change func()) {
 	selectModel := ui.SelectBase(c, selected)
 	trigger := selectModel.Trigger.Label(label).Value(value).Tooltip(value).
-		Height(29).MaxWidth(width).MinWidth(0).PaddingX(9).Radius(6).Gap(6).
+		Height(windowLayout(c).Density(29, settings.SelectHeight(c))).MaxWidth(width).MinWidth(0).PaddingX(9).Radius(6).Gap(6).
 		AlignItems(ui.Center).Background(side).Cursor(ui.CursorPointer)
 	if trigger.Hovered() {
 		trigger.Background(hover)
 	}
 	trigger.Children(func() {
-		ui.Text(c, value).MinWidth(0).SingleLine().Ellipsis("…").FontSize(11).FontWeight(620).TextColor(ink)
+		ui.Text(c, value).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 11)).FontWeight(620).TextColor(ink)
 		ui.Icon(c, icons.SVG("ios_chevron_right")).Size(10, 10).Shrink(0).Rotate(90).TextColor(muted)
 	}).OnChange(change)
 	selectModel.Popup(func(panel ui.Element) {
-		panel.Width(240).MaxHeight(255).Padding(4).Gap(2).Background(white).Border(1, border).Radius(8)
+		panel.Width(windowLayout(c).FitWidth(240, 10)).MaxHeight(popoverHeight(c, trigger, 255)).Padding(4).Gap(2).Background(white).Border(1, border).Radius(8)
 		rows := func() {
 			for _, option := range options {
-				item := selectModel.Item(option.id).Label(option.label).Padding(6, 8).
+				item := selectModel.Item(option.id).Label(option.label).MinHeight(windowLayout(c).Target(28)).Padding(6, 8).
 					AlignItems(ui.Center).Gap(8).Radius(5).Cursor(ui.CursorPointer)
 				if item.Highlighted() || option.id == *selected {
 					item.Background(tint)
 				}
 				item.Children(func() {
-					ui.Text(c, option.label).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(12)
+					ui.Text(c, option.label).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 12))
 					if option.id == *selected {
 						icon(c, "check", accent, 13)
 					}
@@ -47,7 +48,7 @@ func modelSelect(c *ui.Context, label, value string, selected *string, options [
 		}
 		if len(options) > 7 {
 			scroll, offset := elastic.Scroll(c.Key("options"))
-			scroll.FillWidth().MaxHeight(230).Children(func() {
+			scroll.FillWidth().MinHeight(0).Shrink(1).MaxHeight(230).Children(func() {
 				offset.Apply(ui.Column(c)).FillWidth().Gap(2).Children(rows)
 			})
 		} else {
@@ -71,8 +72,9 @@ func (app *chatApp) chatModelSelect(c *ui.Context) {
 		return
 	}
 	value := provider.Name + " / " + current.Model
+	layout := app.composerLayout(c)
 	trigger := pointerButton(c.Key("choice"), false).Label(locales.ChooseChatModel()).Value(value).Tooltip(value).
-		Height(32).MaxWidth(172).MinWidth(0).Radius(8).PaddingX(12).Gap(8).
+		Height(composerControlHeight(layout, 32)).MaxWidth(layout.Density(172, 130)).MinWidth(0).Shrink(1).Radius(8).PaddingX(layout.Density(12, 7)).Gap(layout.Density(8, 5)).
 		AlignItems(ui.Center).FocusRingColor(accent)
 	open := ui.Local(trigger, "open", func() bool { return false })
 	draftProvider := ui.Local(trigger, "provider", func() string { return current.ProviderID })
@@ -85,7 +87,7 @@ func (app *chatApp) chatModelSelect(c *ui.Context) {
 	}
 	trigger.Background(accent.Alpha(fillOpacity)).Expanded(*open).Children(func() {
 		ui.Text(c, current.Model).MinWidth(0).SingleLine().Ellipsis("…").
-			FontSize(12).FontWeight(550).TextColor(accent)
+			FontSize(viewport.Font(c, 12)).FontWeight(550).TextColor(accent)
 		angle := float32(90)
 		if *open {
 			angle = -90
@@ -98,7 +100,7 @@ func (app *chatApp) chatModelSelect(c *ui.Context) {
 		*open = !*open
 	})
 	ui.PopoverBase(c.Key("picker"), trigger, open, func(panel ui.Element) {
-		panel.AttachTo(trigger, ui.AnchorTopEnd, ui.AnchorBottomEnd).Width(286).Margin(0, 0, 6).
+		panel.AttachTo(trigger, ui.AnchorTopEnd, ui.AnchorBottomEnd).Width(windowLayout(c).FitWidth(286, 8)).MaxHeight(popoverHeight(c, trigger, 268)).Margin(0, 0, 6).
 			Padding(6).Gap(5).Background(white).Border(1, border).Radius(11).
 			Shadow(0, 6, 20, 0, ui.RGBA(25, 36, 30, .10))
 		app.chatModelProviderTabs(c.Key("providers"), draftProvider)
@@ -156,7 +158,7 @@ func chatModelRows(c *ui.Context, provider *modelProvider, active modelChoice, c
 				item.Background(side)
 			}
 			item.Children(func() {
-				ui.Text(c, name).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(13).TextColor(ink)
+				ui.Text(c, name).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 13)).TextColor(ink)
 				if selected {
 					icon(c, "check", accent, 14)
 				}
@@ -192,7 +194,7 @@ func (app *chatApp) providerSettingsControl(c *ui.Context) {
 func (app *chatApp) providerModelsControl(c *ui.Context) {
 	form := &app.form
 	settings.Card(c, locales.ProviderModels(), func() {
-		ui.Text(c, locales.DefaultModelHint()).FontSize(12).TextColor(muted)
+		ui.Text(c, locales.DefaultModelHint()).FontSize(viewport.Font(c, 12)).TextColor(muted)
 		ui.RadioGroup(c.Key("default-model"), func() {
 			for i, model := range form.models {
 				row := c.Key(model)
@@ -250,7 +252,7 @@ func (app *chatApp) providerProtocolControl(c *ui.Context) {
 	}
 	control := func(c *ui.Context, label string, selected *string, options []modelOption, change func()) {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(8).Children(func() {
-			ui.Text(c, label).FontSize(12).FontWeight(610)
+			ui.Text(c, label).FontSize(viewport.Font(c, 12)).FontWeight(610)
 			modelSelect(c.Key("select"), label, *selected, selected, options, 180, change)
 		})
 	}
@@ -279,8 +281,8 @@ func (app *chatApp) providerProtocolControl(c *ui.Context) {
 		})
 	} else {
 		ui.Row(c.Key("route")).FillWidth().Height(29).AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(8).Children(func() {
-			ui.Text(c, locales.ModelApiRoute()).FontSize(12).FontWeight(610)
-			ui.Text(c, "Messages").FontSize(12).TextColor(muted)
+			ui.Text(c, locales.ModelApiRoute()).FontSize(viewport.Font(c, 12)).FontWeight(610)
+			ui.Text(c, "Messages").FontSize(viewport.Font(c, 12)).TextColor(muted)
 		})
 	}
 }
@@ -305,7 +307,7 @@ func (app *chatApp) providerChip(c *ui.Context, option modelOption) {
 			if selected {
 				icon(c, "check", accent, 12)
 			}
-			ui.Text(c, option.label).MinWidth(0).SingleLine().Ellipsis("…").FontSize(13).FontWeight(620)
+			ui.Text(c, option.label).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 13)).FontWeight(620)
 		}).OnClick(func() { app.editProvider(option.id) })
 		if option.id == "" {
 			return
@@ -346,29 +348,36 @@ func (app *chatApp) providerDeleteDialog(c *ui.Context) {
 	ui.Overlay(c, func() {
 		backdrop := ui.Box(c.Key("backdrop")).Absolute().Left(0).Top(0).Right(0).Bottom(0).
 			Center().Background(ui.RGBA(0, 0, 0, .4)).Modal()
+		insetDialog(c, backdrop)
 		cancel, confirm := backdrop.OverlayShortcut(0, ui.KeyEscape), false
 		backdrop.Children(func() {
-			ui.Column(c).Role(ui.RoleAlertDialog).Label(title).Description(body).
-				Width(340).MaxWidthPercent(90).Padding(20).Gap(12).Radius(10).Background(white).
-				Shadow(0, 10, 30, 0, ui.RGBA(0, 0, 0, .3)).Children(func() {
-				ui.Text(c, title).FontSize(16).FontWeight(680)
-				ui.Text(c, body).FontSize(13).TextColor(muted)
-				if form.providerDeleteError != "" {
-					ui.Text(c, form.providerDeleteError).FontSize(12).TextColor(errorFG)
-				}
-				ui.Row(c).Wrap().Justify(ui.End).Gap(8).Children(func() {
+			panel := ui.Column(c).Role(ui.RoleAlertDialog).Label(title).Description(body).
+				Width(340).MaxWidthPercent(90).MaxHeight(dialogMaxHeight(c)).Padding(windowLayout(c).Density(20, 14)).Gap(windowLayout(c).Density(12, 8)).Radius(10).Background(white).
+				Shadow(0, 10, 30, 0, ui.RGBA(0, 0, 0, .3))
+			mobileDialog(c, backdrop, panel)
+			panel.Children(func() {
+				dialogBody(c, func() {
+					ui.Text(c, title).FontSize(viewport.Font(c, 16)).FontWeight(680)
+					ui.Text(c, body).FontSize(viewport.Font(c, 13)).TextColor(muted)
+					if form.providerDeleteError != "" {
+						ui.Text(c, form.providerDeleteError).FontSize(viewport.Font(c, 12)).TextColor(errorFG)
+					}
+				})
+				dialogActions(c).Children(func() {
 					back := pointerButton(c.Key("cancel"), false).Label(locales.Cancel()).AutoFocus().
 						Height(34).PaddingX(13).AlignItems(ui.Center).Radius(7).Background(side).Border(1, border)
 					if back.Hovered() {
 						back.Background(hover)
 					}
-					back.Children(func() { ui.Text(c, locales.Cancel()).FontSize(13) })
+					back.Children(func() { ui.Text(c, locales.Cancel()).FontSize(viewport.Font(c, 13)) })
 					remove := pointerButton(c.Key("confirm"), false).Label(locales.DeleteProvider()).
 						Height(34).PaddingX(13).AlignItems(ui.Center).Radius(7).Background(errorFG)
 					if remove.Hovered() {
 						remove.Background(errorFG.Alpha(.88))
 					}
-					remove.Children(func() { ui.Text(c, locales.DeleteProvider()).FontSize(13).FontWeight(620).TextColor(white) })
+					remove.Children(func() {
+						ui.Text(c, locales.DeleteProvider()).FontSize(viewport.Font(c, 13)).FontWeight(620).TextColor(white)
+					})
 					cancel = cancel || back.Clicked() || back.Shortcut(0, ui.KeyEnter)
 					confirm = remove.Clicked() || remove.Shortcut(0, ui.KeyEnter)
 				})
@@ -406,7 +415,7 @@ func (app *chatApp) connectionTestControl(c *ui.Context) {
 		selected = ""
 	}
 	ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, locales.TestModel()).FontSize(12).TextColor(muted)
+		ui.Text(c, locales.TestModel()).FontSize(viewport.Font(c, 12)).TextColor(muted)
 		if selected != "" {
 			modelSelect(c.Key("model-select"), locales.TestModel(), selected, &selected, options, 250, func() {
 				form.testModel = selected

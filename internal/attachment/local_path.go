@@ -12,11 +12,13 @@ import (
 	"github.com/ggdream/microlight/internal/storage"
 )
 
-// LocalPath returns the original absolute path or materializes an attachment
-// without a source file, such as a pasted screenshot.
+// LocalPath uses an available original file or materializes the saved bytes.
+// A system picker may provide a temporary copy that disappears after launch.
 func (file *File) LocalPath() (string, error) {
 	if filepath.IsAbs(file.Path) {
-		return file.Path, nil
+		if info, err := os.Stat(file.Path); err == nil && info.Mode().IsRegular() {
+			return file.Path, nil
+		}
 	}
 	cache, err := os.UserCacheDir()
 	if err != nil {

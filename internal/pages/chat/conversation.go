@@ -1,6 +1,9 @@
 package chat
 
 import (
+	"log/slog"
+	"os"
+	"path/filepath"
 	"strings"
 	"uuid"
 
@@ -64,6 +67,7 @@ func (app *chatApp) visibleChat(id string) *conversation {
 }
 
 func (app *chatApp) selectChat(id string) {
+	app.compactHistory = false
 	if id != "" && app.visibleChat(id) == nil {
 		return
 	}
@@ -89,7 +93,16 @@ func (app *chatApp) selectChat(id string) {
 }
 
 func (app *chatApp) newConversation(title string, mode localtools.Mode, workspace string) *conversation {
-	chat := &conversation{ID: newID(), Title: title, accessMode: mode.Normalized(), workspace: workspace}
+	id := newID()
+	if workspace == "" && app.mobileWorkspace != "" {
+		dir := filepath.Join(app.mobileWorkspace, id)
+		if err := os.MkdirAll(dir, 0o700); err == nil {
+			workspace = dir
+		} else {
+			slog.Error("initialize conversation workspace", "error", err)
+		}
+	}
+	chat := &conversation{ID: id, Title: title, accessMode: mode.Normalized(), workspace: workspace}
 	app.history.Chats = append([]*conversation{chat}, app.history.Chats...)
 	app.history.Selected = chat.ID
 	return chat

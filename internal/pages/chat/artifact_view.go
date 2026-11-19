@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"github.com/ggdream/microlight/pkg/viewport"
 	"net/url"
 	"path/filepath"
 	"slices"
@@ -49,9 +50,9 @@ func (app *chatApp) replyDeliverables(c *ui.Context, entry *turn, workspace stri
 			Radius(7).Background(errorFG.Alpha(.07)).Children(func() {
 			icon(c, "shield_error", errorFG, 16)
 			ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
-				ui.Text(c, locales.FileConflict()).FontSize(12).FontWeight(620).TextColor(errorFG)
-				ui.Text(c, path).FontSize(12).TextColor(muted).Selectable().FillWidth()
-				ui.Text(c, locales.FileConflictDetail()).FontSize(12).TextColor(muted).FillWidth()
+				ui.Text(c, locales.FileConflict()).FontSize(viewport.Font(c, 12)).FontWeight(620).TextColor(errorFG)
+				ui.Text(c, path).FontSize(viewport.Font(c, 12)).TextColor(muted).Selectable().FillWidth()
+				ui.Text(c, locales.FileConflictDetail()).FontSize(viewport.Font(c, 12)).TextColor(muted).FillWidth()
 			})
 		})
 	}
@@ -93,7 +94,7 @@ func (app *chatApp) replyDeliverables(c *ui.Context, entry *turn, workspace stri
 					toggle.Background(side)
 				}
 				toggle.Children(func() {
-					ui.Text(c, label).FontSize(13).FontWeight(610)
+					ui.Text(c, label).FontSize(viewport.Font(c, 13)).FontWeight(610)
 					angle := float32(90)
 					if *expanded {
 						angle = -90
@@ -109,6 +110,7 @@ func (app *chatApp) replyDeliverables(c *ui.Context, entry *turn, workspace stri
 }
 
 func (app *chatApp) deliverablesHeader(c *ui.Context, entry *turn, changes []preview.Change) {
+	layout := windowLayout(c)
 	label, glyph := locales.Deliverables(), "folder_open"
 	var totals diff.Lines
 	hasCounts := false
@@ -122,29 +124,32 @@ func (app *chatApp) deliverablesHeader(c *ui.Context, entry *turn, changes []pre
 			}
 		}
 	}
-	ui.Row(c).FillWidth().Padding(12).Gap(10).AlignItems(ui.Center).Children(func() {
+	ui.Row(c).FillWidth().Padding(layout.Y(12), layout.X(layout.Density(12, 9))).
+		Gap(layout.X(layout.Density(10, 6))).AlignItems(ui.Center).Children(func() {
 		ui.Box(c).Size(36, 36).Shrink(0).Radius(9).Background(side).
 			AlignItems(ui.Center).Justify(ui.Center).Children(func() { icon(c, glyph, muted, 19) })
 		ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
-			ui.Text(c, label).FontSize(14).FontWeight(650)
+			ui.Text(c, label).FontSize(viewport.Font(c, 14)).FontWeight(650)
 			if hasCounts {
 				preview.DiffCounts(c.Key("totals"), &totals)
 			}
 		})
 		if len(changes) != 0 {
 			label := locales.ArtifactViewChanges()
-			button := pointerButton(c.Key("review"), false).Label(label).Shrink(0).Padding(6, 9).
+			button := pointerButton(c.Key("review"), false).Label(label).Shrink(0).
+				MinHeight(layout.Target(30)).Padding(layout.Y(6), layout.X(9)).AlignItems(ui.Center).
 				Radius(8).Border(1, border)
 			if button.Hovered() {
 				button.Background(side)
 			}
-			button.Children(func() { ui.Text(c, label).FontSize(13).FontWeight(610) }).
+			button.Children(func() { ui.Text(c, label).FontSize(viewport.Font(c, 13)).FontWeight(610) }).
 				OnClick(func() { app.openRoundChanges(entry) })
 		}
 	})
 }
 
 func (app *chatApp) fileDeliverableRow(c *ui.Context, entry *turn, file preview.Change, workspace string) {
+	layout := windowLayout(c)
 	label := file.Path
 	if rel, err := filepath.Rel(workspace, file.Path); workspace != "" && err == nil && filepath.IsLocal(rel) {
 		label = rel
@@ -161,17 +166,17 @@ func (app *chatApp) fileDeliverableRow(c *ui.Context, entry *turn, file preview.
 		open = func() { app.openToolPreview(entry, file.Index) }
 	}
 
-	button := pointerButton(c, false).Label(label).Tooltip(path).FillWidth().MinHeight(34).
-		Padding(5, 8).Radius(6).Gap(8).AlignItems(ui.Center)
+	button := pointerButton(c, false).Label(label).Tooltip(path).FillWidth().MinHeight(layout.Target(34)).
+		Padding(layout.Y(5), layout.X(8)).Radius(6).Gap(layout.X(8)).AlignItems(ui.Center)
 	if button.Hovered() {
 		button.Background(side)
 	}
 	button.Children(func() {
 		ui.Row(c).Grow(1).MinWidth(0).AlignItems(ui.Center).Clip().Children(func() {
 			if directory != "" {
-				ui.Text(c, directory).MinWidth(0).SingleLine().Ellipsis("…").FontSize(13).TextColor(muted)
+				ui.Text(c, directory).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 13)).TextColor(muted)
 			}
-			ui.Text(c, name).MinWidth(0).SingleLine().Ellipsis("…").FontSize(13).TextColor(ink)
+			ui.Text(c, name).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 13)).TextColor(ink)
 		})
 		if file.Diff != nil {
 			preview.DiffCounts(c.Key("counts"), file.Diff)
@@ -180,12 +185,13 @@ func (app *chatApp) fileDeliverableRow(c *ui.Context, entry *turn, file preview.
 	if !filepath.IsAbs(path) {
 		return
 	}
-	theme.PopupContextMenu(button,
-		theme.PopupItem{Label: desktop.PreviewLabel(), Icon: icons.Menu("open"), OnSelect: quickLook},
-		theme.PopupItem{Label: locales.ArtifactReveal(), Icon: icons.Menu("folder_open"), OnSelect: func() {
+	items := []theme.PopupItem{{Label: desktop.PreviewLabel(), Icon: icons.Menu("open"), OnSelect: quickLook}}
+	if !desktop.Mobile {
+		items = append(items, theme.PopupItem{Label: locales.ArtifactReveal(), Icon: icons.Menu("folder_open"), OnSelect: func() {
 			mygo.Shell.ShowItemInFolder(path)
-		}},
-	)
+		}})
+	}
+	theme.PopupContextMenu(button, items...)
 }
 
 func (app *chatApp) overlappingWorkspace(chat *conversation) bool {
@@ -271,7 +277,7 @@ func (app *chatApp) imageDeliverableRow(c *ui.Context, item imageDeliverable) {
 		if title == "" {
 			title = locales.ImagePreview()
 		}
-		ui.Text(c, title).SingleLine().Ellipsis("…").FontSize(13).FontWeight(600).Grow(1).MinWidth(0)
+		ui.Text(c, title).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 13)).FontWeight(600).Grow(1).MinWidth(0)
 		select {
 		case <-image.done:
 			if image.bitmap != nil {
@@ -280,10 +286,10 @@ func (app *chatApp) imageDeliverableRow(c *ui.Context, item imageDeliverable) {
 				})
 				taskIconButton(c.Key("download"), locales.DownloadImage(), "download", func() { app.downloadImage(image) })
 			} else {
-				ui.Text(c, locales.PreviewUnavailable()).FontSize(11).TextColor(muted)
+				ui.Text(c, locales.PreviewUnavailable()).FontSize(viewport.Font(c, 11)).TextColor(muted)
 			}
 		default:
-			ui.Text(c, locales.ImagePreviewLoading()).FontSize(11).TextColor(muted)
+			ui.Text(c, locales.ImagePreviewLoading()).FontSize(viewport.Font(c, 11)).TextColor(muted)
 		}
 	})
 }

@@ -1,6 +1,8 @@
 package chat
 
 import (
+	"github.com/ggdream/microlight/internal/theme"
+	"github.com/ggdream/microlight/pkg/viewport"
 	"time"
 
 	"github.com/ggdream/microlight/assets/locales"
@@ -52,6 +54,26 @@ func (app *chatApp) sidebarDivider(c *ui.Context, limit float32) float32 {
 	return shown
 }
 
+func (app *chatApp) historyDrawer(c *ui.Context, windowWidth float32, selected *conversation) {
+	const drawerMaxWidth, scrimMinWidth = 304, 56
+	width := min(float32(drawerMaxWidth), windowWidth-scrimMinWidth)
+	closeDrawer := func() { app.compactHistory = false }
+	top, _, bottom, left := c.SafeArea()
+	ui.Overlay(c, func() {
+		layer := ui.Row(c).Absolute().Left(0).Right(0).Top(0).Bottom(0).
+			Background(ui.RGBA(0, 0, 0, .32)).Modal()
+		if layer.OverlayShortcut(0, ui.KeyEscape) {
+			closeDrawer()
+		}
+		layer.Children(func() {
+			ui.Box(c.Key("panel")).Width(width+left).FillHeight().Shrink(0).Background(side).Clip().
+				Padding(top, 0, bottom, left).Children(func() { app.sidebar(c.Key("history"), selected, "", width) })
+			pointerButton(c.Key("scrim"), false).Label(locales.CollapseSidebar()).Grow(1).FillHeight().
+				OnClick(closeDrawer)
+		})
+	})
+}
+
 func (app *chatApp) sidebar(c *ui.Context, selected *conversation, shortcut string, width float32) {
 	if width == minSidebarWidth {
 		ui.Column(c).Fill().AlignItems(ui.Center).Padding(20, 0, 18).Background(side).Children(func() {
@@ -62,27 +84,37 @@ func (app *chatApp) sidebar(c *ui.Context, selected *conversation, shortcut stri
 		return
 	}
 	const sidebarInset = 14
-	ui.Themed(c, conversationMenuTheme).Fill().Children(func() {
-		ui.Column(c).Fill().Padding(20, 0, 18, sidebarInset).Background(side).Children(func() {
+	layout := windowLayout(c)
+	background := side
+	if layout.Compact() {
+		background = ui.Transparent
+	}
+	bottomInset := layout.Y(layout.Density(18, 8))
+	ui.Themed(c, theme.PopupTheme(c)).Fill().Background(ui.Transparent).Children(func() {
+		ui.Column(c).Fill().Padding(layout.Y(20), 0, bottomInset, sidebarInset).Background(background).Children(func() {
 			ui.Row(c).AlignItems(ui.Center).Gap(8).Padding(0, 0, 0, 4).Margin(0, sidebarInset, 24, 0).Children(func() {
 				ui.Image(c, app.brandIcon).Size(36, 36).Shrink(0).Fit(ui.Contain)
-				ui.Text(c, locales.AppName()).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(16).FontWeight(660)
-				app.sidebarToggle(c, false)
+				ui.Text(c, locales.AppName()).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 16)).FontWeight(660)
+				if layout.Compact() {
+					app.compactNavButton(c.Key("close-history"), locales.BackToChat(), compactHistoryIcon, func() { app.compactHistory = false })
+				} else {
+					app.sidebarToggle(c, false)
+				}
 			})
-			button := pointerButton(c, false).Label(locales.NewChat()).AlignSelf(ui.Stretch).Height(38).PaddingX(10).
+			button := pointerButton(c, false).Label(locales.NewChat()).AlignSelf(ui.Stretch).Height(windowLayout(c).Target(38)).PaddingX(10).
 				Margin(0, sidebarInset, 0, 0).Radius(8).Background(white).Border(1, border).AlignItems(ui.Center).Gap(7)
 			if button.Hovered() {
 				button.Background(tint)
 			}
 			button.Children(func() {
 				icon(c, "plus", accent, 15)
-				ui.Text(c, locales.NewChat()).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(13).FontWeight(610)
-				if width >= 180 {
-					ui.Text(c, shortcut).FontSize(10).TextColor(muted)
+				ui.Text(c, locales.NewChat()).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 13)).FontWeight(610)
+				if width >= 180 && shortcut != "" {
+					ui.Text(c, shortcut).FontSize(viewport.Font(c, 10)).TextColor(muted)
 				}
 			}).OnClick(func() { app.selectChat("") })
 
-			ui.Text(c, locales.ChatHistory()).FontSize(11).FontWeight(620).TextColor(muted).PaddingX(7).Margin(24, 0, 8)
+			ui.Text(c, locales.ChatHistory()).FontSize(viewport.Font(c, 12)).FontWeight(620).TextColor(muted).PaddingX(7).Margin(windowLayout(c).Y(24), 0, windowLayout(c).Y(8))
 			listTheme := *c.Theme()
 			listTheme.ScrollbarWidth = 4
 			listTheme.Scrollbar = muted.Alpha(0.36)
@@ -93,7 +125,7 @@ func (app *chatApp) sidebar(c *ui.Context, selected *conversation, shortcut stri
 					offset.Apply(ui.Column(c)).FillWidth().Padding(0, sidebarInset, 0, 0).Gap(3).Children(func() {
 						chats := app.sidebarChats()
 						if len(chats) == 0 {
-							ui.Text(c, locales.NoChats()).FontSize(12).Padding(7).TextColor(muted)
+							ui.Text(c, locales.NoChats()).FontSize(viewport.Font(c, 11)).FontWeight(400).Padding(7).TextColor(muted.Alpha(.8))
 						}
 						for i, chat := range chats {
 							if i > 0 && chats[i-1].pinned && !chat.pinned {
@@ -104,10 +136,10 @@ func (app *chatApp) sidebar(c *ui.Context, selected *conversation, shortcut stri
 					})
 				})
 			})
-			ui.Row(c).AlignSelf(ui.Stretch).Margin(0, sidebarInset, 0, 0).Padding(8, 0, 0).Gap(8).AlignItems(ui.Center).
+			ui.Row(c).AlignSelf(ui.Stretch).Margin(0, sidebarInset, 0, 0).Padding(layout.Density(8, layout.Y(8)), 0, 0).Gap(8).AlignItems(ui.Center).
 				BorderWidth(1, 0, 0, 0).BorderColor(border).Children(func() {
 				app.sidebarSettingsButton(c)
-				ui.Text(c, locales.HistoryLocal()).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(11).TextColor(muted)
+				ui.Text(c, locales.HistoryLocal()).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, layout.Density(11, 12))).TextColor(muted)
 			})
 		})
 	})
@@ -140,7 +172,7 @@ func (app *chatApp) sidebarSettingsButton(c *ui.Context) {
 		button.Background(hover)
 	}
 	button.Children(func() {
-		icon(c, "settings", color, 16)
+		icon(c, "settings", color, windowLayout(c).Density(16, 18))
 	}).OnClick(app.openSettings)
 }
 

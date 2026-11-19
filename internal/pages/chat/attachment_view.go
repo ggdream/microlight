@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"github.com/ggdream/microlight/pkg/viewport"
 	"path/filepath"
 	"strings"
 
@@ -13,11 +14,43 @@ import (
 )
 
 func (app *chatApp) attachmentTile(c *ui.Context, attachment *attachment.File, size float32, remove func()) {
-	ui.Themed(c, theme.MenuTheme).Background(ui.Transparent).Size(size, size).Shrink(0).
-		Children(func() { app.attachmentCard(c.Key("file"), attachment, size, remove) })
+	touch := touchControls(c)
+	width := size
+	if touch && remove != nil {
+		width += 44
+	}
+	ui.Themed(c, theme.PopupTheme(c)).Background(ui.Transparent).Size(width, size).Shrink(0).
+		Children(func() { app.attachmentCard(c.Key("file"), attachment, size, touch, remove) })
 }
 
-func (app *chatApp) attachmentCard(c *ui.Context, attachment *attachment.File, size float32, remove func()) {
+func (app *chatApp) attachmentCard(c *ui.Context, attachment *attachment.File, size float32, touch bool, remove func()) {
+	tile := ui.Row(c).Fill().AlignItems(ui.Center)
+	showRemove := remove != nil && (touch || tile.Hovered() || tile.FocusWithin())
+	tile.Children(func() {
+		app.attachmentPreviewTile(c.Key("preview"), attachment, size, touch, remove)
+		if !showRemove {
+			return
+		}
+		button := pointerButton(c.Key("remove"), false).Label(locales.RemoveAttachment(attachment.Name)).Center().Shrink(0)
+		if touch {
+			button.Size(44, 44).Radius(7)
+			button.Children(func() { icon(c, "close", muted, 16) })
+			if button.Hovered() {
+				button.Background(side)
+			}
+		} else {
+			button.Absolute().Top(3).Right(3).Size(18, 18).Radius(9).Background(ui.RGBA(20, 25, 23, .8)).
+				Border(1, ui.RGBA(255, 255, 255, .65))
+			button.Children(func() { icon(c, "close", white, 11) })
+			if button.Hovered() {
+				button.Background(ink)
+			}
+		}
+		button.OnClick(remove)
+	})
+}
+
+func (app *chatApp) attachmentPreviewTile(c *ui.Context, attachment *attachment.File, size float32, touch bool, remove func()) {
 	isImage := attachment.IsImage()
 	isText := !isImage && attachment.IsText()
 	tile := ui.Column(c).Size(size, size).Shrink(0).Radius(7).Clip().Background(side).
@@ -27,6 +60,9 @@ func (app *chatApp) attachmentCard(c *ui.Context, attachment *attachment.File, s
 		tile.Tooltip(attachment.Path)
 	}
 	preview := func() { app.showPreviewError(app.quickLookAttachment(attachment)) }
+	if touch {
+		tile.Role(ui.RoleButton).OnClick(preview)
+	}
 	if tile.Focused() && tile.Shortcut(0, ui.KeySpace) {
 		preview()
 	}
@@ -34,10 +70,8 @@ func (app *chatApp) attachmentCard(c *ui.Context, attachment *attachment.File, s
 		tile.Background(white).Border(1, border)
 	}
 	fit := ui.Contain
-	showRemove := false
 	if remove != nil {
 		fit = ui.Cover
-		showRemove = tile.Hovered() || tile.FocusWithin()
 	}
 	tile.Children(func() {
 		if isImage {
@@ -50,7 +84,7 @@ func (app *chatApp) attachmentCard(c *ui.Context, attachment *attachment.File, s
 			ui.Box(c).FillWidth().Grow(1).MinHeight(0).Clip().Children(func() {
 				if isText {
 					excerpt := strings.TrimSpace(strings.ToValidUTF8(string(attachment.Data[:min(len(attachment.Data), 120)]), ""))
-					ui.Text(c, excerpt).FillWidth().Padding(5).Font("monospace").FontSize(7).TextColor(muted).
+					ui.Text(c, excerpt).FillWidth().Padding(5).Font("monospace").FontSize(viewport.Font(c, 7)).TextColor(muted).
 						MaxLines(3).Ellipsis("…")
 					return
 				}
@@ -68,18 +102,11 @@ func (app *chatApp) attachmentCard(c *ui.Context, attachment *attachment.File, s
 					FontSize(9).TextColor(ink)
 			})
 		}
-		if showRemove {
-			button := pointerButton(c, false).Label(locales.RemoveAttachment(attachment.Name)).Absolute().Top(3).Right(3).
-				Width(18).Height(18).Radius(9).Background(ui.RGBA(20, 25, 23, .8)).
-				Border(1, ui.RGBA(255, 255, 255, .65)).AlignItems(ui.Center).Justify(ui.Center)
-			button.Children(func() { icon(c, "close", white, 11) })
-			if button.Hovered() {
-				button.Background(ink)
-			}
-			button.OnClick(remove)
-		}
 	})
 	items := []theme.PopupItem{{Label: desktop.PreviewLabel(), Icon: icons.Menu("open"), OnSelect: preview}}
+	if desktop.Mobile && isImage {
+		items[0] = theme.PopupItem{Label: locales.ShareImage(), Icon: icons.Menu("share"), OnSelect: func() { app.shareImage(attachment.Name, attachment.Data) }}
+	}
 	if remove != nil {
 		items = append(items, theme.PopupItem{Label: locales.DetachFile(), Icon: icons.Menu("close"), OnSelect: remove})
 	}

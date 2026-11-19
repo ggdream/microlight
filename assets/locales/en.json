@@ -81,7 +81,13 @@
   "diffUnchangedLines": "{count} unchanged lines",
   "diffNoNewline": "No newline at end of file",
   "closeFileTab": "Close {name}",
-  "@closeFileTab": {"placeholders": {"name": {"type": "String"}}},
+  "@closeFileTab": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "closePreview": "Close Preview",
   "imagePreview": "Image Preview",
   "imagePreviewLoading": "Loading image…",
@@ -422,6 +428,8 @@
   "noSkillsFound": "No skills found.",
   "skillsReadFailed": "Unable to load skills.",
   "mcpSettingsHint": "Add a Streamable HTTP endpoint or launch a local Stdio server.",
+  "mcpMobileSettingsHint": "Connect tools through a Streamable HTTP endpoint.",
+  "skillDirectories": "Skill directories",
   "mcpServers": "Servers",
   "addMCPServer": "Add server",
   "removeMCPServer": "Remove",
@@ -435,7 +443,13 @@
   "mcpToolTimeout": "Timeout",
   "mcpNoTimeout": "No limit",
   "mcpTimeoutMinutes": "{minutes} min",
-  "@mcpTimeoutMinutes": {"placeholders": {"minutes": {"type": "int"}}},
+  "@mcpTimeoutMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "mcpToolTimedOut": "The MCP tool exceeded the configured timeout.",
   "mcpCommand": "Command",
   "mcpArgs": "Arguments (JSON array)",
@@ -514,6 +528,7 @@
   "testNotificationUnavailable": "Desktop notifications are unavailable in this environment.",
   "testNotificationFailed": "Could not send the test notification.",
   "quickLookFile": "Quick Look",
+  "shareFile": "Share file",
   "openWithDefaultApp": "Open with default app",
   "appUpdates": "Software updates",
   "checkForUpdates": "Check for updates",
@@ -541,8 +556,20 @@
   "artifactFilesEdited": "{count, plural, one{# file edited} other{# files edited}}",
   "artifactShowMore": "{count, plural, one{Show # more file} other{Show # more files}}",
   "artifactShowLess": "Show fewer files",
-  "@artifactFilesEdited": {"placeholders":{"count":{"type":"int"}}},
-  "@artifactShowMore": {"placeholders":{"count":{"type":"int"}}},
+  "@artifactFilesEdited": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@artifactShowMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "chatInfo": "Conversation Info",
   "chatCreated": "Created",
   "chatFirstRecorded": "First recorded message",
@@ -576,5 +603,9 @@
   "statisticsMilliseconds": "{value} ms",
   "statisticsSeconds": "{value} s",
   "statisticsUsageUnavailable": "Token usage unavailable",
-  "statisticsUsagePartial": "Token usage is partial"
+  "statisticsUsagePartial": "Token usage is partial",
+  "shareImage": "Share",
+  "shareImageFailed": "Could not share the image.",
+  "previewImageAction": "Preview",
+  "saveImageAction": "Save"
 }

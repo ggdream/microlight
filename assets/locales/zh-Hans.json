@@ -81,7 +81,13 @@
   "diffUnchangedLines": "{count} 行未改动",
   "diffNoNewline": "文件末尾无换行符",
   "closeFileTab": "关闭 {name}",
-  "@closeFileTab": {"placeholders": {"name": {"type": "String"}}},
+  "@closeFileTab": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "closePreview": "关闭预览",
   "imagePreview": "图片预览",
   "imagePreviewLoading": "正在加载图片…",
@@ -326,6 +332,8 @@
   "noSkillsFound": "没有找到技能。",
   "skillsReadFailed": "无法读取技能。",
   "mcpSettingsHint": "添加 Streamable HTTP 地址，或通过 Stdio 启动本地服务。",
+  "mcpMobileSettingsHint": "通过 Streamable HTTP 地址连接工具服务。",
+  "skillDirectories": "技能目录",
   "mcpServers": "已添加的服务",
   "addMCPServer": "添加服务",
   "removeMCPServer": "移除",
@@ -417,6 +425,7 @@
   "testNotificationUnavailable": "当前环境不支持桌面通知。",
   "testNotificationFailed": "发送测试通知失败。",
   "quickLookFile": "快速查看",
+  "shareFile": "分享文件",
   "openWithDefaultApp": "用默认应用打开",
   "appUpdates": "软件更新",
   "checkForUpdates": "检查更新",
@@ -444,8 +453,20 @@
   "artifactFilesEdited": "已编辑 {count} 个文件",
   "artifactShowMore": "再显示 {count} 个文件",
   "artifactShowLess": "收起文件",
-  "@artifactFilesEdited": {"placeholders":{"count":{"type":"int"}}},
-  "@artifactShowMore": {"placeholders":{"count":{"type":"int"}}},
+  "@artifactFilesEdited": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@artifactShowMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "chatInfo": "会话信息",
   "chatCreated": "创建时间",
   "chatFirstRecorded": "最早消息记录",
@@ -479,5 +500,9 @@
   "statisticsMilliseconds": "{value} 毫秒",
   "statisticsSeconds": "{value} 秒",
   "statisticsUsageUnavailable": "供应商未返回 Token 用量",
-  "statisticsUsagePartial": "部分调用未返回 Token 用量"
+  "statisticsUsagePartial": "部分调用未返回 Token 用量",
+  "shareImage": "分享",
+  "shareImageFailed": "无法分享图片。",
+  "previewImageAction": "预览",
+  "saveImageAction": "保存"
 }

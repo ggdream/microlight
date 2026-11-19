@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"errors"
+	"github.com/ggdream/microlight/internal/desktop"
 	"net/http"
 	"time"
 
@@ -49,6 +50,9 @@ func (ext *agentExtensions) load(ctx context.Context, config modelSettings, skil
 	}
 	ext.targets = make(map[string]localtools.MCPTarget)
 	for _, server := range config.MCPServers {
+		if desktop.Mobile && server.Transport == mcptools.Stdio {
+			continue
+		}
 		if err := ext.loadMCP(ctx, server, network); err != nil {
 			return &extensionError{server: server.Name, cause: err}
 		}

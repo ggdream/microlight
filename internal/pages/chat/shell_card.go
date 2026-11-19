@@ -3,6 +3,7 @@ package chat
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/ggdream/microlight/pkg/viewport"
 	"strconv"
 	"strings"
 	"time"
@@ -47,7 +48,7 @@ func shellCard(c *ui.Context, activity timeline.Entry) {
 			if glyph != "" {
 				icon(c, glyph, color, 13)
 			}
-			ui.Text(c, label).FontSize(11).TextColor(color)
+			ui.Text(c, label).FontSize(viewport.Font(c, 11)).TextColor(color)
 		})
 	})
 }
@@ -77,18 +78,20 @@ func toolDetailText(c *ui.Context, label, text string) {
 		return
 	}
 	ui.Column(c).FillWidth().Gap(3).Children(func() {
-		ui.Text(c, label).FontSize(11).TextColor(muted)
+		ui.Text(c, label).FontSize(viewport.Font(c, 11)).TextColor(muted)
 		toolDetailCode(c, text, muted)
 	})
 }
 
 func toolDetailsCard(c *ui.Context, title, copyText string, content, footer func()) {
-	card := ui.Column(c).FillWidth().Gap(6).Padding(8, 11, 7).Radius(10).Border(1, border).
+	layout := windowLayout(c)
+	card := ui.Column(c).FillWidth().Gap(layout.Y(6)).Padding(layout.Y(8), layout.X(11), layout.Y(7)).Radius(10).Border(1, border).
 		Background(ui.Hex("#F0F2F1")).Clip()
 	copied := ui.Local(card, "copied-until", func() time.Time { return time.Time{} })
 	card.Children(func() {
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Justify(ui.SpaceBetween).Children(func() {
-			ui.Text(c, title).FontSize(12).FontWeight(560).TextColor(muted)
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(layout.X(6)).Children(func() {
+			ui.Text(c, title).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").Tooltip(title).
+				FontSize(layout.Text(12)).FontWeight(560).TextColor(muted)
 			label, glyph := locales.Copy(), "copy"
 			if remaining := copied.Sub(c.Now()); remaining > 0 {
 				label, glyph = locales.Copied(), "check"
@@ -101,11 +104,11 @@ func toolDetailsCard(c *ui.Context, title, copyText string, content, footer func
 		})
 		scroll, offset := elastic.Scroll(c.Key("tool-transcript"))
 		var transcript ui.Element
-		scroll.FillWidth().MaxHeight(204).Children(func() {
+		scroll.FillWidth().MaxHeight(layout.Y(204)).Children(func() {
 			transcript = offset.Apply(ui.Column(c)).FillWidth().Shrink(0).Gap(7).Padding(2, 0, 4).Children(content)
 		})
-		viewport, content := scroll.Bounds(), transcript.Bounds()
-		fadeTop, fadeBottom := content.Y < viewport.Y-1, content.Y+content.H > viewport.Y+viewport.H+1
+		visibleArea, content := scroll.Bounds(), transcript.Bounds()
+		fadeTop, fadeBottom := content.Y < visibleArea.Y-1, content.Y+content.H > visibleArea.Y+visibleArea.H+1
 		if fadeTop || fadeBottom {
 			visible := ui.RGB(0, 0, 0)
 			top, bottom := visible, visible
@@ -126,7 +129,7 @@ func toolDetailsCard(c *ui.Context, title, copyText string, content, footer func
 }
 
 func toolDetailCode(c *ui.Context, text string, color ui.Color) {
-	ui.Text(c, text).FillWidth().Font("monospace").FontSize(12).TextColor(color).Selectable()
+	ui.Text(c, text).FillWidth().Font("monospace").FontSize(viewport.Font(c, 12)).TextColor(color).Selectable()
 }
 
 func shellResultLabel(activity timeline.Entry) (string, string, ui.Color) {

@@ -2,13 +2,16 @@ package settings
 
 import (
 	"encoding/json"
+	"github.com/ggdream/microlight/pkg/viewport"
 	"slices"
 	"strings"
 
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/desktop"
 	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/internal/mcptools"
 	"github.com/ggdream/microlight/internal/theme"
+	"github.com/ggdream/microlight/pkg/elastic"
 
 	"github.com/egoist/mygo/ui"
 )
@@ -46,14 +49,18 @@ func (form *MCPForm) HasChanges(servers []mcptools.Server) bool {
 }
 
 func (form *MCPForm) View(c *ui.Context, icons asseticon.Set, servers []mcptools.Server, save func([]mcptools.Server) error, navigate func(func())) {
-	ui.Column(c).FillWidth().Gap(12).Children(func() {
-		ui.Column(c).Gap(4).Children(func() {
-			ui.Text(c, "MCP").FontSize(18).FontWeight(660)
-			ui.Text(c, locales.McpSettingsHint()).FontSize(13).TextColor(theme.Muted)
+	ui.Column(c).FillWidth().Gap(settingGap(c, 12)).Children(func() {
+		ui.Column(c).Gap(settingGap(c, 4)).Children(func() {
+			ui.Text(c, "MCP").FontSize(viewport.Font(c, 18)).FontWeight(660)
+			hint := locales.McpSettingsHint()
+			if desktop.Mobile {
+				hint = locales.McpMobileSettingsHint()
+			}
+			ui.Text(c, hint).FontSize(viewport.Font(c, 13)).TextColor(theme.Muted)
 		})
 		form.serverList(c.Key("servers"), icons, servers, save, navigate)
 		if form.mcpError != "" && !form.adding && form.mcpEditing == "" {
-			ui.Text(c, form.mcpError).FontSize(12).TextColor(theme.ErrorFG)
+			ui.Text(c, form.mcpError).FontSize(viewport.Font(c, 12)).TextColor(theme.ErrorFG)
 		}
 		if !form.adding && form.mcpEditing == "" {
 			return
@@ -71,15 +78,16 @@ func (form *MCPForm) View(c *ui.Context, icons asseticon.Set, servers []mcptools
 				Field(c, locales.McpCommand(), "/opt/homebrew/bin/uvx", &form.command)
 				Field(c, locales.McpArgs(), `["my-mcp-server"]`, &form.args)
 			} else {
-				Field(c, "URL", "https://example.com/mcp", &form.endpoint)
+				Field(c, "URL", "https://example.com/mcp", &form.endpoint).
+					Keyboard(ui.KeyboardURL).Capitalize(ui.CapitalizeNone).Autocorrect(false)
 				form.headersControl(c, icons)
 			}
-			ui.Row(c).Gap(8).Children(func() {
+			ui.Row(c).FillWidth().Wrap().Gap(settingGap(c, 8)).Children(func() {
 				ActionButton(c.Key("submit"), icons, submit, glyph, false).OnClick(func() { form.submit(servers, save) })
 				ActionButton(c.Key("cancel"), icons, locales.Cancel(), "close", false).OnClick(form.reset)
 			})
 			if form.mcpError != "" {
-				ui.Text(c, form.mcpError).FontSize(12).TextColor(theme.ErrorFG)
+				ui.Text(c, form.mcpError).FontSize(viewport.Font(c, 12)).TextColor(theme.ErrorFG)
 			}
 		})
 		if form.revealEditor {
@@ -94,8 +102,12 @@ func (form *MCPForm) transportControl(c *ui.Context, icons asseticon.Set) {
 	if selected == "" {
 		selected = mcptools.HTTP
 	}
+	options := []mcptools.Transport{mcptools.HTTP}
+	if !desktop.Mobile || selected == mcptools.Stdio {
+		options = append(options, mcptools.Stdio)
+	}
 	settingsSelect(c.Key("mcp-transport"), icons, locales.McpTransport(), &selected,
-		[]mcptools.Transport{mcptools.HTTP, mcptools.Stdio}, mcptools.Transport.Label, func() {
+		options, mcptools.Transport.Label, func() {
 			form.transport, form.mcpError = selected, ""
 		})
 }
@@ -122,28 +134,48 @@ func mcpTimeoutLabel(seconds uint32) string {
 }
 
 func settingsSelect[T comparable](c *ui.Context, icons asseticon.Set, label string, selected *T, options []T, optionLabel func(T) string, change func()) {
-	ui.Row(c).AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(10).Children(func() {
-		ui.Text(c, label).FontSize(12).FontWeight(610)
+	layout := settingsLayout(c)
+	ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(settingGap(c, 10)).Children(func() {
+		ui.Text(c, label).FontSize(viewport.Font(c, 12)).FontWeight(610)
 		dropdown := ui.SelectBase(c.Key("select"), selected)
-		dropdown.Trigger.Label(label).Value(optionLabel(*selected)).Width(168).Height(35).PaddingX(10).
-			AlignItems(ui.Center).Justify(ui.SpaceBetween).Border(1, theme.Border).Radius(7).
+		dropdown.Trigger.Label(label).Value(optionLabel(*selected)).Width(layout.X(168)).MaxWidthPercent(100).Height(SelectHeight(c)).PaddingX(settingX(c, 10)).
+			AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(settingGap(c, 6)).Border(1, theme.Border).Radius(7).
 			Background(theme.Canvas).Cursor(ui.CursorPointer).FocusRingColor(theme.Accent).
 			Children(func() {
-				ui.Text(c, optionLabel(*selected)).FontSize(13)
-				ui.Icon(c, icons.SVG("ios_chevron_right")).Size(14, 14).Rotate(90).TextColor(theme.Muted)
+				ui.Text(c, optionLabel(*selected)).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 13))
+				ui.Icon(c, icons.SVG("ios_chevron_right")).Size(14, 14).Shrink(0).Rotate(90).TextColor(theme.Muted)
 			}).OnChange(change)
 		dropdown.Popup(func(panel ui.Element) {
-			panel.Padding(4).Gap(2).Background(theme.White).Border(1, theme.Border).Radius(8)
-			for _, option := range options {
-				value := optionLabel(option)
-				item := dropdown.Item(option).Label(value).Padding(6, 8).Radius(5).Cursor(ui.CursorPointer)
-				if item.Highlighted() {
-					item.Background(theme.Tint)
+			padding := settingY(c, 4)
+			panel.Padding(padding, settingX(c, 4)).Background(theme.White).Border(1, theme.Border).Radius(8)
+			room := layout.FitHeight(480, 8)
+			anchor := dropdown.Trigger.LayoutBounds()
+			if anchor.H > 0 {
+				top, _, _, _ := c.SafeArea()
+				above := anchor.Y - top
+				below := top + layout.Height - anchor.Y - anchor.H
+				optionHeight := layout.Target(28) + settingGap(c, 2)
+				if above > below && below < float32(len(options))*optionHeight+2*padding {
+					panel.AttachTo(dropdown.Trigger, ui.AnchorTopStart, ui.AnchorBottomStart)
 				}
-				item.Children(func() {
-					ui.Text(c, value).FontSize(13)
-				})
+				room = min(room, max(above, below)-8)
 			}
+			scroll, offset := elastic.Scroll(c.Key("options"))
+			scroll.Shrink(1).MinHeight(0).MaxHeight(max(1, room-2*padding-2)).FillWidth().Children(func() {
+				offset.Apply(ui.Column(c)).FillWidth().Gap(settingGap(c, 2)).Children(func() {
+					for _, option := range options {
+						value := optionLabel(option)
+						item := dropdown.Item(option).Label(value).FillWidth().MinHeight(layout.Target(28)).AlignItems(ui.Center).
+							Padding(settingY(c, 6), settingX(c, 8)).Radius(5).Cursor(ui.CursorPointer)
+						if item.Highlighted() {
+							item.Background(theme.Tint)
+						}
+						item.Children(func() {
+							ui.Text(c, value).MinWidth(0).FontSize(viewport.Font(c, 13))
+						})
+					}
+				})
+			})
 		})
 	})
 }

@@ -3,6 +3,7 @@ package preview
 import (
 	"cmp"
 	"encoding/json"
+	"github.com/ggdream/microlight/pkg/viewport"
 	"io"
 	"os"
 	"path/filepath"
@@ -43,8 +44,8 @@ func NewDirectory(path string, output *string) *Directory {
 func (dir *Directory) View(c *ui.Context, icons asseticon.Set, name string, update func(func()), open func(string)) {
 	scroll, offset := elastic.Scroll(c)
 	scroll.Grow(1).MinHeight(0).Children(func() {
-		offset.Apply(ui.Themed(c, theme.MenuTheme).Background(ui.Transparent).FillWidth().Padding(5, 4)).Children(func() {
-			if folderRow(c.Key("root"), icons, name, dir.path, treeInset(0), true) {
+		offset.Apply(ui.Themed(c, theme.PopupTheme(c)).Background(ui.Transparent).FillWidth().Padding(5, 4)).Children(func() {
+			if folderRow(c.Key("root"), icons, name, dir.path, treeInset(c, 0), true) {
 				dir.branch(c.Key("entries"), icons, dir.path, 0, update, open)
 			}
 		})
@@ -54,8 +55,9 @@ func (dir *Directory) View(c *ui.Context, icons asseticon.Set, name string, upda
 func (dir *Directory) branch(c *ui.Context, icons asseticon.Set, path string, depth int, update func(func()), open func(string)) {
 	branch := ui.Column(c).FillWidth().MinWidth(0)
 	if depth < 8 {
+		inset := treeInset(c, depth)
 		branch.Draw(func(p *ui.Painter, box ui.Rect) {
-			p.Fill(ui.Rect{X: box.X + treeInset(depth) + 6, Y: box.Y, W: 1, H: box.H}, theme.Border, 0)
+			p.Fill(ui.Rect{X: box.X + inset + 6, Y: box.Y, W: 1, H: box.H}, theme.Border, 0)
 		})
 	}
 	branch.Children(func() { dir.rows(c, icons, path, depth+1, update, open) })
@@ -63,9 +65,9 @@ func (dir *Directory) branch(c *ui.Context, icons asseticon.Set, path string, de
 
 func (dir *Directory) rows(c *ui.Context, icons asseticon.Set, path string, depth int, update func(func()), open func(string)) {
 	listing := dir.load(path, update)
-	inset := treeInset(depth)
+	inset := treeInset(c, depth)
 	note := func(text string) {
-		ui.Text(c, text).FontSize(12).TextColor(theme.Muted).Padding(5, 7, 5, inset+17)
+		ui.Text(c, text).FontSize(viewport.Font(c, 12)).TextColor(theme.Muted).Padding(5, 7, 5, inset+17)
 	}
 	switch {
 	case listing.pending:

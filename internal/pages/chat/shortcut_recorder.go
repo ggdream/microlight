@@ -2,6 +2,7 @@ package chat
 
 import (
 	"fmt"
+	"github.com/ggdream/microlight/pkg/viewport"
 	"runtime"
 	"slices"
 	"strings"
@@ -14,7 +15,7 @@ func (app *chatApp) shortcutSettings(c *ui.Context) {
 	ui.Column(c).FillWidth().Background(white).Radius(13).Border(1, border).
 		Padding(12, 16).Gap(6).Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).Children(func() {
-			ui.Text(c, locales.DesktopShortcut()).Grow(1).MinWidth(0).FontSize(15).FontWeight(660)
+			ui.Text(c, locales.DesktopShortcut()).Grow(1).MinWidth(0).FontSize(viewport.Font(c, 15)).FontWeight(660)
 			app.shortcutRecorder(c.Key("record"))
 			if app.desktop.Shortcut != "" {
 				label := locales.ClearDesktopShortcut()
@@ -31,11 +32,11 @@ func (app *chatApp) shortcutSettings(c *ui.Context) {
 		})
 		switch {
 		case app.shortcutRecording:
-			ui.Text(c, locales.CancelShortcutHint()).FontSize(11).TextColor(muted)
+			ui.Text(c, locales.CancelShortcutHint()).FontSize(viewport.Font(c, 11)).TextColor(muted)
 		case app.shortcutError:
-			ui.Text(c, locales.DesktopShortcutFailed()).FontSize(12).TextColor(errorFG)
+			ui.Text(c, locales.DesktopShortcutFailed()).FontSize(viewport.Font(c, 12)).TextColor(errorFG)
 		case app.desktop.Shortcut != "" && app.actualShortcut == "":
-			ui.Text(c, locales.DesktopShortcutUnbound()).FontSize(12).TextColor(muted)
+			ui.Text(c, locales.DesktopShortcutUnbound()).FontSize(viewport.Font(c, 12)).TextColor(muted)
 		}
 	})
 }
@@ -68,14 +69,14 @@ func (app *chatApp) shortcutRecorder(c *ui.Context) {
 	record.Children(func() {
 		switch {
 		case recording:
-			ui.Text(c, locales.PressShortcutKeys()).FontSize(12).TextColor(accent)
+			ui.Text(c, locales.PressShortcutKeys()).FontSize(viewport.Font(c, 12)).TextColor(accent)
 		case len(caps) == 0:
-			ui.Text(c, locales.RecordDesktopShortcut()).FontSize(12).TextColor(muted)
+			ui.Text(c, locales.RecordDesktopShortcut()).FontSize(viewport.Font(c, 12)).TextColor(muted)
 		default:
 			for _, key := range caps {
 				ui.Box(c).MinWidth(22).Height(23).PaddingX(5).Center().Radius(4).
 					Background(white).Border(1, border).Children(func() {
-					ui.Text(c, key).FontSize(12).FontWeight(580).TextColor(ink)
+					ui.Text(c, key).FontSize(viewport.Font(c, 12)).FontWeight(580).TextColor(ink)
 				})
 			}
 		}

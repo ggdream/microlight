@@ -3,6 +3,7 @@ package theme
 import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/viewport"
 )
 
 var MenuTheme = func() *ui.Theme {
@@ -12,19 +13,49 @@ var MenuTheme = func() *ui.Theme {
 	return t
 }()
 
+func PopupTheme(c *ui.Context) *ui.Theme {
+	t := *MenuTheme
+	t.FontSize = viewport.Font(c, t.FontSize)
+	return &t
+}
+
 type PopupItem struct {
 	Label    string
 	Icon     *mygo.MenuIcon
 	Disabled bool
+	Selected bool
 	OnSelect func()
 }
 
 // PopupMenu opens an icon-and-text menu above its trigger.
 func PopupMenu(c *ui.Context, trigger func(*ui.Context) ui.Element, items ...PopupItem) {
-	ui.Themed(c, MenuTheme).Background(ui.Transparent).Shrink(0).Children(func() {
+	PopupMenuAt(c, trigger, ui.PopoverMenuButtonOptions{At: ui.AnchorTopStart, Self: ui.AnchorBottomStart}, items...)
+}
+
+// PopupMenuAt opens the shared popup with the specified placement.
+func PopupMenuAt(c *ui.Context, trigger func(*ui.Context) ui.Element, placement ui.PopoverMenuButtonOptions, items ...PopupItem) {
+	ui.Themed(c, PopupTheme(c)).Background(ui.Transparent).Shrink(0).Children(func() {
+		var rowIndex int
+		panelStyle, itemStyle := placement.Panel, placement.Item
+		placement.Panel = func(panel ui.Element) {
+			rowIndex = 0
+			if panelStyle != nil {
+				panelStyle(panel)
+			}
+		}
+		// MyGo invokes the row style in display order for this flat menu.
+		placement.Item = func(row ui.Element) {
+			if itemStyle != nil {
+				itemStyle(row)
+			}
+			if rowIndex < len(items) && items[rowIndex].Selected {
+				row.AccessSelected(true).Background(Tint).TextColor(Accent).Radius(7)
+			}
+			rowIndex++
+		}
 		trigger(c.Key("trigger")).PopoverMenuButton(func(menu *ui.Menu) {
 			popupItems(menu, items)
-		}, ui.PopoverMenuButtonOptions{At: ui.AnchorTopStart, Self: ui.AnchorBottomStart})
+		}, placement)
 	})
 }
 
@@ -36,7 +67,8 @@ func PopupContextMenu(target ui.Element, items ...PopupItem) {
 
 func popupItems(menu *ui.Menu, items []PopupItem) {
 	for _, item := range items {
-		if menu.Item(item.Label).Icon(item.Icon).Disabled(item.Disabled).Chosen() && item.OnSelect != nil {
+		entry := menu.Item(item.Label).Icon(item.Icon).Disabled(item.Disabled)
+		if entry.Chosen() && item.OnSelect != nil {
 			item.OnSelect()
 		}
 	}

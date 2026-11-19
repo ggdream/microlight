@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"github.com/ggdream/microlight/pkg/viewport"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -102,7 +103,7 @@ func replyProgress(c *ui.Context, entry *turn, hasReasoning, open bool) {
 				button.Background(side)
 			}
 			button.Children(func() {
-				ui.Text(c, label).FontSize(12).TextColor(muted)
+				ui.Text(c, label).FontSize(viewport.Font(c, 12)).TextColor(muted)
 				chevron := ui.Icon(c, icons.SVG("ios_chevron_right")).Size(16, 16).TextColor(muted)
 				if open {
 					chevron.Rotate(90)
@@ -112,7 +113,7 @@ func replyProgress(c *ui.Context, entry *turn, hasReasoning, open bool) {
 				entry.reasoningOpen = &show
 			})
 		case label != "":
-			ui.Text(c, label).FontSize(12).TextColor(muted).Padding(3, 0)
+			ui.Text(c, label).FontSize(viewport.Font(c, 12)).TextColor(muted).Padding(3, 0)
 		}
 	})
 }
@@ -129,7 +130,7 @@ func (app *chatApp) replyBody(c *ui.Context, chat *conversation, entry *turn, in
 			if entry.State == "pending" && entry.compressing {
 				ui.Row(c.Key("context-compression")).AlignItems(ui.Center).Gap(8).Padding(4, 0).Children(func() {
 					icon(c, "document_text", muted, 16)
-					ui.Text(c, locales.Compressing()).FontSize(12).TextColor(muted)
+					ui.Text(c, locales.Compressing()).FontSize(viewport.Font(c, 12)).TextColor(muted)
 				})
 			}
 		}
@@ -248,7 +249,7 @@ func (app *chatApp) toolActivityRow(c *ui.Context, entry *turn, index int) {
 							path = ""
 						}
 					}
-					ui.Themed(c, conversationMenuTheme).Background(ui.Transparent).MinWidth(0).
+					ui.Themed(c, theme.PopupTheme(c)).Background(ui.Transparent).MinWidth(0).
 						AlignItems(ui.Start).Children(func() {
 						button := pointerButton(c.Key("target"), false).Label(activity.Label(activity.ShortTarget())).
 							MinWidth(0).MaxWidthPercent(100).Tooltip(path)
@@ -338,19 +339,19 @@ func answeredClarification(c *ui.Context, question *clarification) {
 		})
 		if question.answerOpen {
 			ui.Column(c.Key("details")).FillWidth().Padding(8, 10).Gap(4).Radius(6).Background(side).Children(func() {
-				ui.Text(c, question.displayTitle()).Selectable().FontSize(12).FontWeight(620).TextColor(ink).FillWidth()
+				ui.Text(c, question.displayTitle()).Selectable().FontSize(viewport.Font(c, 12)).FontWeight(620).TextColor(ink).FillWidth()
 				if approval := question.Approval; approval != nil {
 					if approval.Target != "" {
-						ui.Text(c, approval.Target).Selectable().FontSize(12).TextColor(muted).FillWidth()
+						ui.Text(c, approval.Target).Selectable().FontSize(viewport.Font(c, 12)).TextColor(muted).FillWidth()
 					}
 					if approval.Preview != "" {
 						scroll, offset := elastic.Scroll(c)
 						scroll.FillWidth().MaxHeight(140).Children(func() {
-							offset.Apply(ui.Text(c, approval.Preview)).Selectable().Font("monospace").FontSize(12).TextColor(muted).FillWidth()
+							offset.Apply(ui.Text(c, approval.Preview)).Selectable().Font("monospace").FontSize(viewport.Font(c, 12)).TextColor(muted).FillWidth()
 						})
 					}
 				}
-				ui.Text(c, question.displayAnswer()).Selectable().FontSize(12).TextColor(ink).FillWidth()
+				ui.Text(c, question.displayAnswer()).Selectable().FontSize(viewport.Font(c, 12)).TextColor(ink).FillWidth()
 			})
 		}
 	})

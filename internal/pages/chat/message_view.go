@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"github.com/ggdream/microlight/pkg/viewport"
 	"strings"
 	"time"
 
@@ -11,8 +12,11 @@ import (
 )
 
 func (app *chatApp) userMessage(c *ui.Context, chat *conversation, index int, entry *turn) {
-	bubble := ui.Column(c).MaxWidthPercent(91).AlignItems(ui.End).Gap(4)
-	showActions := bubble.Hovered() || bubble.FocusWithin()
+	bubble := ui.Column(c).MaxWidthPercent(91).AlignItems(ui.End).Gap(windowLayout(c).Density(4, 2))
+	if windowLayout(c).Compact() {
+		bubble.MaxWidthPercent(100)
+	}
+	showActions := touchControls(c) || bubble.Hovered() || bubble.FocusWithin()
 	bubble.Children(func() {
 		if len(entry.Attachments) > 0 {
 			ui.Row(c).Wrap().Justify(ui.End).Gap(6).Children(func() {
@@ -27,7 +31,7 @@ func (app *chatApp) userMessage(c *ui.Context, chat *conversation, index int, en
 		}
 		if entry.Content != "" {
 			markdown.View(c.Key("message-body"), entry.Content, app.md).
-				Padding(10, 14).Radius(15).Background(tint)
+				Padding(windowLayout(c).Density(10, 7), windowLayout(c).Density(14, 10)).Radius(15).Background(tint)
 		}
 		opacity := float32(0)
 		if showActions {
@@ -67,21 +71,23 @@ func messageTimestamp(c *ui.Context, timestamp time.Time) {
 		return
 	}
 	local := timestamp.Local()
-	ui.Text(c, local.Format("15:04")).FontSize(11).TextColor(muted).Opacity(.76).
+	ui.Text(c, local.Format("15:04")).FontSize(viewport.Font(c, 11)).TextColor(muted).Opacity(.76).
 		NoWrap().Tooltip(local.Format("2006-01-02 15:04:05"))
 }
 
 func (app *chatApp) messageEditor(c *ui.Context, chat *conversation, index int, edit *messageEdit) {
-	ui.Column(c).Width(510).MaxWidthPercent(100).Gap(8).Padding(10).Radius(12).
+	layout := windowLayout(c)
+	ui.Column(c).Width(510).MaxWidthPercent(100).Gap(layout.Y(8)).Padding(layout.Y(10), layout.X(10)).Radius(12).
 		Border(1, border).Background(white).Children(func() {
-		editor := edit.input.View(c.Key(edit), locales.EditMessageBody(), "", 104, app.md).Padding(5)
+		editor := edit.input.View(c.Key(edit), locales.EditMessageBody(), "", layout.Y(104), app.md).
+			Padding(layout.Y(5), layout.X(5)).AutoFocus()
 		if editor.Shortcut(0, ui.KeyEscape) {
 			app.edit = nil
 		}
 		if editor.Shortcut(ui.Cmd, ui.KeyEnter) {
 			app.resendMessage(chat, index, edit, edit.input.Markdown())
 		}
-		ui.Row(c).Justify(ui.End).Gap(5).Children(func() {
+		ui.Row(c).Wrap().Justify(ui.End).Gap(layout.X(5)).Children(func() {
 			clarificationButton(c, locales.Cancel(), false, func() { app.edit = nil })
 			disabled := !app.canEditMessage(chat, index) ||
 				(strings.TrimSpace(edit.input.Document.Text().String()) == "" && len(edit.entry.Attachments) == 0)
@@ -98,8 +104,15 @@ func messageIconFrame(control ui.Element) ui.Element {
 	return control.Size(25, 25).Radius(messageControlRadius).AlignItems(ui.Center).Justify(ui.Center)
 }
 
+func messageTouchWidth(c *ui.Context) float32 {
+	return max(30, min(34, windowLayout(c).X(30)))
+}
+
 func messageIcon(c *ui.Context, label, glyph string, disabled bool, action func()) {
 	button := messageIconFrame(pointerButton(c, disabled).Label(label).Tooltip(label))
+	if touchControls(c) {
+		button.MinWidth(messageTouchWidth(c)).MinHeight(44).Shrink(0)
+	}
 	if button.Hovered() {
 		button.Background(side)
 	}

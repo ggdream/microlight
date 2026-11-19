@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"github.com/ggdream/microlight/pkg/viewport"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -31,11 +32,11 @@ func (form *OCRForm) View(c *ui.Context, icons asseticon.Set, saved localtools.O
 	draft := form.draft
 	resetError := func() { form.err = "" }
 	ui.Column(c).FillWidth().Background(theme.White).Radius(13).Border(1, theme.Border).
-		Padding(15, 16).Gap(11).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Gap(12).Children(func() {
-			ui.Column(c).Grow(1).MinWidth(0).Gap(4).Children(func() {
-				ui.Text(c, locales.OcrTool()).FontSize(15).FontWeight(660)
-				ui.Text(c, locales.OcrToolHint()).FontSize(12).TextColor(theme.Muted)
+		Padding(settingY(c, 15), settingX(c, 16)).Gap(settingGap(c, 11)).Children(func() {
+		ui.Row(c).AlignItems(ui.Center).Gap(settingsLayout(c).Density(12, 8)).Children(func() {
+			ui.Column(c).Grow(1).MinWidth(0).Gap(settingGap(c, 4)).Children(func() {
+				ui.Text(c, locales.OcrTool()).FontSize(viewport.Font(c, 15)).FontWeight(660)
+				ui.Text(c, locales.OcrToolHint()).FontSize(viewport.Font(c, 12)).TextColor(theme.Muted)
 			})
 			theme.Switch(c.Key("enabled"), &draft.Enabled, locales.EnableOcrTool(), resetError)
 		})
@@ -46,7 +47,7 @@ func (form *OCRForm) View(c *ui.Context, icons asseticon.Set, saved localtools.O
 			paddleOCRFields(c.Key("paddleocr"), icons, draft, resetError)
 		}
 		if form.err != "" {
-			ui.Text(c, form.err).FontSize(12).TextColor(theme.ErrorFG)
+			ui.Text(c, form.err).FontSize(viewport.Font(c, 12)).TextColor(theme.ErrorFG)
 		}
 		if form.HasChanges(saved) {
 			ui.Row(c).Justify(ui.End).Children(func() {

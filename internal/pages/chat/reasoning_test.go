@@ -259,6 +259,9 @@ func TestToolTargetOpensPreviewAndContextMenu(t *testing.T) {
 	if err := surface.Click(locales.Reasoning()); err != nil {
 		t.Fatal(err)
 	}
+	if err := surface.Click(locales.RoundChanges()); err != nil {
+		t.Fatal(err)
+	}
 	if _, found := surface.Find("denied.go"); found {
 		t.Fatal("an unsuccessful write appeared in the change tree")
 	}
