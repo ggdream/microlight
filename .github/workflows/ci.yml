@@ -90,7 +90,7 @@ jobs:
         if: matrix.platform == 'android'
         shell: bash
         run: |
-          sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358'
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358'
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
       - uses: actions/cache@v5
         if: matrix.platform == 'android'
