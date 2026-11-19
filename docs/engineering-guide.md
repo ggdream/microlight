@@ -75,6 +75,6 @@
 
 - 应用显示版本由 Git 决定，用 MyGo 的 `MYGO_LDFLAGS` 注入。干净的标签提交显示 `vX.Y.Z`，标签后提交显示 `vX.Y.Z-短哈希`，无可达版本标签时显示 `v0.0.0-短哈希`。工作区有暂存、未暂存或未跟踪改动时追加 `+dirty`。CI 正式发版使用对应 Git 标签。通过 `go install` 安装时读取 Go 模块构建信息。
 - 普通分支推送和 PR 在 Ubuntu 24.04 跑全量测试。平台文件、构建约束和原生能力入口的改动按路径加跑相关平台。依赖、打包、CI 或共用桌面能力变更跑三平台。手动触发跑三平台测试。打包和 GitHub Release 由版本标签推送触发，并等待三平台测试通过。 [CI 工作流](../.github/workflows/ci.yml) · [平台选择脚本](../.github/scripts/test-platforms.sh)
-- iOS 与 Android 的源码、依赖、资源、原生模块或构建脚本改动增加移动端编译打包检查；纯文档改动不额外构建移动端。Android 在 Ubuntu 上构建，iOS 在 Apple Silicon macOS 上构建。CI 不安装或启动应用，不运行模拟器，不截图；交互问题按需要在本地验收。标签发版等待编译打包检查通过，移动端产物随桌面包上传 Release。Android 仅发布包含所有支持 ABI 的 universal APK，不上传 AAB。签名、产物类型与检查边界见 [移动端 CI](mobile-ci.md)。
+- iOS 与 Android 的源码、依赖、资源、原生模块或构建脚本改动增加移动端编译打包检查；纯文档改动不额外构建移动端。Android 在 Ubuntu 上构建，iOS 在 Apple Silicon macOS 上构建。CI 不安装或启动应用，不运行模拟器，不截图；交互问题按需要在本地验收。标签发版等待编译打包检查通过，移动端产物随桌面包上传 Release。Android 日常检查和发版统一构建 arm64，仅发布一个 arm64 APK，不上传 AAB；Eino 的 Sonic 依赖不支持 32 位，不能使用默认全 ABI 构建。签名、产物类型与检查边界见 [移动端 CI](mobile-ci.md)。
 - 提交消息使用 `feat:`、`fix:`、`perf:`、`chore:`、`docs:` 等前缀。按任务指定范围提交、推送或发版。发版时先确认目标提交的 main CI 通过，再推送 `vX.Y.Z` 标签，等 Release 上传完成后核对三平台产物。
 - 安装产物命名统一为 `microlight-vX.Y.Z-platform-arch.xxx`。当前平台组合为 `darwin-universal` 的 DMG、`windows-amd64` 的 EXE，以及 `linux-amd64` 的 DEB、RPM 和 TAR.GZ。 [发布脚本](../.github/scripts/package-release.sh)
