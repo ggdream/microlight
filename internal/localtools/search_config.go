@@ -32,7 +32,7 @@ type SearchConfig struct {
 
 func (config SearchConfig) Selected() search.ID {
 	if config.Provider == "" {
-		return search.DuckDuckGo
+		return defaultSearchProvider()
 	}
 	return config.Provider
 }

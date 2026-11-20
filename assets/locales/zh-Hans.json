@@ -321,6 +321,7 @@
   "googleSearchAvailability": "仅支持已开通 Google Custom Search JSON API 的账号，服务可用至 2026 年 12 月底。",
   "wikipediaSearchScope": "检索英文维基百科的条目。",
   "searchProviderBaidu": "百度千帆",
+  "searchProviderBingCn": "Bing 中国版",
   "searchProviderAliyun": "阿里云 IQS",
   "searchProviderTencent": "腾讯云元宝搜索",
   "searchProviderVolcengine": "火山引擎豆包搜索",

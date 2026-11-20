@@ -44,7 +44,9 @@ Enter 发送，Shift + Enter 换行。可停止生成，也可编辑消息后重
 
 聊天请求由 Eino ADK Runner 驱动 Deep Agent。权限模式按会话配置，可在聊天中切换。文件、命令、网络与 MCP 工具的审批取决于当前会话的权限和操作类型。MCP 支持 Streamable HTTP 和 stdio。
 
-「设置 → 工具 → 内置工具」可启用网页搜索，默认关闭。DuckDuckGo 无需密钥，SearXNG 需要支持 JSON 输出的实例地址。DeepSeek、百度千帆、阿里云 IQS、腾讯云元宝搜索和火山引擎豆包搜索各需对应搜索服务的 API Key。一次搜索只向所选供应商发送查询，结果包含标题、原始链接和摘要。搜索沿用应用代理和会话权限，配置迁移包含搜索供应商设置与密钥。
+「设置 → 工具 → 内置工具」可启用网页搜索，默认关闭。DuckDuckGo 和 Bing 中国版（`bingcn`）无需密钥，SearXNG 需要支持 JSON 输出的实例地址。未指定供应商时按 MyGo `App.Region().Locale` 的系统地区选择默认值：明确为 `CN` 时使用 Bing 中国版，其他或未知地区使用 DuckDuckGo；与应用界面语言、IP 和代理出口无关，已保存的供应商选择优先。DeepSeek、百度千帆、阿里云 IQS、腾讯云元宝搜索和火山引擎豆包搜索各需对应搜索服务的 API Key。一次搜索只向所选供应商发送查询，结果包含标题、原始链接和摘要。搜索沿用应用代理和会话权限，配置迁移包含搜索供应商设置与密钥。
+
+免密钥 Bing 中国版参考 [mcp-bing-search](https://github.com/Quqing-future/mcp-bing-search) 的端点和页面结构，用 Go/goquery 在 `pkg/websearch` 实现，未引入 Python 或额外 MCP 进程。Bing 编码链接及 HTTP 跳转会尽力还原原网址；只请求所选搜索引擎的允许域名，限制重定向次数，不预取结果站点。验证码和未知页面结构返回诊断错误，有明确无结果标记时才返回空列表。搜索引擎修改页面或限制自动请求可能导致失败；Web 版仍受引擎站点的 CORS 策略约束。
 
 通用搜索接口和供应商适配器位于 `pkg/websearch`。Eino 工具适配、参数校验和审批接入位于 `internal/localtools`。
 

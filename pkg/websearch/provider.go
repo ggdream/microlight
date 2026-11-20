@@ -23,6 +23,7 @@ type ID string
 
 const (
 	DuckDuckGo ID = "duckduckgo"
+	BingCN     ID = "bingcn"
 	SearXNG    ID = "searxng"
 	Google     ID = "google"
 	Wikipedia  ID = "wikipedia"
@@ -69,6 +70,7 @@ type Definition struct {
 
 var definitions = []Definition{
 	{ID: DuckDuckGo, Name: "DuckDuckGo", endpoint: "https://html.duckduckgo.com/html/", newSearch: newDuckDuckGo},
+	{ID: BingCN, Name: "Bing China", endpoint: "https://cn.bing.com/search", newSearch: newBingCN},
 	{ID: SearXNG, Name: "SearXNG", BaseURL: true, newSearch: newSearXNG},
 	{ID: Google, Name: "Google Custom Search", APIKey: true, SearchEngineID: true, endpoint: "https://customsearch.googleapis.com/customsearch/v1", newSearch: newGoogle},
 	{ID: Wikipedia, Name: "Wikipedia", endpoint: "https://en.wikipedia.org/w/api.php", newSearch: newWikipedia},

@@ -3174,6 +3174,16 @@ func (msgs Messages) SearchProviderBaidu() string {
 	return Catalog.Format(msgs.locale, "searchProviderBaidu", nil)
 }
 
+// SearchProviderBingCn says "Bing China"
+// in the language the app shows.
+func SearchProviderBingCn() string { return In(i18n.Locale()).SearchProviderBingCn() }
+
+// SearchProviderBingCn says "Bing China"
+// in the language of msgs.
+func (msgs Messages) SearchProviderBingCn() string {
+	return Catalog.Format(msgs.locale, "searchProviderBingCn", nil)
+}
+
 // SearchProviderAliyun says "Alibaba Cloud IQS"
 // in the language the app shows.
 func SearchProviderAliyun() string { return In(i18n.Locale()).SearchProviderAliyun() }

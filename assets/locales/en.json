@@ -417,6 +417,7 @@
   "googleSearchAvailability": "Available to existing Google Custom Search JSON API customers through December 2026.",
   "wikipediaSearchScope": "Searches articles in English Wikipedia.",
   "searchProviderBaidu": "Baidu Qianfan",
+  "searchProviderBingCn": "Bing China",
   "searchProviderAliyun": "Alibaba Cloud IQS",
   "searchProviderTencent": "Tencent Yuanbao",
   "searchProviderVolcengine": "Volcengine Doubao",

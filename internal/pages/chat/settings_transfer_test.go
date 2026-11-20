@@ -17,6 +17,23 @@ import (
 	"github.com/ggdream/microlight/pkg/websearch"
 )
 
+func TestSettingsTransferIncludesHTMLSearchProviders(t *testing.T) {
+	for _, id := range []websearch.ID{websearch.BingCN} {
+		t.Run(string(id), func(t *testing.T) {
+			app := &chatApp{language: settings.SystemLanguage, busySend: busySendQueue}
+			app.settings.WebSearch = localtools.SearchConfig{Enabled: true, Provider: id}
+			data, err := app.exportSettings()
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, config, err := readSettingsFile(bytes.NewReader(data))
+			if err != nil || !config.WebSearch.Enabled || config.WebSearch.Provider != id {
+				t.Fatalf("search provider did not round-trip: provider=%s error=%v", config.WebSearch.Provider, err)
+			}
+		})
+	}
+}
+
 func TestSettingsTransferExportsDisabledWebSearchAndReadsOlderFiles(t *testing.T) {
 	app := &chatApp{language: settings.SystemLanguage, busySend: busySendQueue}
 	data, err := app.exportSettings()

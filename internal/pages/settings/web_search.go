@@ -111,6 +111,8 @@ func searchProviderLabel(id search.ID) string {
 	switch id {
 	case search.DuckDuckGo:
 		return "DuckDuckGo"
+	case search.BingCN:
+		return locales.SearchProviderBingCn()
 	case search.SearXNG:
 		return "SearXNG"
 	case search.Google:

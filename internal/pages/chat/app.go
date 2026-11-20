@@ -14,6 +14,7 @@ import (
 	"github.com/ggdream/microlight/internal/background"
 	"github.com/ggdream/microlight/internal/desktop"
 	asseticon "github.com/ggdream/microlight/internal/icon"
+	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/storage"
 	"github.com/ggdream/microlight/pkg/markup"
 
@@ -24,6 +25,7 @@ import (
 )
 
 func Run(assets fs.FS) {
+	localtools.SetSearchRegion(mygo.App.Region().Locale)
 	home, _ := os.UserHomeDir()
 	app := &chatApp{skillsHome: home}
 	defer func() {

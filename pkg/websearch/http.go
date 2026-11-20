@@ -30,7 +30,7 @@ func (transport searchTransport) RoundTrip(req *http.Request) (*http.Response, e
 	if err != nil {
 		return nil, err
 	}
-	httpFailed := resp.StatusCode != http.StatusOK
+	httpFailed := resp.StatusCode != http.StatusOK && !(transport.id == BingCN && isSearchRedirect(resp.StatusCode))
 	if len(body) > maxSearchResponse {
 		if httpFailed {
 			return nil, responseFailure(transport.id, resp.StatusCode, upstreamError{}, transport.credential)
