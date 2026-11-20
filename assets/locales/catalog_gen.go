@@ -4877,3 +4877,13 @@ func SaveImageAction() string { return In(i18n.Locale()).SaveImageAction() }
 func (msgs Messages) SaveImageAction() string {
 	return Catalog.Format(msgs.locale, "saveImageAction", nil)
 }
+
+// BrowserNotificationDenied says "Allow notifications for this site in your browser’s site settings, then try again."
+// in the language the app shows.
+func BrowserNotificationDenied() string { return In(i18n.Locale()).BrowserNotificationDenied() }
+
+// BrowserNotificationDenied says "Allow notifications for this site in your browser’s site settings, then try again."
+// in the language of msgs.
+func (msgs Messages) BrowserNotificationDenied() string {
+	return Catalog.Format(msgs.locale, "browserNotificationDenied", nil)
+}

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/internal/desktop"
 
 	"github.com/egoist/mygo"
 )
@@ -58,27 +59,31 @@ func (app *chatApp) sendTestNotification() {
 	if app.testingNotification || app.win == nil || app.win.IsDestroyed() {
 		return
 	}
-	if !mygo.NotificationsSupported() {
+	if !desktop.NotificationsSupported() {
 		app.notificationTestStatus = settingsStatus{message: locales.TestNotificationUnavailable(), failed: true}
 		return
 	}
 	app.testingNotification = true
 	app.notificationTestStatus = settingsStatus{}
 	ctx, win := app.appContext(), app.win
-	n := mygo.NewNotification(mygo.NotificationOptions{
+	n := desktop.NewNotification(mygo.NotificationOptions{
 		Title: locales.TestNotificationTitle(),
 		Body:  locales.TestNotificationBody(),
 	})
 	n.OnClick(n.Close)
+	waitPermission := desktop.RequestNotificationPermission()
 	go func() {
-		err := n.ShowContext(ctx)
+		err := waitPermission(ctx)
+		if err == nil {
+			err = n.ShowContext(ctx)
+		}
 		win.Update(func() {
 			app.testingNotification = false
 			switch {
 			case err == nil:
 				app.notificationTestStatus = settingsStatus{message: locales.TestNotificationSent()}
 			case errors.Is(err, mygo.ErrNotificationsDenied):
-				app.notificationTestStatus = settingsStatus{message: locales.TestNotificationDenied(), failed: true}
+				app.notificationTestStatus = settingsStatus{message: notificationDeniedMessage(), failed: true}
 			case !errors.Is(err, context.Canceled):
 				slog.Error("send test notification", "error", err)
 				app.notificationTestStatus = settingsStatus{message: locales.TestNotificationFailed(), failed: true}
@@ -95,10 +100,10 @@ func (app *chatApp) notifyReply(chatID string, reply *turn) {
 	app.unreadReplies++
 	mygo.App.SetBadgeCount(app.unreadReplies)
 	mode := clampNotificationMode(app.desktop.Notification)
-	if mode == notifyOff || mode == notifyAction && reply.State == "done" || !mygo.NotificationsSupported() {
+	if mode == notifyOff || mode == notifyAction && reply.State == "done" || !desktop.NotificationsSupported() {
 		return
 	}
-	n := mygo.NewNotification(mygo.NotificationOptions{
+	n := desktop.NewNotification(mygo.NotificationOptions{
 		Title: title,
 		Body:  body,
 		Group: chatID,
@@ -138,4 +143,34 @@ func (app *chatApp) notifyReply(chatID string, reply *turn) {
 
 func (app *chatApp) chatInForeground() bool {
 	return mygo.App.IsActive() && app.win.IsFocused()
+}
+
+func notificationDeniedMessage() string {
+	if desktop.Web {
+		return locales.BrowserNotificationDenied()
+	}
+	return locales.TestNotificationDenied()
+}
+
+// Begin while still handling the user's selection; never prompt from a reply.
+func (app *chatApp) requestBrowserNotificationPermission() {
+	if !desktop.Web {
+		return
+	}
+	wait := desktop.RequestNotificationPermission()
+	go func() {
+		err := wait(app.appContext())
+		app.win.Update(func() {
+			if app.win.IsDestroyed() {
+				return
+			}
+			if err == nil {
+				app.notificationTestStatus = settingsStatus{}
+			} else if errors.Is(err, mygo.ErrNotificationsDenied) {
+				app.notificationTestStatus = settingsStatus{message: locales.BrowserNotificationDenied(), failed: true}
+			} else if err != nil && !errors.Is(err, context.Canceled) {
+				app.notificationTestStatus = settingsStatus{message: locales.TestNotificationUnavailable(), failed: true}
+			}
+		})
+	}()
 }

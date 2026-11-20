@@ -22,6 +22,7 @@ try {
   const goroot = execFileSync('go', ['env', 'GOROOT'], {encoding: 'utf8'}).trim();
   await cp(path.join(goroot, 'lib/wasm/wasm_exec.js'), path.join(site, 'wasm_exec.js'));
   await cp(path.join(root, 'pkg/sqliteweb/web'), path.join(site, 'sqlite'), {recursive: true});
+  await cp(path.join(root,'pkg/webnotify/web/notification-worker.js'),path.join(site,'notification-worker.js'));
   await writeFile(path.join(site, 'index.html'), `<!doctype html><meta charset="utf-8">
 <script src="wasm_exec.js"></script><script>
 const go = new Go();
@@ -33,6 +34,16 @@ WebAssembly.instantiateStreaming(fetch(suite === 'app' ? 'app-store.test.wasm' :
 </script>`);
   server = createServer(async (req, res) => {
     const name = new URL(req.url, 'http://localhost').pathname;
+    if (name === '/notification-model/chat/completions') {
+      req.resume();
+      await new Promise(resolve=>setTimeout(resolve,1000));
+      res.writeHead(200,{'Content-Type':'text/event-stream'});
+      for(const delta of [{role:'assistant',content:''},{content:'NOTIFICATION_QA_REPLY'}]) {
+        res.write('data: '+JSON.stringify({id:'chatcmpl-notification',object:'chat.completion.chunk',created:1,model:'notification-qa',choices:[{index:0,delta,finish_reason:null}]})+'\n\n');
+      }
+      res.end('data: '+JSON.stringify({id:'chatcmpl-notification',object:'chat.completion.chunk',created:1,model:'notification-qa',choices:[{index:0,delta:{},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n');
+      return;
+    }
     const file = path.resolve(site, '.' + (name.endsWith('/') ? name+'index.html' : name));
     if (!file.startsWith(site + path.sep)) { res.writeHead(403).end(); return; }
     try {
@@ -58,6 +69,55 @@ WebAssembly.instantiateStreaming(fetch(suite === 'app' ? 'app-store.test.wasm' :
     return p;
   }
   const call = (p, op) => p.evaluate(op => storageCheck(op), op);
+  // Real browser API and permissions; no fake Notification implementation.
+  await context.grantPermissions(['notifications']);
+  const note = await page();
+  assert.equal(await note.evaluate(()=>notificationCheck('request')),'ok');
+  assert.equal(await note.evaluate(()=>notificationCheck('show')),'ok');
+  const visibleNotes=()=>note.evaluate(async()=>{
+    const reg=await navigator.serviceWorker.ready;
+    return (await reg.getNotifications({tag:'notification-qa'})).map(n=>({title:n.title,body:n.body,tag:n.tag,clientID:n.data.clientID,renotify:n.renotify}));
+  });
+  const notes=await visibleNotes();
+  assert.equal(notes.length,1);assert.equal(notes[0].body,'Actual browser notification');
+  assert.equal(notes[0].renotify,true);
+  assert.equal(await note.evaluate(()=>notificationCheck('show')),'ok');
+  const repeated=await visibleNotes();
+  assert.equal(repeated.length,1);assert.equal(repeated[0].renotify,true);
+  // Confirm the notification belongs to its originating tab.
+  const secondTab=await page();
+  assert.equal(await secondTab.evaluate(()=>notificationCheck('show')),'ok');
+  const replacement=await visibleNotes();
+  assert.notEqual(replacement[0].clientID,notes[0].clientID);
+  const notificationWorker=context.serviceWorkers().find(worker=>worker.url().endsWith('/notification-worker.js'));
+  await notificationWorker.evaluate(async payload=>{
+    const target=await self.clients.get(payload.clientID);
+    target.postMessage({type:'microlight-notification-click',tag:payload.tag});
+  },replacement[0]);
+  await secondTab.waitForFunction(()=>notificationCheck('clicked'));
+  await secondTab.evaluate(()=>notificationCheck('close'));
+  await secondTab.waitForFunction(async()=>{
+    const reg=await navigator.serviceWorker.ready;return (await reg.getNotifications({tag:'notification-qa'})).length===0;
+  });
+  await secondTab.close();
+  const fallback=await context.newPage();
+  await fallback.addInitScript(()=>Object.defineProperty(navigator,'serviceWorker',{value:undefined}));
+  await fallback.goto(url);await fallback.waitForFunction(()=>typeof notificationCheck==='function');
+  assert.equal(await fallback.evaluate(()=>notificationCheck('show')),'ok');
+  assert.equal(await fallback.evaluate(()=>notificationCheck('close')),'ok');
+  await fallback.close();
+  await context.clearPermissions();
+  const requested=await note.evaluate(()=>Promise.race([notificationCheck('request'),new Promise(resolve=>setTimeout(()=>resolve('pending'),1500))]));
+  assert(['ok','denied','pending'].includes(requested));
+  const cdp=await context.newCDPSession(note);
+  await cdp.send('Browser.setPermission',{permission:{name:'notifications'},setting:'denied',origin:url});
+  assert.equal(await note.evaluate(()=>notificationCheck('request')),'denied');
+  assert.equal(await note.evaluate(()=>notificationCheck('show')),'denied');
+  await cdp.send('Browser.resetPermissions');
+  await cdp.detach();
+  await note.close();
+  console.log('PASS browser notifications: real permission grant/deny, Service Worker delivery, originating tab, close');
+  if (!process.env.MICROLIGHT_NOTIFICATION_ONLY) {
   const a = await page();
   await call(a, 'open');
   const start = performance.now();
@@ -68,6 +128,7 @@ WebAssembly.instantiateStreaming(fetch(suite === 'app' ? 'app-store.test.wasm' :
   assert.equal(original.integrity, 'ok');
   await call(a, 'rollback');
   assert.deepEqual(await call(a, 'verify'), original);
+  assert.equal(await call(a,'finalize'),'finalized');
   await call(a, 'constraint');
   await call(a, 'duplicate');
   assert.deepEqual(await call(a, 'verify'), original);
@@ -132,6 +193,8 @@ WebAssembly.instantiateStreaming(fetch(suite === 'app' ? 'app-store.test.wasm' :
   assert.equal(await app.evaluate(() => testExit), 0, output.join('\n'));
   assert(output.some(line => line.includes('checking application data after page reload')));
   console.log('PASS application schema migrations, conversation/messages, 4 MiB attachment, draft and configuration after reload');
+  }
+  await context.grantPermissions(['notifications']);
   const ui=await context.newPage({viewport:{width:1120,height:760}});
   await ui.setViewportSize({width:1120,height:760});
   const uiErrors=[];
@@ -144,7 +207,10 @@ WebAssembly.instantiateStreaming(fetch(suite === 'app' ? 'app-store.test.wasm' :
     await ui.mouse.click(x,y,{delay:80}); await ui.waitForTimeout(150);
   }
   await click(30,726); // actual MyGo settings button
-  await click(450,450); // actual custom-instruction editor
+  await click(430,360); // actual send-test-notification button
+  await ui.waitForFunction(async()=>{const reg=await navigator.serviceWorker.ready;return (await reg.getNotifications({tag:'microlight-test'})).length===1;});
+  await ui.evaluate(async()=>{const reg=await navigator.serviceWorker.ready;for(const n of await reg.getNotifications())n.close();});
+  await click(450,600); // actual custom-instruction editor
   await ui.keyboard.type('Web persisted instruction',{delay:60});
   await ui.waitForTimeout(300);
   // Read via a separate DB worker, so this assertion checks durable state seen
@@ -178,6 +244,20 @@ WebAssembly.instantiateStreaming(fetch(suite === 'app' ? 'app-store.test.wasm' :
   assert.equal(await saved(draftSQL),'Browser draft survives reload');
   assert.deepEqual(uiErrors,[]);
   console.log('PASS real production UI: typing settings and draft stays responsive, both survive reload');
+  // Local deterministic model fixture exercises the actual app reply pipeline.
+  const model={protocol:'openai_chat',base_url:url+'notification-model',model:'notification-qa',api_key:'isolated-notification-test'};
+  const literal=JSON.stringify(model).replaceAll("'","''");
+  await saved("INSERT OR REPLACE INTO config(key,value) VALUES('settings','"+literal+"')");
+  await ui.reload();await ui.waitForSelector('canvas');await ui.waitForTimeout(300);
+  await click(440,661);
+  await ui.keyboard.press('ControlOrMeta+A');await ui.keyboard.type('Background notification QA');
+  await ui.keyboard.press('Enter');
+  const front=await context.newPage();await front.goto(url);
+  await front.bringToFront();
+  await ui.waitForFunction(async()=>{const reg=await navigator.serviceWorker.ready;return (await reg.getNotifications()).some(n=>n.body==='NOTIFICATION_QA_REPLY');});
+  await ui.evaluate(async()=>{const reg=await navigator.serviceWorker.ready;for(const n of await reg.getNotifications())n.close();});
+  await ui.bringToFront();await front.close();
+  console.log('PASS production UI: test notification and actual background reply notification');
   if (process.env.MICROLIGHT_WEB_OUTPUT) await cp(path.join(site,'product/web'),process.env.MICROLIGHT_WEB_OUTPUT,{recursive:true});
 } finally {
   if (browser) await browser.close();

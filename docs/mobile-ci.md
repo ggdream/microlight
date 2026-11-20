@@ -21,17 +21,36 @@ Android 仅发布一个 arm64 APK，不生成 universal 发布包。CI 默认设
 默认产物：
 
 - `microlight-vX.Y.Z-ios-simulator-arm64.zip`：模拟器 `.app`，不能安装到 iPhone。
-- `microlight-vX.Y.Z-android-arm64-debug.apk`：MyGo 默认调试签名，可直接安装试用；不同 runner 的调试签名也不能保证覆盖安装兼容。
+- `microlight-vX.Y.Z-android-arm64.apk`：使用固定发布密钥签名，后续版本保持同一签名身份。
 
 正式签名仅在版本标签的构建步骤读取 GitHub Actions secrets：
 
 | 平台 | Secrets | 用途 |
 | --- | --- | --- |
 | iOS | `IOS_CERTIFICATE_BASE64`、`IOS_CERTIFICATE_PASSWORD`、`IOS_PROFILE_BASE64` | 含私钥的 P12 证书、其密码和匹配应用标识的 provisioning profile |
-| Android | `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEY_ALIAS`、`MYGO_ANDROID_KEYSTORE_PASSWORD`、`MYGO_ANDROID_KEY_PASSWORD` | 固定上传密钥和密码 |
+| Android | `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEY_ALIAS`、`MYGO_ANDROID_KEYSTORE_PASSWORD`、`MYGO_ANDROID_KEY_PASSWORD` | 固定 APK 发布签名密钥和密码 |
 
-iOS 配齐后，构建额外生成 `microlight-vX.Y.Z-ios-arm64.ipa`；安装范围由描述文件决定，App Store 类型 IPA 用于 TestFlight/App Store，不能任意侧载。Android 配齐后，产物标为 `android-arm64-release.apk`，使用稳定上传签名。只配置部分签名材料时构建失败，不静默降级。签名文件存临时目录，iOS 使用临时 keychain，步骤结束后清理；不会提交到仓库或作为 artifact 上传。没有签名材料时明确输出 notice，继续发布标注用途的测试产物。
+iOS 配齐后，构建额外生成 `microlight-vX.Y.Z-ios-arm64.ipa`；安装范围由描述文件决定，App Store 类型 IPA 用于 TestFlight/App Store，不能任意侧载。Android 标签构建必须配齐签名材料；缺失任何一项都失败，不回退到调试签名。产物命名不添加 debug 或 release 后缀，构建后使用 apksigner 校验签名，并与 keystore 的证书 SHA-256 核对。普通分支编译检查仍可用调试签名，不上传到 Release。签名文件存临时目录，iOS 使用临时 keychain，步骤结束后清理；不会提交到仓库或作为 artifact 上传。iOS 没有签名材料时明确输出 notice，继续发布标注用途的模拟器产物。
 
 这套流程不自动上传 App Store Connect 或 Google Play，也不绕过已有的 commit、push、tag 授权流程。
 
 参考：[MyGo 移动端构建与签名](https://github.com/egoist/mygo/blob/v0.10.0/docs/mobile/building.md)、[GitHub runner 架构](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)。
+
+### Android 密钥生成与配置
+
+```sh
+bash scripts/android/signing.sh init
+gh auth login --hostname github.com --git-protocol ssh --skip-ssh-key --web
+bash scripts/android/signing.sh upload
+```
+
+默认保存在 `~/.config/microlight/android-signing/`，目录权限 700、文件权限
+600；可用 `MICROLIGHT_ANDROID_SIGNING_DIR` 指定位置。首次生成 RSA 3072 位
+PKCS12 keystore、随机密码、alias 与公开证书。再次执行复用原密钥，不覆盖；
+不完整的目录会报错，避免意外换签名。将整个目录另行安全备份，后续版本沿用
+同一签名身份。脚本将四项内容通过 stdin 上传为仓库 Actions Secrets，
+不把密码或私钥写入命令参数、Git 或发布附件。
+
+CI 只在版本标签构建时读取密钥，在临时目录还原 keystore，构建结束清理。
+现有调试签名安装与新的发布签名不同，不能直接覆盖安装；卸载旧包会删除
+应用数据，应先导出需要保留的配置。后续发布版之间可以沿用相同签名更新。

@@ -54,6 +54,16 @@ function row(sqlite, stmt) {
   });
 }
 
+async function execute(sqlite, db, sql, callback) {
+  for await (const stmt of sqlite.statements(db, sql, {unscoped:true})) {
+    try {
+      while (await sqlite.step(stmt) === SQLite.SQLITE_ROW) {
+        if (callback) callback(sqlite.row(stmt));
+      }
+    } finally { await sqlite.finalize(stmt); }
+  }
+}
+
 async function dispatch(op, args) {
   const sqlite = await engine;
   if (op === 'open') {
@@ -65,7 +75,7 @@ async function dispatch(op, args) {
     if ([...databases.values()].includes(name)) throw new Error('Database already open in this tab; share the existing sql.DB');
     const db = await sqlite.open_v2(name, SQLite.SQLITE_OPEN_READWRITE | SQLite.SQLITE_OPEN_CREATE, 'microlight-idb');
     try {
-      await sqlite.exec(db, 'PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA temp_store=MEMORY;');
+      await execute(sqlite, db, 'PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA temp_store=MEMORY;');
     } catch (error) { await sqlite.close(db); throw error; }
     databases.set(db, name);
     return db;
@@ -75,36 +85,41 @@ async function dispatch(op, args) {
   switch (op) {
     case 'close':
       for (const [id, state] of statements) {
-        if (state.db === db) { await state.iterator.return(); statements.delete(id); }
+        if (state.db === db) { await sqlite.finalize(state.stmt); await state.iterator.return(); statements.delete(id); }
       }
       await sqlite.close(db); databases.delete(db); return null;
     case 'exec': {
       let affected = 0;
       let used = false;
-      for await (const stmt of sqlite.statements(db, args[1])) {
-        const parameters = used ? [] : args[2];
-        bind(sqlite, stmt, parameters); used = true;
-        while (await sqlite.step(stmt) === SQLite.SQLITE_ROW) { /* drain RETURNING */ }
-        affected += sqlite.changes(db);
+      // The upstream iterator's automatic cleanup does not await Asyncify
+      // finalize(). Own statement lifetime so close/next operations cannot race it.
+      for await (const stmt of sqlite.statements(db, args[1], {unscoped:true})) {
+        try {
+          const parameters = used ? [] : args[2];
+          bind(sqlite, stmt, parameters); used = true;
+          while (await sqlite.step(stmt) === SQLite.SQLITE_ROW) { /* drain RETURNING */ }
+          affected += sqlite.changes(db);
+        } finally { await sqlite.finalize(stmt); }
       }
       let inserted = '0';
-      await sqlite.exec(db, 'SELECT last_insert_rowid()', values => { inserted = String(values[0]); });
+      await execute(sqlite, db, 'SELECT last_insert_rowid()', values => { inserted = String(values[0]); });
       return {affected, inserted};
     }
     case 'prepare': {
-      const iterator = sqlite.statements(db, args[1]);
+      const iterator = sqlite.statements(db, args[1], {unscoped:true});
+      let stmt;
       try {
         const first = await iterator.next();
         if (first.done) throw new Error('Empty SQLite statement');
-        const stmt = first.value;
+        stmt = first.value;
         const id = ++nextStatement;
         statements.set(id, {iterator, stmt, db});
         return {id, count: sqlite.bind_parameter_count(stmt), columns: sqlite.column_names(stmt)};
-      } catch (error) { await iterator.return(); throw error; }
+      } catch (error) { if (stmt) await sqlite.finalize(stmt); await iterator.return(); throw error; }
     }
     case 'finalize': {
       const state = statements.get(args[1]);
-      if (state) { await state.iterator.return(); statements.delete(args[1]); }
+      if (state) { await sqlite.finalize(state.stmt); await state.iterator.return(); statements.delete(args[1]); }
       return null;
     }
     case 'query': {

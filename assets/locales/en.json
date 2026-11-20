@@ -607,5 +607,6 @@
   "shareImage": "Share",
   "shareImageFailed": "Could not share the image.",
   "previewImageAction": "Preview",
-  "saveImageAction": "Save"
+  "saveImageAction": "Save",
+  "browserNotificationDenied": "Allow notifications for this site in your browser’s site settings, then try again."
 }

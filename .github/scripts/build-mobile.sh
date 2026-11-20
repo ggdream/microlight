@@ -22,7 +22,6 @@ fi
 export MICROLIGHT_BUILD_VERSION=$version
 mkdir -p dist/mobile
 build_signed_ios=false
-android_signing=debug
 if [[ ${GITHUB_REF_TYPE:-} == tag ]]; then source .github/scripts/sign-mobile.sh; fi
 case "$platform" in
   ios)
@@ -47,8 +46,17 @@ case "$platform" in
     apk="dist/android/$package_slug-$package_version.apk"
     [[ -f "$apk" ]] || { echo "Missing Android APK: $apk" >&2; exit 1; }
     # MyGo also generates an AAB; only stage the directly installable APK.
-    # Without an upload keystore MyGo uses its debug key: label that honestly.
-    cp "$apk" "dist/mobile/microlight-$version-android-arm64-$android_signing.apk"
+    if [[ ${GITHUB_REF_TYPE:-} == tag ]]; then
+      # Verify both the APK signature and the identity CI was instructed to use.
+      android_sdk=${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK location is required}}
+      signer="$android_sdk/build-tools/36.0.0/apksigner"
+      "$signer" verify --verbose --print-certs "$apk" > "$signing_dir/apk-signature.txt"
+      expected=$(keytool -exportcert -keystore "$signing_dir/upload.jks" \
+        -storepass:env MYGO_ANDROID_KEYSTORE_PASSWORD -alias "$ANDROID_KEY_ALIAS" | openssl dgst -sha256 | awk '{print $NF}')
+      actual=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$signing_dir/apk-signature.txt")
+      [[ "$actual" == "$expected" ]] || { echo 'APK signing certificate does not match the release key' >&2; exit 1; }
+    fi
+    cp "$apk" "dist/mobile/microlight-$version-android-arm64.apk"
     ;;
   *) echo "Unsupported mobile platform: $platform" >&2; exit 1 ;;
 esac

@@ -28,3 +28,4 @@ if [[ -z "$output" ]]; then output=$(jq -r '.out // "dist"' mygo.json); fi
 )
 mkdir -p "$output/web/sqlite"
 cp -R pkg/sqliteweb/web/. "$output/web/sqlite/"
+cp pkg/webnotify/web/notification-worker.js "$output/web/notification-worker.js"

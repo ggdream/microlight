@@ -28,7 +28,10 @@ The bridge preserves signed 64-bit integers using decimal strings at the
 message boundary, distinguishes INTEGER from REAL, and transfers BLOBs as
 binary typed arrays. NULL, empty TEXT and empty BLOB remain distinct. Rows are
 stepped on demand rather than materializing an entire query result in Go.
-Prepared statements and cursors are finalized or reset when closed.
+Prepared statements and cursors are finalized or reset when closed. The bridge
+explicitly awaits asynchronous statement finalization, including startup PRAGMAs
+and internal queries; upstream iterator auto-cleanup does not await Asyncify
+finalization. Repeated read/close cycles are covered by the browser suite.
 
 MyGo Web invokes view/input callbacks synchronously from the browser. Database
 work must not wait for a Worker inside those callbacks. The Web app therefore
@@ -118,6 +121,12 @@ browser. The runner builds Go/Wasm with `CGO_ENABLED=0`, creates a temporary
 localhost server and a new browser profile, and cleans them up afterward.
 It never reads native application settings or keys.
 
+Browser acceptance (including storage, UI input and notification checks) runs
+locally when needed, not in CI. CI runs the Go HTTP-server tests and builds the
+Web release packages; it does not install Node, Playwright or a browser. System
+banners and clicking them require local visual verification with the browser's
+OS notification permission enabled.
+
 Coverage:
 
 - A 12 MiB binary value, int64 beyond JavaScript's exact number range, REAL,
@@ -169,8 +178,41 @@ staging exits with build instructions instead of serving an empty application.
 `MICROLIGHT_WEB_SITE` may point to an already tested Web build to reuse it;
 `MICROLIGHT_BUILD_VERSION` controls archive names.
 
-CI runs the Chromium acceptance suite and production Web build on every push
-and PR, then builds all five server targets and uploads the two archives as
-one Actions artifact. Tag releases wait for this job and publish both archives
+CI runs the Go HTTP-server tests and production Web build on every push and PR,
+then builds all five server targets and uploads the two archives as one Actions
+artifact. Browser acceptance runs locally when needed. Tag releases wait for this job and publish both archives
 alongside the desktop and mobile assets. Mobile CI still uses compilation only,
 without simulators, installation or screenshots.
+
+## Browser notifications
+
+Web uses the existing notification scope and test button in Settings. The
+Go/Wasm-only adapter in `pkg/webnotify` uses the typed
+[gowebapi notification binding v0.2.0](https://github.com/gowebapi/webapi/tree/v0.2.0/notification).
+Native notifications still use MyGo. Requesting permission starts synchronously
+from the user's notification selection or test button; asynchronous waiting does
+not block MyGo's JavaScript callbacks. Background replies never request permission.
+Granted/denied state is read from the browser, independently of imported settings.
+
+The browser requires HTTPS or a trusted localhost context. The root
+`notification-worker.js` is included in both Web packages. Service Worker
+notifications support browsers that prohibit the page Notification constructor;
+a page notification is used when Service Workers are unavailable. Notifications
+carry their originating client ID, so clicking focuses the correct tab and routes
+the existing conversation action back to Go. The worker does not proxy requests,
+cache application files or subscribe to Web Push.
+
+Replies, errors, clarification and approval notifications follow the same filters
+as native builds. Foreground replies remain silent; the test button can send while
+the page is visible. Permission denials direct the user to browser site settings.
+Delivery depends on browser/OS notification preferences; an accepted API call does
+not guarantee that the operating system displays a banner.
+
+This supports notifications while the page is running, not remote delivery after
+closing it. Some mobile browsers require an installed home-screen web app for
+notifications; this change does not add a Web Push server or PWA installation flow.
+See [Notifications API](https://developer.mozilla.org/en-US/docs/Web/API/Notifications_API).
+The browser acceptance suite checks actual permission grant/denial, worker delivery,
+notification contents, originating tab identity and closing, plus the production
+settings test button and a background reply through a local deterministic model
+fixture. It does not claim to verify an OS banner or a physical OS-notification click.

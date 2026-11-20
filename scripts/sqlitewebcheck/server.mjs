@@ -16,7 +16,7 @@ try {
    if(match){clearTimeout(timer);resolve('http://'+match[1]);}
   });
  });
- for(const [route,status] of [['/',200],['/chat/history/123',200],['/missing.js',404],['/sqlite/worker.js',200]]) {
+ for(const [route,status] of [['/',200],['/chat/history/123',200],['/missing.js',404],['/sqlite/worker.js',200],['/notification-worker.js',200]]) {
   const r=await fetch(url+route); assert.equal(r.status,status,route);
  }
  const index=await fetch(url+'/'); const text=await index.text();

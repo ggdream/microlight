@@ -504,5 +504,6 @@
   "shareImage": "分享",
   "shareImageFailed": "无法分享图片。",
   "previewImageAction": "预览",
-  "saveImageAction": "保存"
+  "saveImageAction": "保存",
+  "browserNotificationDenied": "请在浏览器的网站设置中允许此站点发送通知，然后重试。"
 }

@@ -44,6 +44,26 @@ func main() {
 func run(op string) (any, error) {
 	ctx := context.Background()
 	switch op {
+	case "finalize":
+		for range 20 {
+			check, err := sqliteweb.Open("sqliteweb_finalize_qa")
+			if err != nil {
+				return nil, err
+			}
+			var value int
+			err = check.QueryRow("SELECT 1").Scan(&value)
+			closeErr := check.Close()
+			if err != nil {
+				return nil, err
+			}
+			if closeErr != nil {
+				return nil, closeErr
+			}
+			if value != 1 {
+				return nil, errors.New("incorrect SELECT result")
+			}
+		}
+		return "finalized", nil
 	case "open":
 		var err error
 		db, err = sqliteweb.Open("sqliteweb_qa")

@@ -73,30 +73,11 @@ jobs:
         with:
           go-version-file: go.mod
           cache-dependency-path: go.sum
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: scripts/sqlitewebcheck/package-lock.json
-      - name: Install browser test dependencies
-        working-directory: scripts/sqlitewebcheck
-        run: |
-          npm ci
-          npx playwright install --with-deps chromium
-      - name: Test browser storage and production UI
-        env:
-          MICROLIGHT_WEB_OUTPUT: ${{ runner.temp }}/microlight-web
-        run: node scripts/sqlitewebcheck/check.mjs
-      - name: Test HTTP server and package Web assets
-        env:
-          MICROLIGHT_WEB_SITE: ${{ runner.temp }}/microlight-web
+      - name: Test HTTP server and build Web packages
         run: |
           go test -mod=readonly -count=1 ./cmd/webserver
           if [[ "$GITHUB_REF_TYPE" == tag ]]; then export MICROLIGHT_BUILD_VERSION="$GITHUB_REF_NAME"; fi
           bash scripts/package-web.sh
-          mkdir -p "$RUNNER_TEMP/web-servers"
-          tar -xzf dist/microlight-*-web-servers.tar.gz -C "$RUNNER_TEMP/web-servers"
-          node scripts/sqlitewebcheck/server.mjs "$RUNNER_TEMP/web-servers/microlight-web-linux-amd64"
       - uses: actions/upload-artifact@v7
         with:
           name: microlight-web

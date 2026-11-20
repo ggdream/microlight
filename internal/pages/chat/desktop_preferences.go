@@ -152,9 +152,6 @@ func (app *chatApp) showComposer() {
 }
 
 func (app *chatApp) desktopSettings(c *ui.Context) {
-	if desktop.Web {
-		return
-	}
 	if desktop.Desktop {
 		app.shortcutSettings(c.Key("shortcut"))
 	}
@@ -175,6 +172,9 @@ func (app *chatApp) desktopSettings(c *ui.Context) {
 			ui.Icon(c, icons.SVG("ios_chevron_right")).Size(14, 14).Shrink(0).Rotate(90).TextColor(muted)
 		}).OnChange(func() {
 			preferences.Notification = mode
+			if mode != notifyOff {
+				app.requestBrowserNotificationPermission()
+			}
 			app.saveNotificationSettings(preferences)
 		})
 		dropdown.Popup(func(panel ui.Element) {

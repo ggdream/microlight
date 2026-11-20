@@ -26,19 +26,15 @@ case "$platform" in
     build_signed_ios=true
     ;;
   android)
-    if [[ -z ${ANDROID_KEYSTORE_BASE64:-} && -z ${ANDROID_KEY_ALIAS:-} && -z ${MYGO_ANDROID_KEYSTORE_PASSWORD:-} && -z ${MYGO_ANDROID_KEY_PASSWORD:-} ]]; then
-      echo '::notice::Android signing is not configured; packages use a debug key and are not for Google Play.'
-      return
-    fi
     : "${ANDROID_KEYSTORE_BASE64:?Missing Android keystore}"
     : "${ANDROID_KEY_ALIAS:?Missing Android key alias}"
     : "${MYGO_ANDROID_KEYSTORE_PASSWORD:?Missing Android keystore password}"
     : "${MYGO_ANDROID_KEY_PASSWORD:?Missing Android key password}"
+    umask 077
     signing_dir=$(mktemp -d)
     printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$signing_dir/upload.jks"
     jq --arg path "$signing_dir/upload.jks" --arg alias "$ANDROID_KEY_ALIAS" \
       '.android.keystore = $path | .android.keyAlias = $alias' mygo.json > "$signing_dir/config.json"
     cp "$signing_dir/config.json" mygo.json
-    android_signing=release
     ;;
 esac

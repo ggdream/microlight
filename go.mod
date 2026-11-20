@@ -17,6 +17,7 @@ require (
 	github.com/f1sherb0y/mermaid-go v0.1.0
 	github.com/go-tex/math v0.50.0
 	github.com/google/jsonschema-go v0.4.3
+	github.com/gowebapi/webapi v0.2.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/openai/openai-go/v3 v3.44.0
 	github.com/sergi/go-diff v1.4.0

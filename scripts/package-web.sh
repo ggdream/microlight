@@ -18,7 +18,7 @@ else
   MICROLIGHT_BUILD_VERSION="$version" bash scripts/build.sh -platform web -o "$stage/product"
   mv "$stage/product/web" "$stage/site"
 fi
-for required in index.html wasm_exec.js sqlite/bridge.js sqlite/worker.js sqlite/vendor/dist/wa-sqlite-async.wasm; do
+for required in index.html notification-worker.js wasm_exec.js sqlite/bridge.js sqlite/worker.js sqlite/vendor/dist/wa-sqlite-async.wasm; do
   test -f "$stage/site/$required" || { echo "Missing web asset: $required" >&2; exit 1; }
 done
 # Root-relative asset resolution also works after reloading a History route.
