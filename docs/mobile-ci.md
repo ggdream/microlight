@@ -14,6 +14,27 @@ Android 日常检查和版本标签统一构建 arm64（`arm64-v8a`）。Eino �
 
 Android 仅发布一个 arm64 APK，不生成 universal 发布包。CI 默认设置 `MICROLIGHT_ANDROID_COMPRESS_LIBS=1` 压缩 APK 中的原生库，可显式设为 `0` 关闭；本地也可使用 `MICROLIGHT_ANDROID_COMPRESS_LIBS=1 bash scripts/build.sh -platform android/arm64`。设为 `0` 或不设置时保留 MyGo 默认的未压缩打包。MyGo v0.10.0 本身没有对应开关，项目通过临时、限定项目路径的 Gradle init script，在 AGP `finalizeDsl` 中设置 `useLegacyPackaging=true`，构建结束自动清理；不修改 SDK 源码或生成的 Gradle 文件。压缩模式安装时需解压原生库，以减少下载文件大小。MyGo v0.10.0 的构建命令仍会同时生成 AAB，但 CI 不收集或上传它；未来需要上架 Google Play 时再启用。
 
+## 启动器图标
+
+`assets/icon.png` 保留桌面图标的透明留白。移动安装包通过 `scripts/build.sh`
+选择不透明、无预制圆角的 `assets/icon-mobile.png`，避免 iOS 将透明留白铺白，
+也避免 Android 把旧式图标缩小后套入白色底板。Android 在 `mygo.json` 中配置
+MyGo 原生 `android.adaptiveIcon`，使用 `assets/icon-android.png`；彩色背景铺满
+108dp 图层，主体放在中央 72dp 视口内，由启动器决定最终圆形或圆角轮廓。
+外侧颜色延展覆盖系统裁切及运动区域，不额外加白底、阴影或嵌套圆角。
+
+移动素材直接从已有原图生成，不重绘中心标志：
+
+```sh
+CGO_ENABLED=0 go run -mod=readonly ./scripts/mobileicons
+```
+
+修改原图后重新生成并提交两个移动素材。打包脚本为每个目标选择对应图标，
+混合桌面/移动目标时分别调用 MyGo；成功或失败退出都会恢复原配置和清理
+临时 Gradle 脚本。CI 与本地移动构建都走这个脚本，不修改 MyGo SDK。
+
+参考：[Android 自适应图标](https://developer.android.com/develop/ui/compose/system/icon_design_adaptive)。
+
 ## 发布产物与签名
 
 版本标签使用 Git 标签注入应用版本和包版本。只有桌面测试和移动端编译打包全部通过才发布 Release。

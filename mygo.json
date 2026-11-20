@@ -8,6 +8,12 @@
     "source": "en"
   },
   "slug": "microlight",
+  "android": {
+    "adaptiveIcon": {
+      "foreground": "assets/icon-android.png",
+      "background": "#00B8D4"
+    }
+  },
   "linux": {
     "webview": false,
     "formats": [
