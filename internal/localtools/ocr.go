@@ -115,14 +115,18 @@ func (t ocrTool) Info(context.Context) (*schema.ToolInfo, error) {
 	}, nil
 }
 
-type ocrAttachmentsKey struct{}
+type toolAttachmentsKey struct{}
 
 func WithOCRAttachments(ctx context.Context, files []*attachment.File) context.Context {
-	return context.WithValue(ctx, ocrAttachmentsKey{}, files)
+	return WithToolAttachments(ctx, files)
 }
 
-func ocrAttachments(ctx context.Context) []*attachment.File {
-	files, _ := ctx.Value(ocrAttachmentsKey{}).([]*attachment.File)
+func WithToolAttachments(ctx context.Context, files []*attachment.File) context.Context {
+	return context.WithValue(ctx, toolAttachmentsKey{}, files)
+}
+
+func toolAttachments(ctx context.Context) []*attachment.File {
+	files, _ := ctx.Value(toolAttachmentsKey{}).([]*attachment.File)
 	return files
 }
 
@@ -154,7 +158,7 @@ func (h Middleware) resolveOCR(ctx context.Context, name, raw string) (localOper
 
 	var data []byte
 	if args.Index != nil {
-		files := ocrAttachments(ctx)
+		files := toolAttachments(ctx)
 		i := *args.Index
 		if i < 1 || i > len(files) || files[i-1] == nil {
 			return op, errors.New("attachment_index does not identify an attachment in the current user message")

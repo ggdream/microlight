@@ -100,6 +100,7 @@ type chatApp struct {
 	transferBusy           bool
 	transferLoading        string
 	transferToast          *ui.Toast
+	connectionToast        *ui.Toast
 	language               settings.LanguagePreference
 	busySend               busySendMode
 	systemPrompt           string

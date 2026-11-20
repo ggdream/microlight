@@ -136,8 +136,8 @@ func (app *chatApp) startReply(chat *conversation, reply *turn, index int, answe
 		ctx = context.WithValue(ctx, recoveryPromptKey{}, chat.Turns[index-1].Content)
 	}
 	ctx = localtools.WithAccess(ctx, access)
-	if backend.config.OCR.Enabled && index > 0 && chat.Turns[index-1].Role == "user" {
-		ctx = localtools.WithOCRAttachments(ctx, chat.Turns[index-1].Attachments)
+	if (backend.config.OCR.Enabled || backend.config.ASR.Enabled) && index > 0 && chat.Turns[index-1].Role == "user" {
+		ctx = localtools.WithToolAttachments(ctx, chat.Turns[index-1].Attachments)
 	}
 	ctx = context.WithValue(ctx, interfaceContextKey{}, chat.interfaceRequest())
 	run := &replyRun{reply: reply, cancel: cancel, access: access}

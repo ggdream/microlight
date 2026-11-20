@@ -20,20 +20,19 @@ type ModelFields struct {
 	DefaultContextThreshold                                         int
 	OnChange                                                        func()
 	ClearKey                                                        func()
-	Provider, Protocol, Models                                      func(*ui.Context)
+	Provider, ProviderAction, Protocol, Models                      func(*ui.Context)
 	BaseURLHint                                                     string
 }
 
 type ConnectionTestState struct {
-	Running, Failed bool
-	Message         string
+	Running bool
 }
 
 func ModelPanel(c *ui.Context, form ModelFields) {
 	layout := settingsLayout(c)
 	scrollProvider := layout.Compact() || layout.Height < 540
 	providerSwitcher := func() {
-		Card(c.Key("provider-switcher"), locales.ModelProviders(), func() {
+		CardWithAction(c.Key("provider-switcher"), locales.ModelProviders(), form.ProviderAction, func() {
 			form.Provider(c.Key("provider"))
 		})
 	}
@@ -107,19 +106,18 @@ func ModelPanel(c *ui.Context, form ModelFields) {
 func ConnectionTest(c *ui.Context, state *ConnectionTestState, model string, run func()) {
 	running := state != nil && state.Running
 	ui.Row(c).AlignItems(ui.Center).Gap(settingGap(c, 10)).Children(func() {
-		button := material3.Button(c, locales.TestConnection(), material3.FilledButton, running || model == "").Height(settingsLayout(c).Target(34)).PaddingX(settingX(c, 14))
+		label := locales.TestConnection()
+		if running {
+			label = locales.TestingConnection()
+		}
+		button := material3.Button(c, label, material3.FilledButton, running || model == "").Height(settingsLayout(c).Target(34)).PaddingX(settingX(c, 14)).Gap(settingGap(c, 7))
 		button.Children(func() {
 			color := material3.Foreground(material3.FilledButton, running || model == "")
-			ui.Text(c, locales.TestConnection()).FontSize(viewport.Font(c, 12)).FontWeight(620).TextColor(color)
-		}).OnClick(run)
-		if state != nil {
-			color := theme.Accent
-			if state.Failed {
-				color = theme.ErrorFG
-			} else if running {
-				color = theme.Muted
+			if running {
+				size := settingX(c, 14)
+				ui.Spinner(c.Key("spinner")).Label(locales.TestingConnection()).Size(size, size).Shrink(0).TextColor(color)
 			}
-			ui.Text(c, state.Message).Grow(1).MinWidth(0).FontSize(viewport.Font(c, 12)).TextColor(color)
-		}
+			ui.Text(c, label).FontSize(viewport.Font(c, 12)).FontWeight(620).TextColor(color)
+		}).OnClick(run)
 	})
 }

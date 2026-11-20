@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/mcptools"
@@ -24,6 +25,7 @@ type modelSettings struct {
 	MCPServers       []mcptools.Server       `json:"mcp_servers,omitempty"`
 	WebSearch        localtools.SearchConfig `json:"web_search,omitzero"`
 	OCR              localtools.OCRConfig    `json:"ocr,omitzero"`
+	ASR              localtools.ASRConfig    `json:"asr,omitzero"`
 	BrowserUse       bool                    `json:"browser_use,omitempty"`
 	BrowserMode      localtools.BrowserMode  `json:"browser_mode,omitempty"`
 	BaseURL          string                  `json:"base_url"`
@@ -67,6 +69,9 @@ func (s *modelSettings) validate() error {
 		return err
 	}
 	if err := s.OCR.Validate(); err != nil {
+		return err
+	}
+	if err := s.ASR.Validate(); err != nil {
 		return err
 	}
 	if !s.BrowserMode.Valid() {
@@ -181,9 +186,7 @@ type settingsStatus struct {
 }
 
 type connectionTest struct {
-	cancel  context.CancelFunc
-	message string
-	failed  bool
+	cancel context.CancelFunc
 }
 
 func (app *chatApp) savedKeyForForm() string {
@@ -325,7 +328,8 @@ func (app *chatApp) deferSettingsLeave(next func()) bool {
 	case settings.Tools:
 		if !app.extensionsForm.mcp.HasChanges(app.settings.MCPServers) &&
 			!app.extensionsForm.search.HasChanges(app.settings.WebSearch) &&
-			!app.extensionsForm.ocr.HasChanges(app.settings.OCR) {
+			!app.extensionsForm.ocr.HasChanges(app.settings.OCR) &&
+			!app.extensionsForm.asr.HasChanges(app.settings.ASR) {
 			return false
 		}
 	default:
@@ -367,6 +371,7 @@ func (app *chatApp) discardSettingsChanges() {
 		app.extensionsForm.mcp = settings.MCPForm{}
 		app.extensionsForm.search = settings.WebSearchForm{}
 		app.extensionsForm.ocr = settings.OCRForm{}
+		app.extensionsForm.asr = settings.ASRForm{}
 	}
 }
 
@@ -399,6 +404,7 @@ func (app *chatApp) saveSettings() {
 	config.MCPServers = app.settings.MCPServers
 	config.WebSearch = app.settings.WebSearch
 	config.OCR = app.settings.OCR
+	config.ASR = app.settings.ASR
 	config.BrowserUse, config.BrowserMode = app.settings.BrowserUse, app.settings.BrowserMode
 	config.Temperature = optionalNumber(form.temperature)
 	config.TopP = optionalNumber(form.topP)
@@ -514,6 +520,7 @@ func (app *chatApp) clearConnectionTest() {
 		test.cancel()
 	}
 	app.form.test = nil
+	app.connectionToast = nil
 }
 
 func (app *chatApp) removeSavedKey() {
@@ -530,23 +537,36 @@ func (app *chatApp) testConnection(model string) {
 	config.Model = model
 	parent := app.appContext()
 	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
-	test := &connectionTest{cancel: cancel, message: locales.TestingConnection()}
+	test := &connectionTest{cancel: cancel}
 	app.form.test = test
+	app.connectionToast = nil
 	go func() {
 		defer cancel()
 		err := checkConnection(ctx, config)
 		app.win.Update(func() {
-			if parent.Err() != nil || app.form.test != test {
-				return
-			}
-			test.cancel = nil
-			test.message = locales.ConnectionOK()
-			if err != nil {
-				test.message = locales.ConnectionFailedDetail(err.Error())
-				test.failed = true
-			}
+			app.connectionTestResult(test, model, err)
 		})
 	}()
+}
+
+func (app *chatApp) connectionTestResult(test *connectionTest, model string, err error) {
+	if app.appContext().Err() != nil || app.form.test != test {
+		return
+	}
+	test.cancel = nil
+	app.form.test = nil
+	toast := ui.Toast{ID: "model-connection-test", Title: locales.ConnectionOK(), Description: model, Type: "success"}
+	if err != nil {
+		toast.Title, toast.Description, toast.Type = locales.ConnectionFailedDetail(model), err.Error(), "error"
+	}
+	app.connectionToast = &toast
+}
+
+func (app *chatApp) connectionTestFeedback(c *ui.Context) {
+	if app.connectionToast != nil {
+		c.AddToast(*app.connectionToast)
+		app.connectionToast = nil
+	}
 }
 
 func checkConnection(ctx context.Context, config modelSettings) error {

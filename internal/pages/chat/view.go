@@ -121,5 +121,6 @@ func (app *chatApp) view(c *ui.Context) {
 	app.conversationActionDialog(c.Key("conversation-action"))
 	app.messageDialog(c.Key("message-dialog"))
 	app.settingsTransferFeedback(c.Key("transfer-feedback"))
+	app.connectionTestFeedback(c.Key("connection-feedback"))
 	app.persistDraft()
 }

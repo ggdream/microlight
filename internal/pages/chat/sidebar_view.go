@@ -81,6 +81,7 @@ func (app *chatApp) sidebar(c *ui.Context, selected *conversation, shortcut stri
 			app.sidebarToggle(c, true)
 			ui.Box(c).Grow(1)
 			app.sidebarSettingsButton(c)
+			app.updateDownloadButton(c)
 		})
 		return
 	}
@@ -140,7 +141,10 @@ func (app *chatApp) sidebar(c *ui.Context, selected *conversation, shortcut stri
 			material3.EdgeDivider(ui.Row(c).AlignSelf(ui.Stretch).Margin(0, sidebarInset, 0, 0).Padding(layout.Density(8, layout.Y(8)), 0, 0).Gap(8).AlignItems(ui.Center), material3.TopEdge).
 				Children(func() {
 					app.sidebarSettingsButton(c)
-					ui.Text(c, locales.HistoryLocal()).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, layout.Density(11, 12))).TextColor(muted)
+					pointerButton(c.Key("settings-label"), false).Label(locales.Settings()).Grow(1).MinWidth(0).Height(32).AlignItems(ui.Center).Justify(ui.Start).Padding(0).Children(func() {
+						ui.Text(c, locales.Settings()).SingleLine().FontSize(viewport.Font(c, layout.Density(11, 12))).TextColor(muted)
+					}).OnClick(app.openSettings)
+					app.updateDownloadButton(c)
 				})
 		})
 	})

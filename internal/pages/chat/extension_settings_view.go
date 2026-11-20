@@ -16,6 +16,7 @@ type extensionsForm struct {
 	mcp                       settings.MCPForm
 	search                    settings.WebSearchForm
 	ocr                       settings.OCRForm
+	asr                       settings.ASRForm
 	skillIndex                *skillIndex
 	skillQuery, expandedSkill string
 	browserError              string
@@ -33,7 +34,13 @@ func (app *chatApp) toolsSettings(c *ui.Context) {
 			config.OCR = ocr
 			return app.applySettings(config)
 		})
+		app.extensionsForm.asr.View(c.Key("asr"), icons, app.settings.ASR, func(asr localtools.ASRConfig) error {
+			config := app.settings
+			config.ASR = asr
+			return app.applySettings(config)
+		})
 		if desktop.Desktop {
+			// Desktop-only browser automation follows the portable built-in tools.
 			app.browserSettings(c.Key("browser-use"))
 		}
 		app.extensionsForm.mcp.View(c.Key("mcp"), icons, app.settings.MCPServers, func(servers []mcptools.Server) error {

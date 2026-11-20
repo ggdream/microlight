@@ -30,6 +30,9 @@ var updateTarget = runtime.GOOS + "-" + runtime.GOARCH
 
 type updateCheck struct {
 	checking bool
+	latest   string
+	manual   bool
+	started  time.Time
 }
 
 func (app *chatApp) versionSettings(c *ui.Context) {
@@ -62,20 +65,63 @@ func (app *chatApp) versionSettings(c *ui.Context) {
 }
 
 func (app *chatApp) checkForUpdates() {
+	app.startUpdateCheck(true)
+}
+
+func (app *chatApp) checkForUpdatesQuietly() {
+	if desktop.Web || time.Since(app.updateCheck.started) < time.Second {
+		return
+	}
+	app.startUpdateCheck(false)
+}
+
+func (app *chatApp) startUpdateCheck(manual bool) {
 	if app.updateCheck.checking {
+		app.updateCheck.manual = app.updateCheck.manual || manual
 		return
 	}
 	proxyConfig := app.settings.Proxy
-	app.updateCheck = updateCheck{checking: true}
+	app.updateCheck.checking, app.updateCheck.manual, app.updateCheck.started = true, manual, time.Now()
 	go func() {
 		ctx, cancel := context.WithTimeout(app.appContext(), 12*time.Second)
 		defer cancel()
 		version, err := latestRelease(ctx, proxyConfig)
 		if app.appContext().Err() == nil {
-			app.showUpdateResult(version, err)
-			app.win.Update(func() { app.updateCheck = updateCheck{} })
+			app.win.Update(func() {
+				showResult := app.updateCheck.manual
+				app.updateCheck.checking, app.updateCheck.manual = false, false
+				if err == nil {
+					app.updateCheck.latest = ""
+					if newerRelease(buildinfo.Version(), version) {
+						app.updateCheck.latest = version
+					}
+				}
+				if showResult {
+					go app.showUpdateResult(version, err)
+				}
+			})
 		}
 	}()
+}
+
+func newerRelease(current, latest string) bool {
+	c, l := releaseParts(current), releaseParts(latest)
+	return c != nil && l != nil && slices.Compare(l[:], c[:]) > 0
+}
+
+func (app *chatApp) updateDownloadButton(c *ui.Context) {
+	version := app.updateCheck.latest
+	if version == "" || desktop.Web {
+		return
+	}
+	link := releaseInstallerURL(version, updateTarget)
+	if link == "" {
+		link = releasePage + "/tag/" + version
+	}
+	label := locales.DownloadInstaller() + " · " + version
+	button := pointerButton(c.Key("update-download"), false).Label(label).Tooltip(label).
+		Size(30, 30).Shrink(0).Radius(15).Background(ink).Center()
+	button.Children(func() { icon(c, "download", white, 16) }).OnClick(func() { _ = mygo.Shell.OpenExternal(link) })
 }
 
 func (app *chatApp) showUpdateResult(version string, checkErr error) {
@@ -126,6 +172,8 @@ func releaseInstallerURL(version, target string) string {
 		extension = "exe"
 	case "linux-amd64":
 		extension = "tar.gz"
+	case "android-arm64":
+		extension = "apk"
 	}
 	if extension == "" {
 		return ""

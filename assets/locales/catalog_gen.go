@@ -2864,11 +2864,11 @@ func (msgs Messages) WebSearch() string {
 	return Catalog.Format(msgs.locale, "webSearch", nil)
 }
 
-// OcrTool says "OCR"
+// OcrTool says "Text recognition (OCR)"
 // in the language the app shows.
 func OcrTool() string { return In(i18n.Locale()).OcrTool() }
 
-// OcrTool says "OCR"
+// OcrTool says "Text recognition (OCR)"
 // in the language of msgs.
 func (msgs Messages) OcrTool() string {
 	return Catalog.Format(msgs.locale, "ocrTool", nil)
@@ -4936,4 +4936,144 @@ func BrowserNotificationDenied() string { return In(i18n.Locale()).BrowserNotifi
 // in the language of msgs.
 func (msgs Messages) BrowserNotificationDenied() string {
 	return Catalog.Format(msgs.locale, "browserNotificationDenied", nil)
+}
+
+// AsrTool says "Speech recognition (ASR)"
+// in the language the app shows.
+func AsrTool() string { return In(i18n.Locale()).AsrTool() }
+
+// AsrTool says "Speech recognition (ASR)"
+// in the language of msgs.
+func (msgs Messages) AsrTool() string {
+	return Catalog.Format(msgs.locale, "asrTool", nil)
+}
+
+// AsrToolHint says "Transcribe audio attachments or files using the selected provider. Audio is uploaded after permission approval."
+// in the language the app shows.
+func AsrToolHint() string { return In(i18n.Locale()).AsrToolHint() }
+
+// AsrToolHint says "Transcribe audio attachments or files using the selected provider. Audio is uploaded after permission approval."
+// in the language of msgs.
+func (msgs Messages) AsrToolHint() string {
+	return Catalog.Format(msgs.locale, "asrToolHint", nil)
+}
+
+// EnableAsrTool says "Enable speech recognition"
+// in the language the app shows.
+func EnableAsrTool() string { return In(i18n.Locale()).EnableAsrTool() }
+
+// EnableAsrTool says "Enable speech recognition"
+// in the language of msgs.
+func (msgs Messages) EnableAsrTool() string {
+	return Catalog.Format(msgs.locale, "enableAsrTool", nil)
+}
+
+// AsrInvalidProvider says "Invalid speech recognition provider."
+// in the language the app shows.
+func AsrInvalidProvider() string { return In(i18n.Locale()).AsrInvalidProvider() }
+
+// AsrInvalidProvider says "Invalid speech recognition provider."
+// in the language of msgs.
+func (msgs Messages) AsrInvalidProvider() string {
+	return Catalog.Format(msgs.locale, "asrInvalidProvider", nil)
+}
+
+// AsrUploadApproval says "Upload audio for transcription"
+// in the language the app shows.
+func AsrUploadApproval() string { return In(i18n.Locale()).AsrUploadApproval() }
+
+// AsrUploadApproval says "Upload audio for transcription"
+// in the language of msgs.
+func (msgs Messages) AsrUploadApproval() string {
+	return Catalog.Format(msgs.locale, "asrUploadApproval", nil)
+}
+
+// AsrSecretKey says "Secret Key"
+// in the language the app shows.
+func AsrSecretKey() string { return In(i18n.Locale()).AsrSecretKey() }
+
+// AsrSecretKey says "Secret Key"
+// in the language of msgs.
+func (msgs Messages) AsrSecretKey() string {
+	return Catalog.Format(msgs.locale, "asrSecretKey", nil)
+}
+
+// AsrEndpoint says "API endpoint"
+// in the language the app shows.
+func AsrEndpoint() string { return In(i18n.Locale()).AsrEndpoint() }
+
+// AsrEndpoint says "API endpoint"
+// in the language of msgs.
+func (msgs Messages) AsrEndpoint() string {
+	return Catalog.Format(msgs.locale, "asrEndpoint", nil)
+}
+
+// AsrLanguage says "Language (optional)"
+// in the language the app shows.
+func AsrLanguage() string { return In(i18n.Locale()).AsrLanguage() }
+
+// AsrLanguage says "Language (optional)"
+// in the language of msgs.
+func (msgs Messages) AsrLanguage() string {
+	return Catalog.Format(msgs.locale, "asrLanguage", nil)
+}
+
+// AsrLanguageHint says "Use the provider’s language code; leave empty for its default."
+// in the language the app shows.
+func AsrLanguageHint() string { return In(i18n.Locale()).AsrLanguageHint() }
+
+// AsrLanguageHint says "Use the provider’s language code; leave empty for its default."
+// in the language of msgs.
+func (msgs Messages) AsrLanguageHint() string {
+	return Catalog.Format(msgs.locale, "asrLanguageHint", nil)
+}
+
+// AsrSampleRate says "Audio sample rate (Hz)"
+// in the language the app shows.
+func AsrSampleRate() string { return In(i18n.Locale()).AsrSampleRate() }
+
+// AsrSampleRate says "Audio sample rate (Hz)"
+// in the language of msgs.
+func (msgs Messages) AsrSampleRate() string {
+	return Catalog.Format(msgs.locale, "asrSampleRate", nil)
+}
+
+// AsrInvalidSampleRate says "Enter a valid sample rate."
+// in the language the app shows.
+func AsrInvalidSampleRate() string { return In(i18n.Locale()).AsrInvalidSampleRate() }
+
+// AsrInvalidSampleRate says "Enter a valid sample rate."
+// in the language of msgs.
+func (msgs Messages) AsrInvalidSampleRate() string {
+	return Catalog.Format(msgs.locale, "asrInvalidSampleRate", nil)
+}
+
+// AsrVolcengineHint says "The file flash API requires volc.bigasr.auc_turbo access. New accounts may need to request activation."
+// in the language the app shows.
+func AsrVolcengineHint() string { return In(i18n.Locale()).AsrVolcengineHint() }
+
+// AsrVolcengineHint says "The file flash API requires volc.bigasr.auc_turbo access. New accounts may need to request activation."
+// in the language of msgs.
+func (msgs Messages) AsrVolcengineHint() string {
+	return Catalog.Format(msgs.locale, "asrVolcengineHint", nil)
+}
+
+// AsrTokenHint says "This provider uses a temporary access token. Renew it when it expires."
+// in the language the app shows.
+func AsrTokenHint() string { return In(i18n.Locale()).AsrTokenHint() }
+
+// AsrTokenHint says "This provider uses a temporary access token. Renew it when it expires."
+// in the language of msgs.
+func (msgs Messages) AsrTokenHint() string {
+	return Catalog.Format(msgs.locale, "asrTokenHint", nil)
+}
+
+// AsrProvider says "Provider"
+// in the language the app shows.
+func AsrProvider() string { return In(i18n.Locale()).AsrProvider() }
+
+// AsrProvider says "Provider"
+// in the language of msgs.
+func (msgs Messages) AsrProvider() string {
+	return Catalog.Format(msgs.locale, "asrProvider", nil)
 }

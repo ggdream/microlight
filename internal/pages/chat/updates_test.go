@@ -8,13 +8,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/pkg/proxy"
 )
 
 func TestReleaseInstallerMatchesPublishedPlatformAssets(t *testing.T) {
 	for _, tc := range []struct{ target, extension string }{
 		{"darwin-amd64", "dmg"}, {"darwin-arm64", "dmg"},
-		{"windows-amd64", "exe"}, {"linux-amd64", "tar.gz"},
+		{"windows-amd64", "exe"}, {"linux-amd64", "tar.gz"}, {"android-arm64", "apk"},
 	} {
 		want := releasePage + "/download/v1.2.3/microlight-v1.2.3-" + tc.target + "." + tc.extension
 		if got := releaseInstallerURL("v1.2.3", tc.target); got != want {
@@ -88,4 +90,45 @@ func closeUpdateResponse(body io.ReadCloser, err error) error {
 		_ = body.Close()
 	}
 	return err
+}
+
+func TestNewerReleaseAndSharedFocusCheck(t *testing.T) {
+	for _, tc := range []struct {
+		current, latest string
+		want            bool
+	}{
+		{"v0.12.0+dirty", "v0.13.0", true},
+		{"v0.12.0-abcdef0+dirty", "v0.12.0", false},
+		{"v0.12.0", "v0.11.9", false},
+		{"dev", "v0.13.0", false},
+		{"v0.12.0", "bad", false},
+	} {
+		if got := newerRelease(tc.current, tc.latest); got != tc.want {
+			t.Errorf("%s -> %s: %v", tc.current, tc.latest, got)
+		}
+	}
+	app := &chatApp{updateCheck: updateCheck{checking: true, latest: "v1.0.0", started: time.Now()}}
+	app.checkForUpdatesQuietly()
+	if app.updateCheck.manual || !app.updateCheck.checking || app.updateCheck.latest != "v1.0.0" {
+		t.Fatal("focus check disturbed the in-flight request")
+	}
+	app.checkForUpdates()
+	if !app.updateCheck.manual || !app.updateCheck.checking {
+		t.Fatal("manual check should subscribe to the in-flight request")
+	}
+}
+
+func TestUpdateDownloadIndicatorOnlyAppearsForAvailableRelease(t *testing.T) {
+	app := &chatApp{}
+	window := ui.NewTester(app.updateDownloadButton, 300, 50)
+	label := locales.DownloadInstaller() + " · v1.2.3"
+	if _, ok := window.Find(label); ok {
+		t.Fatal("download indicator should be hidden before finding a newer release")
+	}
+	app.updateCheck.latest = "v1.2.3"
+	window = ui.NewTester(app.updateDownloadButton, 300, 50)
+	button, ok := window.Find(label)
+	if !ok || button.W != button.H {
+		t.Fatal("available release needs a circular download action")
+	}
 }

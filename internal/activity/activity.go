@@ -46,7 +46,7 @@ func DescribeToolCall(call *schema.FunctionToolCall) Entry {
 	_ = json.Unmarshal([]byte(call.Arguments), &args)
 	name, target := call.Name, args.Command
 	switch name {
-	case localtools.Read, localtools.List, localtools.Write, localtools.PublishArtifact, localtools.OCR, localtools.ParseDocument:
+	case localtools.Read, localtools.List, localtools.Write, localtools.PublishArtifact, localtools.OCR, localtools.ParseDocument, localtools.ASR:
 		target = args.Path
 	case localtools.Fetch:
 		target = args.URL
@@ -88,6 +88,8 @@ func (activity Entry) Label(target string) string {
 		label = locales.WebSearch()
 	case localtools.OCR:
 		label = locales.OcrTextRecognition()
+	case localtools.ASR:
+		label = locales.AsrTool()
 	case localtools.ParseDocument:
 		label = locales.OcrDocumentParsing()
 	case localtools.BrowserUse:

@@ -128,6 +128,14 @@ For complex tasks, use write_todos if it helps. Use local file and web tools onl
 		tools = append(tools, ocrTools...)
 		instruction += "\nUse the current model's vision for ordinary image requests. For image inputs, call ocr only when the user explicitly requests OCR, and call parse_document only when the user explicitly requests document parsing or reconstruction of document structure. If vision is unavailable for an ordinary image request, ask before using an external tool. For PDFs, choose ocr for plain text and parse_document to preserve structure."
 	}
+	asrTool, asrTarget, err := localtools.NewASRTool(config.ASR, network)
+	if err != nil {
+		return nil, err
+	}
+	if asrTool != nil {
+		permissions.ASRTarget = asrTarget
+		tools = append(tools, asrTool)
+	}
 	if config.BrowserUse && desktop.Desktop {
 		tools = append(tools, localtools.BrowserTool{Mode: config.BrowserMode})
 	}

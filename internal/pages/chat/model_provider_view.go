@@ -228,18 +228,17 @@ func (app *chatApp) providerSettingsControl(c *ui.Context) {
 	if _, drafting := form.providerDrafts[""]; drafting || form.providerID == "" {
 		options = append(options, modelOption{label: locales.NewProvider()})
 	}
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).Children(func() {
-		scroll, offset := elastic.Horizontal(c.Key("provider-chips"))
-		scroll.Grow(1).MinWidth(0).AlignItems(ui.Center).Padding(3, 0).Children(func() {
-			offset.Apply(ui.Row(c)).Gap(8).AlignItems(ui.Center).Children(func() {
-				for _, option := range options {
-					app.providerChip(c.Key("provider-"+option.id), option)
-				}
-			})
-		})
-		settings.ActionButton(c.Key("new-provider"), icons, locales.AddProvider(), "plus", form.providerID == "").
-			Shrink(0).Radius(material3.ShapeSmall).OnClick(func() { app.editProvider("") })
+	ui.Row(c.Key("provider-chips")).FillWidth().Wrap().AlignItems(ui.Center).
+		Gap(windowLayout(c).X(8)).Padding(windowLayout(c).Y(3), 0).Children(func() {
+		for _, option := range options {
+			app.providerChip(c.Key("provider-"+option.id), option)
+		}
 	})
+}
+
+func (app *chatApp) addProviderControl(c *ui.Context) {
+	settings.ActionButton(c.Key("new-provider"), icons, locales.AddProvider(), "plus", app.form.providerID == "").
+		Shrink(0).Radius(material3.ShapeSmall).OnClick(func() { app.editProvider("") })
 }
 
 func (app *chatApp) providerModelsControl(c *ui.Context) {
@@ -485,7 +484,7 @@ func (app *chatApp) connectionTestControl(c *ui.Context) {
 	})
 	var state *settings.ConnectionTestState
 	if test := form.test; test != nil {
-		state = &settings.ConnectionTestState{Running: test.cancel != nil, Failed: test.failed, Message: test.message}
+		state = &settings.ConnectionTestState{Running: test.cancel != nil}
 	}
 	settings.ConnectionTest(c.Key("test-button"), state, selected, func() { app.testConnection(selected) })
 }

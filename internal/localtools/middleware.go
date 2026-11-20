@@ -100,6 +100,8 @@ type Approval struct {
 }
 
 type localOperation struct {
+	audioData             []byte
+	audioName             string
 	ocrData               []byte
 	ocrExtension          string
 	webClient             *http.Client
@@ -127,6 +129,7 @@ type Middleware struct {
 	WebClient       *http.Client
 	MCPTargets      map[string]MCPTarget
 	WebSearchTarget string
+	ASRTarget       string
 	EncodeApproval  func(question string, approval Approval) ([]byte, error)
 }
 
@@ -141,13 +144,24 @@ func (h Middleware) BeforeAgent(ctx context.Context, run *adk.ChatModelAgentCont
 		updated.Instruction += fmt.Sprintf("\nThe workspace path is %q.", workspace)
 	}
 	var files []string
-	for i, file := range ocrAttachments(ctx) {
+	for i, file := range toolAttachments(ctx) {
 		if file != nil && ocrFileExtension(file.Data) != "" {
 			files = append(files, fmt.Sprintf("%d (%q)", i+1, file.Name))
 		}
 	}
 	if len(files) != 0 {
 		updated.Instruction += "\nCurrent user files available to ocr or parse_document by attachment_index when the task calls for those tools: " + strings.Join(files, ", ") + "."
+	}
+	if h.ASRTarget != "" {
+		var audioFiles []string
+		for i, file := range toolAttachments(ctx) {
+			if file != nil {
+				audioFiles = append(audioFiles, fmt.Sprintf("%d (%q)", i+1, file.Name))
+			}
+		}
+		if len(audioFiles) != 0 {
+			updated.Instruction += "\nCurrent user files addressable by attachment_index in transcribe_audio: " + strings.Join(audioFiles, ", ") + "."
+		}
 	}
 	if updated.Instruction == run.Instruction {
 		return ctx, run, nil
@@ -163,7 +177,7 @@ func TracksToolStart(name string) bool {
 
 func isLocalTool(name string) bool {
 	switch name {
-	case Read, List, Write, Fetch, Execute, ExecuteBackground, PublishArtifact, BrowserUse, OCR, ParseDocument:
+	case Read, List, Write, Fetch, Execute, ExecuteBackground, PublishArtifact, BrowserUse, OCR, ParseDocument, ASR:
 		return true
 	default:
 		return false
@@ -210,6 +224,13 @@ func (h Middleware) WrapInvokableToolCall(_ context.Context, next adk.InvokableT
 				session.mu.Unlock()
 			} else {
 				op.target = browserTarget(nil, parameters.Param)
+			}
+		} else if call.Name == ASR {
+			var err error
+			op, err = policy.resolveASR(ctx, args)
+			if err != nil {
+				result, _ := json.Marshal(map[string]any{"status": "error", "error": map[string]string{"message": err.Error()}})
+				return string(result), nil
 			}
 		} else if call.Name == OCR || call.Name == ParseDocument {
 			var err error
@@ -271,7 +292,7 @@ func (h Middleware) WrapInvokableToolCall(_ context.Context, next adk.InvokableT
 }
 
 func (h Middleware) needsApproval(op localOperation) bool {
-	if op.name == Execute || op.name == ExecuteBackground || op.name == OCR || op.name == ParseDocument {
+	if op.name == Execute || op.name == ExecuteBackground || op.name == OCR || op.name == ParseDocument || op.name == ASR {
 		return h.Mode.Normalized() != Full
 	}
 	switch h.Mode.Normalized() {
@@ -295,6 +316,8 @@ func (op localOperation) title() string {
 		return locales.BrowserUseTool()
 	case OCR:
 		return locales.OcrUploadApproval()
+	case ASR:
+		return locales.AsrUploadApproval()
 	case ParseDocument:
 		return locales.OcrDocumentUploadApproval()
 	case Execute, ExecuteBackground:

@@ -12,6 +12,7 @@ import (
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/mcptools"
 	"github.com/ggdream/microlight/internal/pages/settings"
+	"github.com/ggdream/microlight/pkg/asr"
 	"github.com/ggdream/microlight/pkg/ocr"
 	"github.com/ggdream/microlight/pkg/proxy"
 	"github.com/ggdream/microlight/pkg/websearch"
@@ -88,6 +89,7 @@ func TestSettingsTransferPreservesSecretsAndKeepsConversationData(t *testing.T) 
 					websearch.Firecrawl:  {APIKey: "firecrawl-test-key"},
 				},
 			},
+			ASR: localtools.ASRConfig{Enabled: true, Provider: asr.DeepSeek, Options: map[asr.ID]asr.Options{asr.DeepSeek: {APIKey: "asr-secret"}, asr.Xfyun: {APIKey: "xfyun-key", SecretKey: "xfyun-secret", AppID: "xfyun-app"}, asr.Huawei: {APIKey: "iam-secret", ProjectID: "project"}}},
 			OCR: localtools.OCRConfig{Enabled: true, Provider: localtools.PaddleOCR, Token: "ocr-test-token", TextModel: ocr.PPV5Latin, DocumentModel: ocr.StructureV3},
 			MCPServers: []mcptools.Server{{
 				Name: "test_mcp", Transport: mcptools.HTTP, URL: "https://example.test/mcp", TimeoutSeconds: 300,
@@ -129,7 +131,7 @@ func TestSettingsTransferPreservesSecretsAndKeepsConversationData(t *testing.T) 
 	if config.Model != "alternate" || file.Models.Providers[0].Model != "default" ||
 		config.APIKey != "model-test-key" || config.Proxy != app.settings.Proxy ||
 		!reflect.DeepEqual(config.MCPServers, app.settings.MCPServers) ||
-		!reflect.DeepEqual(config.WebSearch, app.settings.WebSearch) || config.OCR != app.settings.OCR || !config.BrowserUse || config.BrowserMode != localtools.BrowserBackground {
+		!reflect.DeepEqual(config.WebSearch, app.settings.WebSearch) || config.OCR != app.settings.OCR || !reflect.DeepEqual(config.ASR, app.settings.ASR) || !config.BrowserUse || config.BrowserMode != localtools.BrowserBackground {
 		t.Fatal("provider, proxy, model, or built-in tool settings failed to round-trip")
 	}
 	for _, bad := range []string{string(data) + " null", strings.Replace(string(data), `"version": 1`, `"version": 42`, 1)} {

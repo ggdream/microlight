@@ -141,16 +141,21 @@ func Run(assets fs.FS) {
 			}
 		})
 		app.win.OnShow(app.win.Invalidate)
-		mygo.App.OnDidBecomeActive(app.win.Invalidate)
+		mygo.App.OnDidBecomeActive(func() {
+			app.win.Invalidate()
+			app.checkForUpdatesQuietly()
+		})
 		app.win.OnFocus(func() {
 			app.unreadReplies = 0
 			mygo.App.SetBadgeCount(0)
 			app.win.Invalidate()
+			app.checkForUpdatesQuietly()
 		})
 		if desktop.Desktop {
 			desktop.SetupTray(app.win, assets)
 			app.startDesktopShortcut()
 		}
+		app.checkForUpdatesQuietly()
 	})
 	if err := mygo.App.Run(); err != nil {
 		slog.Error("运行应用失败", "error", err)

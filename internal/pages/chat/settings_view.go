@@ -142,8 +142,9 @@ func (app *chatApp) modelSettings(c *ui.Context) {
 		ContextThreshold: &form.contextThreshold, DefaultContextThreshold: defaultContextThreshold,
 		SavedKeyLength: utf8.RuneCountInString(savedKey), RemoveKey: form.removeKey,
 		OnChange: app.clearConnectionTest, Provider: app.providerSettingsControl,
-		ClearKey: app.removeSavedKey,
-		Models:   app.providerModelsControl,
+		ProviderAction: app.addProviderControl,
+		ClearKey:       app.removeSavedKey,
+		Models:         app.providerModelsControl,
 	})
 	settings.Footer(c, form.settingsStatus.message, form.settingsStatus.failed, app.saveSettings)
 	app.providerDeleteDialog(c.Key("delete-provider"))

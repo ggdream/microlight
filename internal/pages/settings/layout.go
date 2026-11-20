@@ -76,10 +76,21 @@ func Footer(c *ui.Context, message string, failed bool, save func()) {
 }
 
 func Card(c *ui.Context, title string, fields func()) ui.Element {
+	return CardWithAction(c, title, nil, fields)
+}
+
+func CardWithAction(c *ui.Context, title string, action func(*ui.Context), fields func()) ui.Element {
 	layout := settingsLayout(c)
 	return material3.Card(c, material3.ElevatedCard).
 		Padding(layout.Y(layout.Density(15, 7)), layout.X(layout.Density(16, 11))).Gap(layout.Y(layout.Density(11, 6))).Children(func() {
-		material3.Text(c, title, material3.TitleMedium)
+		if action == nil {
+			material3.Text(c, title, material3.TitleMedium)
+		} else {
+			ui.Row(c.Key("header")).FillWidth().AlignItems(ui.Center).Gap(settingGap(c, 8)).Children(func() {
+				material3.Text(c, title, material3.TitleMedium).Grow(1).MinWidth(0)
+				action(c.Key("action"))
+			})
+		}
 		fields()
 	})
 }

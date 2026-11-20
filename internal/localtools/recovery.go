@@ -14,7 +14,7 @@ type RecoveryCall struct {
 type recoveryKey struct{}
 
 func RecordsMutation(name string) bool {
-	return name == Write || name == Execute || name == ExecuteBackground || name == BrowserUse || name == OCR || name == ParseDocument || strings.HasPrefix(name, "mcp_")
+	return name == Write || name == Execute || name == ExecuteBackground || name == BrowserUse || name == OCR || name == ParseDocument || name == ASR || strings.HasPrefix(name, "mcp_")
 }
 
 func WithRecovery(ctx context.Context, calls []RecoveryCall) context.Context {

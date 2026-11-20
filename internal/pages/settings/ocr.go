@@ -10,7 +10,6 @@ import (
 	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/theme"
-	"github.com/ggdream/microlight/pkg/material3"
 	"github.com/ggdream/microlight/pkg/ocr"
 )
 
@@ -32,15 +31,10 @@ func (form *OCRForm) View(c *ui.Context, icons asseticon.Set, saved localtools.O
 	}
 	draft := form.draft
 	resetError := func() { form.err = "" }
-	material3.CardStyle(ui.Column(c).FillWidth(), material3.ElevatedCard).
-		Padding(settingY(c, 15), settingX(c, 16)).Gap(settingGap(c, 11)).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Gap(settingsLayout(c).Density(12, 8)).Children(func() {
-			ui.Column(c).Grow(1).MinWidth(0).Gap(settingGap(c, 4)).Children(func() {
-				ui.Text(c, locales.OcrTool()).FontSize(viewport.Font(c, 15)).FontWeight(660)
-				ui.Text(c, locales.OcrToolHint()).FontSize(viewport.Font(c, 12)).TextColor(theme.Muted)
-			})
-			theme.Switch(c.Key("enabled"), &draft.Enabled, locales.EnableOcrTool(), resetError)
-		})
+	CardWithAction(c, locales.OcrTool(), func(c *ui.Context) {
+		theme.Switch(c.Key("enabled"), &draft.Enabled, locales.EnableOcrTool(), resetError)
+	}, func() {
+		ui.Text(c, locales.OcrToolHint()).FontSize(viewport.Font(c, 12)).TextColor(theme.Muted)
 		settingsSelect(c.Key("provider"), icons, locales.OcrProvider(), &draft.Provider,
 			[]localtools.OCRProvider{localtools.PaddleOCR}, ocrProviderLabel, resetError)
 		switch draft.Provider {

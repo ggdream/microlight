@@ -23,6 +23,7 @@ type settingsFile struct {
 	MCPServers   []mcptools.Server           `json:"mcp_servers"`
 	WebSearch    localtools.SearchConfig     `json:"web_search"`
 	OCR          localtools.OCRConfig        `json:"ocr,omitzero"`
+	ASR          localtools.ASRConfig        `json:"asr,omitzero"`
 	BrowserUse   bool                        `json:"browser_use"`
 	BrowserMode  localtools.BrowserMode      `json:"browser_mode"`
 	Language     settings.LanguagePreference `json:"language"`
@@ -43,13 +44,14 @@ func (app *chatApp) settingsExportFile() settingsFile {
 		provider.MCPServers = nil
 		provider.WebSearch = localtools.SearchConfig{}
 		provider.OCR = localtools.OCRConfig{}
+		provider.ASR = localtools.ASRConfig{}
 		provider.BrowserUse, provider.BrowserMode = false, ""
 		provider.AccessMode, provider.Workspace = "", ""
 	}
 	return settingsFile{
 		Version: settingsFileVersion, Models: &catalog, Proxy: app.settings.Proxy,
 		MCPServers: app.settings.MCPServers, Language: app.language, BusySend: app.busySend,
-		WebSearch: app.settings.WebSearch, OCR: app.settings.OCR, BrowserUse: app.settings.BrowserUse, BrowserMode: app.settings.BrowserMode.Effective(),
+		WebSearch: app.settings.WebSearch, OCR: app.settings.OCR, ASR: app.settings.ASR, BrowserUse: app.settings.BrowserUse, BrowserMode: app.settings.BrowserMode.Effective(),
 		SystemPrompt: app.systemPrompt, Desktop: app.desktop,
 	}
 }
@@ -102,6 +104,7 @@ func (file *settingsFile) validate() (modelSettings, error) {
 		provider.MCPServers = nil
 		provider.WebSearch = localtools.SearchConfig{}
 		provider.OCR = localtools.OCRConfig{}
+		provider.ASR = localtools.ASRConfig{}
 		provider.BrowserUse, provider.BrowserMode = false, ""
 		provider.AccessMode, provider.Workspace = "", ""
 		if err := provider.modelSettings.validate(); err != nil {
@@ -123,7 +126,7 @@ func (file *settingsFile) validate() (modelSettings, error) {
 	} else {
 		file.Models.Providers = []modelProvider{}
 	}
-	shared := modelSettings{BaseURL: defaultBaseURL, Model: defaultModel, Proxy: file.Proxy, MCPServers: file.MCPServers, WebSearch: file.WebSearch, OCR: file.OCR, BrowserUse: file.BrowserUse, BrowserMode: file.BrowserMode}
+	shared := modelSettings{BaseURL: defaultBaseURL, Model: defaultModel, Proxy: file.Proxy, MCPServers: file.MCPServers, WebSearch: file.WebSearch, OCR: file.OCR, ASR: file.ASR, BrowserUse: file.BrowserUse, BrowserMode: file.BrowserMode}
 	config := file.Models.activeConfig(shared)
 	err := config.validate()
 	return config, err
