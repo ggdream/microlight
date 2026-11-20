@@ -78,11 +78,7 @@ func Run(assets fs.FS) {
 		return
 	}
 	icons = loadedIcons
-	brandPath := "assets/icon.png"
-	if desktop.Mobile {
-		brandPath = "assets/icon-mobile.png"
-	}
-	brandImage, iconErr := fs.ReadFile(assets, brandPath)
+	brandImage, iconErr := fs.ReadFile(assets, "assets/icon.png")
 	if iconErr == nil {
 		app.brandIcon, iconErr = ui.DecodeBitmap(brandImage)
 	}

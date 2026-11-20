@@ -5,6 +5,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"syscall/js"
 
 	"github.com/egoist/mygo"
 	"github.com/ggdream/microlight/pkg/webnotify"
@@ -15,7 +16,8 @@ func NotificationsSupported() bool { return webnotify.Supported() }
 type browserNotification struct{ *webnotify.Notification }
 
 func NewNotification(options mygo.NotificationOptions) *browserNotification {
-	return &browserNotification{webnotify.New(webnotify.Options{Title: options.Title, Body: options.Body, Tag: options.Group, Icon: "/icon.png"})}
+	iconURL := js.Global().Get("URL").New("icon.png", js.Global().Get("document").Get("baseURI")).Get("href").String()
+	return &browserNotification{webnotify.New(webnotify.Options{Title: options.Title, Body: options.Body, Tag: options.Group, Icon: iconURL})}
 }
 func mapNotificationError(err error) error {
 	if errors.Is(err, webnotify.ErrDenied) {

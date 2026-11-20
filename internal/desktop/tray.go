@@ -17,6 +17,13 @@ func SetupTray(window *mygo.Window, assets fs.FS) {
 		return
 	}
 	trayIcon, template := appIcon, false
+	if runtime.GOOS == "windows" || runtime.GOOS == "linux" {
+		trayIcon, err = cropTrayIcon(appIcon)
+		if err != nil {
+			slog.Error("准备托盘图标失败", "error", err)
+			return
+		}
+	}
 	if runtime.GOOS != "windows" && runtime.GOOS != "linux" {
 		trayIcon, err = fs.ReadFile(assets, "assets/tray.png")
 		if err != nil {

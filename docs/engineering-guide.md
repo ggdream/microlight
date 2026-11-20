@@ -88,3 +88,5 @@
 - 提交消息使用 `feat:`、`fix:`、`perf:`、`chore:`、`docs:` 等前缀。按任务指定范围提交、推送或发版。发版时先确认目标提交的 main CI 通过，再推送 `vX.Y.Z` 标签，等 Release 上传完成后核对三平台产物。
 - 安装产物命名统一为 `microlight-vX.Y.Z-platform-arch.xxx`。当前平台组合为 `darwin-amd64` 与 `darwin-arm64` 两个独立 DMG、`windows-amd64` 的 EXE，以及 `linux-amd64` 的 DEB、RPM 和 TAR.GZ。 [发布脚本](../.github/scripts/package-release.sh)
 - Web CI 只运行 Go HTTP 服务器测试并编译打包，不安装 Node、Playwright 或浏览器。IndexedDB、事务、刷新恢复、多标签页、正式 UI 输入和通知等浏览器验收仅在本地需要时运行；每次推送与 PR 均构建 Web。Web 发布只提供两个 TAR.GZ：站点根目录静态包，以及包含 Windows amd64、Linux amd64/arm64、macOS amd64/arm64 五个内嵌资源 HTTP 服务器的整合包。入口为 `cmd/webserver/main.go`，生成资源不提交；目录首页、History 回退和缺失资源 404 均需测试。标签发版等待 Web HTTP 服务器测试与构建成功。
+
+- 固定版本 MyGo 的 Web PointerEvent 缺少 Touch 标记时，Web 构建通过 scripts/webtouch 创建临时模块副本并补齐标记，使用临时 modfile 编译；模块缓存和原生构建继续使用固定依赖。升级 MyGo 后核对上游修复再移除适配。浏览器回归夹具位于 scripts/webtouch/testdata，使用 scripts/webtouch/check.mjs 验证连续触摸滑动。
