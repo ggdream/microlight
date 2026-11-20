@@ -20,6 +20,9 @@ func (app *chatApp) composer(c *ui.Context, selected *conversation) {
 	controlSize := composerControlHeight(layout, 32)
 	short := layout.Height > 0 && layout.Height < 420
 	verticalInset := layout.Y(layout.Density(17, 16))
+	if layout.Compact() && app.edit != nil && app.edit.inComposer {
+		verticalInset = layout.Y(4)
+	}
 	horizontalInset := layout.X(layout.Density(12, 7))
 	bottomInset := layout.Y(layout.Density(18, 6))
 	if layout.Compact() && selected != nil && !app.desktop.HideStatistics && selected.metrics().Requests > 0 {

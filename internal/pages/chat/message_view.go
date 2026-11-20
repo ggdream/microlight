@@ -9,18 +9,19 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown"
+	"github.com/egoist/mygo/ui/markdown/parser"
 	"github.com/ggdream/microlight/pkg/material3"
 )
 
 func (app *chatApp) userMessage(c *ui.Context, chat *conversation, index int, entry *turn) {
-	bubble := ui.Column(c).MaxWidthPercent(91).AlignItems(ui.End).Gap(windowLayout(c).Density(4, 0))
+	bubble := ui.Column(c).MaxWidthPercent(91).AlignItems(ui.End).Gap(windowLayout(c).Density(4, 8))
 	if windowLayout(c).Compact() {
-		bubble.MaxWidthPercent(100)
+		bubble.FillWidth().MinWidth(0).MaxWidthPercent(100)
 	}
 	showActions := touchControls(c) || bubble.Hovered() || bubble.FocusWithin()
 	bubble.Children(func() {
 		if len(entry.Attachments) > 0 {
-			ui.Row(c).Wrap().Justify(ui.End).Gap(6).Children(func() {
+			ui.Row(c).MaxWidthPercent(100).Wrap().Justify(ui.End).Gap(8).Children(func() {
 				for _, attachment := range entry.Attachments {
 					app.attachmentTile(c, attachment, 76, nil)
 				}
@@ -31,8 +32,9 @@ func (app *chatApp) userMessage(c *ui.Context, chat *conversation, index int, en
 			return
 		}
 		if entry.Content != "" {
-			markdown.View(c.Key("message-body"), entry.Content, app.md).
+			body := markdown.View(c.Key("message-body"), userMessageMarkdown(entry.Content), app.md).MinWidth(0).MaxWidthPercent(100).
 				Padding(windowLayout(c).Density(10, 7), windowLayout(c).Density(14, 10)).Radius(material3.ShapeMedium).Background(ui.Hex("#E8F3FE"))
+			app.selectMessageText(c, body, entry.Content)
 		}
 		opacity := float32(0)
 		if showActions {
@@ -56,6 +58,32 @@ func (app *chatApp) userMessage(c *ui.Context, chat *conversation, index int, en
 			})
 		})
 	})
+}
+
+// Preserve explicit user line endings while leaving code blocks and existing
+// Markdown hard breaks intact. The stored message and copied source stay original.
+func userMessageMarkdown(source string) string {
+	doc := parser.Parse(source)
+	var breaks []int
+	for i := 0; i < doc.Len(); i++ {
+		for _, token := range doc.Inlines(i) {
+			if token.Kind == parser.SoftBreak {
+				breaks = append(breaks, token.Start)
+			}
+		}
+	}
+	if len(breaks) == 0 {
+		return source
+	}
+	var result strings.Builder
+	start := 0
+	for _, position := range breaks {
+		result.WriteString(source[start:position])
+		result.WriteString("  ")
+		start = position
+	}
+	result.WriteString(source[start:])
+	return result.String()
 }
 
 func copyMessageIcon(c *ui.Context, entry *turn, label, copiedLabel string) {

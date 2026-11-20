@@ -216,6 +216,31 @@ func (p *statisticPreview) triggers(c *ui.Context, cards [2]statisticCard, sessi
 
 	anchor, card := anchors[target-1], cards[target-1]
 	open := true
+	if tap {
+		ui.DialogBase(c.Key("detail-dialog"), &open, func(backdrop, panel ui.Element) {
+			insetDialog(c, backdrop).Background(ui.RGBA(0, 0, 0, .38))
+			panel.Width(360).MaxHeight(dialogMaxHeight(c)).Padding(20).Gap(12).Label(card.title)
+			mobileDialog(c, backdrop, panel)
+			panel.Background(material3.Monochrome.SurfaceBright)
+			dialogBody(c, func() {
+				ui.Text(c, card.title).FontSize(viewport.Font(c, 16)).FontWeight(630)
+				for _, line := range card.lines {
+					ui.Row(c.Key(line.label)).FillWidth().Gap(12).Children(func() {
+						ui.Text(c, line.label).Grow(1).MinWidth(0).TextColor(muted)
+						ui.Text(c, line.value).Selectable()
+					})
+				}
+				if card.note != "" {
+					ui.Text(c, card.note).FillWidth().TextColor(muted)
+				}
+			})
+			clarificationButton(c, locales.Cancel(), false, func() { p.selected = 0 })
+		})
+		if !open {
+			p.selected = 0
+		}
+		return
+	}
 	ui.PopoverBase(c.Key("detail"), anchor, &open, func(panel ui.Element) {
 		// Only the trigger owns the preview; the card cannot keep itself hovered or focused.
 		if !tap {

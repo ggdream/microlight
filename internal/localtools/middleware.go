@@ -19,6 +19,7 @@ import (
 
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/pkg/diff"
+	"github.com/ggdream/microlight/pkg/proxy"
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/tool"
@@ -616,9 +617,14 @@ func localFileVersion(info os.FileInfo) string {
 }
 
 var localWebClient = &http.Client{
-	Transport:     &http.Transport{IdleConnTimeout: 30 * time.Second, MaxIdleConns: 4},
+	Transport:     defaultWebTransport(),
 	Timeout:       15 * time.Second,
 	CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+}
+
+func defaultWebTransport() http.RoundTripper {
+	transport, _ := proxy.NewTransport(proxy.Config{Mode: proxy.System})
+	return transport
 }
 
 func readLocalAgentText(reader io.Reader) (string, error) {

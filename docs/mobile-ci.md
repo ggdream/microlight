@@ -75,3 +75,5 @@ PKCS12 keystore、随机密码、alias 与公开证书。再次执行复用原�
 CI 只在版本标签构建时读取密钥，在临时目录还原 keystore，构建结束清理。
 现有调试签名安装与新的发布签名不同，不能直接覆盖安装；卸载旧包会删除
 应用数据，应先导出需要保留的配置。后续发布版之间可以沿用相同签名更新。
+
+标签发版同时部署 Web 到 GitHub Pages 的仓库子路径。Pages 使用 Actions 发布来源，静态资源、SQLite worker 和通知 worker 都按站点 base URI 解析。

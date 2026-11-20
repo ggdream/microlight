@@ -8,7 +8,14 @@
     "source": "en"
   },
   "slug": "microlight",
+  "ios": {
+    "launchScreen": {
+      "background": "#FFFFFF",
+      "image": "assets/icon-mobile.png"
+    }
+  },
   "android": {
+    "splash": "#FFFFFF",
     "adaptiveIcon": {
       "foreground": "assets/icon-android.png",
       "background": "#00B8D4"

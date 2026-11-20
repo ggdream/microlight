@@ -146,7 +146,8 @@ func (app *chatApp) replyBody(c *ui.Context, chat *conversation, entry *turn, in
 func (app *chatApp) replyText(c *ui.Context, text string, streaming bool) {
 	style := material3.MarkdownTheme(c.Theme())
 	if windowLayout(c).Compact() {
-		style.LineHeight = 1.4
+		style.LineHeight = 1.45
+		style.FontSize = layoutMessageFont(c)
 	}
 	if app.md != nil {
 		app.md.Theme = style
@@ -154,7 +155,8 @@ func (app *chatApp) replyText(c *ui.Context, text string, streaming bool) {
 	if streaming {
 		markdown.Stream(c, text, app.md)
 	} else {
-		markdown.View(c, text, app.md)
+		body := markdown.View(c, text, app.md)
+		app.selectMessageText(c, body, text)
 	}
 }
 

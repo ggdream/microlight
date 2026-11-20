@@ -29,7 +29,8 @@ func (app *chatApp) view(c *ui.Context) {
 	if app.md != nil {
 		app.md.Theme = material3.MarkdownTheme(&windowTheme)
 		if windowLayout(c).Compact() {
-			app.md.Theme.LineHeight = 1.4
+			app.md.Theme.LineHeight = 1.45
+			app.md.Theme.FontSize = layoutMessageFont(c)
 		}
 	}
 	shortcut := "Ctrl K"
@@ -79,9 +80,10 @@ func (app *chatApp) view(c *ui.Context) {
 						if layout.Compact() && len(selected.Turns) > 0 && !selected.list.AtEnd() {
 							button := material3.FloatingAction(pointerButton(c.Key("latest"), false).Label(locales.BackToLatest()).Absolute().Right(layout.X(16)).Bottom(layout.Y(12)).Size(46, 46).Center())
 							if button.Hovered() {
-								button.Background(hover)
+								button.Background(ui.Hex("#222222"))
 							}
-							button.Children(func() { icon(c, "down", accent, 20) }).OnClick(selected.list.ScrollToEnd)
+							button.Radius(23).Background(ui.Hex("#000000"))
+							button.Children(func() { icon(c, "down", ui.Hex("#FFFFFF"), 20) }).OnClick(func() { selected.scrollToLatest = true; c.Invalidate() })
 						}
 					})
 				}
@@ -122,5 +124,6 @@ func (app *chatApp) view(c *ui.Context) {
 	app.messageDialog(c.Key("message-dialog"))
 	app.settingsTransferFeedback(c.Key("transfer-feedback"))
 	app.connectionTestFeedback(c.Key("connection-feedback"))
+	app.textSelectionDialog(c.Key("text-selection"))
 	app.persistDraft()
 }

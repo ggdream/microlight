@@ -15,7 +15,7 @@ self.addEventListener('notificationclick', event => {
       await page.focus();
       page.postMessage({type:'microlight-notification-click',tag:event.notification.tag});
     } else {
-      await self.clients.openWindow('/');
+      await self.clients.openWindow(self.registration.scope);
     }
   })());
 });

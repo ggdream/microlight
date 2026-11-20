@@ -119,7 +119,9 @@ func (n *Notification) ShowContext(ctx context.Context) (err error) {
 			// One listener lives for this page's lifetime.
 		})
 		var promise js.Value
-		if err := jsCall(func() { promise = sw.Call("register", "/notification-worker.js") }); err != nil {
+		if err := jsCall(func() {
+			promise = sw.Call("register", js.Global().Get("URL").New("notification-worker.js", js.Global().Get("document").Get("baseURI")).Get("href"))
+		}); err != nil {
 			return err
 		}
 		if _, err := await(ctx, promise); err != nil {

@@ -25,6 +25,12 @@ done
 awk '{sub(/<head>/, "<head>\n    <base href=\"/\" />"); print}' "$stage/site/index.html" > "$stage/index.html"
 mv "$stage/index.html" "$stage/site/index.html"
 mkdir -p dist "$stage/servers"
+if [[ -n "${MICROLIGHT_PAGES_SITE:-}" ]]; then
+  mkdir -p "$MICROLIGHT_PAGES_SITE"
+  cp -R "$stage/site/." "$MICROLIGHT_PAGES_SITE/"
+  pages_path="/${GITHUB_REPOSITORY#*/}/"
+  sed "s|<base href=\"/\" />|<base href=\"$pages_path\" />|" "$stage/site/index.html" > "$MICROLIGHT_PAGES_SITE/index.html"
+fi
 tar -czf "dist/microlight-$version-web-static.tar.gz" -C "$stage/site" .
 cp -R "$stage/site/." "$assets/"
 for target in windows/amd64 linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do

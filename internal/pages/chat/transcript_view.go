@@ -11,6 +11,10 @@ import (
 func (app *chatApp) transcript(c *ui.Context, chat *conversation) {
 	layout := windowLayout(c)
 	chat.list.FollowEnd = true
+	if chat.scrollToLatest {
+		chat.list.ScrollToEnd()
+		chat.scrollToLatest = false
+	}
 	interfaces := chat.transcriptInterface()
 	elastic.List(c.Key(chat.ID), &chat.list, len(chat.Turns), func(i int, offset elastic.Offset) {
 		entry := chat.Turns[i]

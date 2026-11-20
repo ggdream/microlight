@@ -44,3 +44,5 @@ func popoverHeight(c *ui.Context, anchor ui.Element, preferred float32) float32 
 	space := max(bounds.Y-top, top+layout.Height-bounds.Y-bounds.H)
 	return min(preferred, max(0, space-12))
 }
+
+func layoutMessageFont(c *ui.Context) float32 { return windowLayout(c).Text(16) }

@@ -51,6 +51,7 @@ type turn struct {
 }
 
 type conversation struct {
+	scrollToLatest     bool
 	ID                 string  `json:"id"`
 	Title              string  `json:"title"`
 	Turns              []*turn `json:"turns"`
@@ -84,6 +85,7 @@ type history struct {
 }
 
 type chatApp struct {
+	selectionText          *string
 	browserActions         *browserActions
 	ctx                    context.Context
 	skillsHome             string
