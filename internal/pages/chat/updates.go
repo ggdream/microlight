@@ -120,8 +120,8 @@ func (app *chatApp) updateDownloadButton(c *ui.Context) {
 	}
 	label := locales.DownloadInstaller() + " · " + version
 	button := pointerButton(c.Key("update-download"), false).Label(label).Tooltip(label).
-		Size(30, 30).Shrink(0).Radius(15).Background(ink).Center()
-	button.Children(func() { icon(c, "download", white, 16) }).OnClick(func() { _ = mygo.Shell.OpenExternal(link) })
+		Size(32, 32).Shrink(0).Radius(16).Background(ink).Center()
+	button.Children(func() { icon(c, "download", white, 18) }).OnClick(func() { _ = mygo.Shell.OpenExternal(link) })
 }
 
 func (app *chatApp) showUpdateResult(version string, checkErr error) {

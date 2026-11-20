@@ -79,6 +79,7 @@ else
       (
         touch_dir=$(mktemp -d)
         trap 'rm -rf "$touch_dir"' EXIT
+        go mod download github.com/egoist/mygo
         module_dir=$(go list -mod=readonly -m -f '{{.Dir}}' github.com/egoist/mygo)
         mkdir -p "$touch_dir/bin"
         GOBIN="$touch_dir/bin" go install "github.com/egoist/mygo/cmd/mygo@$cli_version"

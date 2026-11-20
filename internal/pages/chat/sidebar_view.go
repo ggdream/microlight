@@ -142,7 +142,7 @@ func (app *chatApp) sidebar(c *ui.Context, selected *conversation, shortcut stri
 				Children(func() {
 					app.sidebarSettingsButton(c)
 					pointerButton(c.Key("settings-label"), false).Label(locales.Settings()).Grow(1).MinWidth(0).Height(32).AlignItems(ui.Center).Justify(ui.Start).Padding(0).Children(func() {
-						ui.Text(c, locales.Settings()).SingleLine().FontSize(viewport.Font(c, layout.Density(11, 14))).TextColor(muted)
+						ui.Text(c, locales.Settings()).SingleLine().FontSize(viewport.Font(c, 14)).TextColor(muted)
 					}).OnClick(app.openSettings)
 					app.updateDownloadButton(c)
 				})
@@ -177,7 +177,7 @@ func (app *chatApp) sidebarSettingsButton(c *ui.Context) {
 		button.Background(hover)
 	}
 	button.Children(func() {
-		icon(c, "settings", color, windowLayout(c).Density(16, 18))
+		icon(c, "settings", color, 18)
 	}).OnClick(app.openSettings)
 }
 
