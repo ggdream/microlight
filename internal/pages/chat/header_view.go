@@ -6,6 +6,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/pkg/elastic"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 const compactHistoryIcon = "navigation"
@@ -21,8 +22,8 @@ func (app *chatApp) topbar(c *ui.Context, selected *conversation) {
 		right += (layout.Target(44) - 20) / 2
 		gap = layout.X(4)
 	}
-	ui.Row(c).Height(height).Shrink(0).Padding(0, right, 0, left).AlignItems(ui.Center).Gap(gap).
-		BorderWidth(0, 0, 1, 0).BorderColor(border).Children(func() {
+	material3.EdgeDivider(ui.Row(c).Height(height).Shrink(0).Padding(0, right, 0, left).AlignItems(ui.Center).Gap(gap).
+		Background(canvas), material3.BottomEdge).Children(func() {
 		if layout.Compact() {
 			app.compactNavButton(c.Key("history"), locales.ChatHistory(), compactHistoryIcon, func() { app.compactHistory = true })
 		}
@@ -31,7 +32,7 @@ func (app *chatApp) topbar(c *ui.Context, selected *conversation) {
 			title = selected.Title
 		}
 		ui.Text(c, title).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").Clip().
-			FontSize(layout.Text(13)).FontWeight(640)
+			FontSize(layout.Text(16)).FontWeight(500)
 		if app.overlappingWorkspace(selected) {
 			ui.Box(c.Key("concurrent-workspace")).Tooltip(locales.WorkspaceConcurrent()).Label(locales.WorkspaceConcurrent()).Shrink(0).Children(func() {
 				icon(c, "shield_error", errorFG, 16)
@@ -96,12 +97,12 @@ func (app *chatApp) welcomeContent(c *ui.Context) {
 
 func (app *chatApp) suggestion(c *ui.Context, title, detail, glyph, prompt string) {
 	layout := windowLayout(c)
-	button := pointerButton(c, false).Label(title).Grow(1).Basis(0).MinWidth(0).
+	button := material3.CardStyle(pointerButton(c, false).Label(title).Grow(1).Basis(0).MinWidth(0).
 		MinHeight(layout.Target(layout.Density(60, 54))).PaddingX(layout.X(layout.Density(12, 7))).
 		PaddingY(layout.Y(layout.Density(6, 4))).Gap(layout.X(layout.Density(10, 6))).
-		AlignItems(ui.Center).Radius(10).Background(white).Border(1, border)
+		AlignItems(ui.Center), material3.ElevatedCard)
 	if button.Hovered() {
-		button.Background(side)
+		button.Background(hover)
 	}
 	button.Children(func() {
 		size := layout.X(layout.Density(30, 25))

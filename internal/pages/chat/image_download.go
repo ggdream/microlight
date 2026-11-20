@@ -45,7 +45,7 @@ func (app *chatApp) downloadImage(image *markdownImage) {
 		}, image.original)
 		if err != nil {
 			slog.Error("save chat image", "error", err)
-			_, _ = mygo.Dialog.Message(mygo.MessageOptions{
+			_, _ = app.showMessage(mygo.MessageOptions{
 				Parent: app.win, Type: mygo.MessageError, Message: locales.DownloadImageFailed(),
 			})
 		}

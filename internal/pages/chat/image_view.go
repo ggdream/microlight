@@ -208,7 +208,7 @@ func (app *chatApp) renderImagePreview(c *ui.Context) {
 
 func imagePreviewAction(c *ui.Context, label, glyph string, size float32) ui.Element {
 	button := pointerButton(c, false).Label(label).Tooltip(label).Size(size, size).
-		Radius(size / 2).Center().Background(ink)
+		Radius(8).Center().Background(ink)
 	if button.Hovered() {
 		button.Background(muted)
 	}

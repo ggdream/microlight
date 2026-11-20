@@ -10,6 +10,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/pkg/elastic"
+	"github.com/ggdream/microlight/pkg/material3"
 	"github.com/ggdream/microlight/pkg/viewport"
 )
 
@@ -65,65 +66,60 @@ func (app *chatApp) conversationInfoDialog(c *ui.Context, chat *conversation) {
 	}
 
 	layout := windowLayout(c)
-	fontSize := layout.Text(12)
-	labelWidth, gap := float32(125), float32(12)
-	dialogInset, fieldsInset := float32(20), float32(12)
-	if layout.Compact() {
-		labelWidth, gap = 0, 8
-		dialogInset, fieldsInset = 16, 10
-		for _, field := range fields {
-			width, _ := c.MeasureText(0, ui.Span{Text: field.label, Size: fontSize})
-			labelWidth = max(labelWidth, float32(math.Ceil(float64(width))))
-		}
-	}
+	fontSize := layout.Text(13)
 
 	title, closeLabel := locales.ChatInfo(), locales.CloseChatInfo()
 	open := true
 	ui.DialogBase(c, &open, func(backdrop, panel ui.Element) {
 		insetDialog(c, backdrop).Background(ui.RGBA(0, 0, 0, .38))
-		panel.Label(title).Width(450).MaxWidthPercent(90).MaxHeight(dialogMaxHeight(c)).Padding(dialogInset).Gap(14).
-			Background(white).Border(1, border).Radius(13).Shadow(0, 10, 30, 0, ui.RGBA(0, 0, 0, .22))
+		panel.Label(title).Width(460).MaxWidthPercent(90).MaxHeight(dialogMaxHeight(c)).
+			Padding(layout.Y(24), layout.X(24)).Gap(layout.Y(16))
 		mobileDialog(c, backdrop, panel)
+		panel.Background(material3.Monochrome.SurfaceBright)
 		dialogBody(c, func() {
 			ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
 				icon(c, "info", accent, 18)
 				ui.Text(c, title).FontSize(viewport.Font(c, 16)).FontWeight(680)
 			})
-			ui.Column(c).FillWidth().PaddingX(fieldsInset).Radius(8).Background(canvas).Border(1, border).Children(func() {
-				for index, field := range fields {
-					row := ui.Row(c.Key(index)).FillWidth().AlignItems(ui.Start).Padding(8, 0).Gap(gap)
-					if index == 0 {
-						row.AlignItems(ui.Center)
-					}
-					if index != 0 {
-						row.BorderWidth(1, 0, 0, 0).BorderColor(border)
-					}
-					row.Children(func() {
-						label := ui.Text(c, field.label).Width(labelWidth).Shrink(0).FontSize(fontSize).TextColor(muted)
-						if layout.Compact() {
-							label.MaxWidthPercent(42)
-						}
-						if index == 0 {
-							conversationInfoTitle(c.Key("title"), field.value)
-							return
-						}
-						ui.Text(c, field.value).Grow(1).MinWidth(0).FontSize(fontSize).Selectable()
+			ui.Column(c).FillWidth().Gap(layout.Y(16)).Padding(layout.Y(8), 0, 0, 0).Children(func() {
+				material3.DetailField(c.Key("name"), fields[0].label, func() {
+					ui.Row(c).FillWidth().Children(func() {
+						conversationInfoTitle(c.Key("title"), fields[0].value)
+					})
+				})
+				material3.Divider(c, material3.DividerOptions{Space: 1})
+				field := func(index int) {
+					material3.DetailField(c.Key(index), fields[index].label, func() {
+						ui.Text(c, fields[index].value).FillWidth().MinWidth(0).FontSize(fontSize).TextColor(ink).Selectable()
 					})
 				}
+				pair := func(first, second int) {
+					if layout.Compact() {
+						field(first)
+						field(second)
+						return
+					}
+					ui.Row(c).FillWidth().AlignItems(ui.Start).Gap(layout.X(24)).Children(func() {
+						ui.Column(c).Grow(1).Basis(0).MinWidth(0).Children(func() { field(first) })
+						ui.Column(c).Grow(1).Basis(0).MinWidth(0).Children(func() { field(second) })
+					})
+				}
+				pair(1, 2)
+				pair(3, 5)
+				material3.Divider(c, material3.DividerOptions{Space: 1})
+				field(4)
 			})
 		})
 		buttonHeight := layout.Target(34)
 		if layout.Compact() {
 			buttonHeight = max(30, layout.Y(30))
 		}
-		button := pointerButton(c.Key("close"), false).Label(closeLabel).AlignSelf(ui.End).
-			AutoFocus().Height(buttonHeight).PaddingX(layout.X(14)).AlignItems(ui.Center).
-			Radius(7).Background(side).Border(1, border).FocusRingColor(accent)
-		if button.Hovered() {
-			button.Background(hover)
-		}
-		button.Children(func() { ui.Text(c, closeLabel).FontSize(viewport.Font(c, 13)).FontWeight(610) }).
-			OnClick(func() { app.chatAction = nil })
+		dialogActions(c).Children(func() {
+			button := material3.Button(c.Key("close"), closeLabel, material3.ElevatedButton, false).
+				AutoFocus().Height(buttonHeight).PaddingX(layout.X(14)).FocusRingColor(accent)
+			button.Children(func() { ui.Text(c, closeLabel).FontSize(viewport.Font(c, 13)).FontWeight(610) }).
+				OnClick(func() { app.chatAction = nil })
+		})
 	})
 	if !open {
 		app.chatAction = nil
@@ -139,7 +135,7 @@ func conversationInfoTitle(c *ui.Context, title string) {
 	if width == 0 {
 		c.After(time.Millisecond)
 	}
-	fontSize := windowLayout(c).Text(12)
+	fontSize := layout.Text(14)
 	textWidth, _ := c.MeasureText(0, ui.Span{Text: title, Size: fontSize})
 	overflow := width > 0 && math.Ceil(float64(textWidth)) > float64(width)
 	if !overflow {

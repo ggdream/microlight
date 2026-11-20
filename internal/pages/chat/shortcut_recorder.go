@@ -9,10 +9,11 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 func (app *chatApp) shortcutSettings(c *ui.Context) {
-	ui.Column(c).FillWidth().Background(white).Radius(13).Border(1, border).
+	material3.CardStyle(ui.Column(c).FillWidth(), material3.ElevatedCard).
 		Padding(12, 16).Gap(6).Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).Children(func() {
 			ui.Text(c, locales.DesktopShortcut()).Grow(1).MinWidth(0).FontSize(viewport.Font(c, 15)).FontWeight(660)
@@ -22,7 +23,7 @@ func (app *chatApp) shortcutSettings(c *ui.Context) {
 				clear := pointerButton(c.Key("clear"), false).Label(label).Tooltip(label).
 					Size(28, 28).Shrink(0).Radius(7).AlignItems(ui.Center).Justify(ui.Center)
 				if clear.Hovered() {
-					clear.Background(side)
+					clear.Background(hover)
 				}
 				clear.Children(func() { icon(c, "close", muted, 13) }).OnClick(func() {
 					app.shortcutRecording = false
@@ -42,9 +43,9 @@ func (app *chatApp) shortcutSettings(c *ui.Context) {
 }
 
 func (app *chatApp) shortcutRecorder(c *ui.Context) {
-	record := pointerButton(c, false).Label(locales.RecordDesktopShortcut()).
-		Height(34).PaddingX(8).Gap(4).Shrink(0).AlignItems(ui.Center).Radius(8).
-		Background(canvas).Border(1, border).FocusRingColor(accent)
+	record := material3.ButtonStyle(pointerButton(c, false).Label(locales.RecordDesktopShortcut()).
+		Height(34).PaddingX(8).Gap(4).Shrink(0).AlignItems(ui.Center),
+		material3.ElevatedButton, false).FocusRingColor(accent)
 	if app.shortcutRecording && !record.Focused() {
 		app.shortcutRecording = false
 	}
@@ -53,7 +54,7 @@ func (app *chatApp) shortcutRecorder(c *ui.Context) {
 		app.shortcutRecording = true
 	}
 	if record.Hovered() {
-		record.Background(side)
+		record.Background(hover)
 	}
 	record.HandleInput(app.recordShortcutInput)
 	caps := shortcutCaps(app.actualShortcut, runtime.GOOS)
@@ -62,7 +63,7 @@ func (app *chatApp) shortcutRecorder(c *ui.Context) {
 	}
 	recording := app.shortcutRecording
 	if recording {
-		record.Background(tint).Border(1, accent).Label(locales.PressShortcutKeys())
+		record.Background(tint).Label(locales.PressShortcutKeys())
 	} else if len(caps) != 0 {
 		record.Value(strings.Join(caps, " ")).Tooltip(locales.RecordDesktopShortcut())
 	}
@@ -74,8 +75,8 @@ func (app *chatApp) shortcutRecorder(c *ui.Context) {
 			ui.Text(c, locales.RecordDesktopShortcut()).FontSize(viewport.Font(c, 12)).TextColor(muted)
 		default:
 			for _, key := range caps {
-				ui.Box(c).MinWidth(22).Height(23).PaddingX(5).Center().Radius(4).
-					Background(white).Border(1, border).Children(func() {
+				material3.CardStyle(ui.Box(c).MinWidth(22).Height(23).PaddingX(5).Center(),
+					material3.ElevatedCard).Children(func() {
 					ui.Text(c, key).FontSize(viewport.Font(c, 12)).FontWeight(580).TextColor(ink)
 				})
 			}

@@ -18,6 +18,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/richtext"
 	"github.com/ggdream/microlight/pkg/elastic"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 type composerSkillPicker struct {
@@ -148,9 +149,9 @@ func (app *chatApp) composerSkills(c *ui.Context, editor ui.Element, workspace s
 		picker.highlight = 1
 	}
 	ui.PopoverBase(c, editor, &picker.open, func(panel ui.Element) {
-		panel.AttachTo(editor, ui.AnchorTopStart, ui.AnchorBottomStart).Margin(0, 0, 6, 0).
-			Width(windowLayout(c).FitWidth(390, 8)).MaxHeight(popoverHeight(c, editor, 310)).Padding(6).Gap(4).Radius(11).Background(white).Border(1, border).
-			Shadow(0, 5, 18, 0, ui.RGBA(29, 49, 38, .12)).Label(locales.ChooseSkill())
+		material3.Elevate(material3.Menu(panel.AttachTo(editor, ui.AnchorTopStart, ui.AnchorBottomStart).Margin(0, 0, 6, 0).
+			Width(windowLayout(c).FitWidth(390, 8)).MaxHeight(popoverHeight(c, editor, 310)).Padding(6).Gap(4)), 2).
+			Label(locales.ChooseSkill())
 		if picker.manual {
 			label := locales.SearchSkills()
 			theme.InputFrame(theme.TextInput(c.Key("search"), &picker.search), 8, 6, border).
@@ -221,7 +222,7 @@ func (app *chatApp) composerSkills(c *ui.Context, editor ui.Element, workspace s
 				FillWidth().Height(43).PaddingX(8).Gap(8).Radius(6).AlignItems(ui.Center)
 			offset.Apply(button)
 			if i == picker.highlight || button.Hovered() {
-				button.Background(tint)
+				button.Background(hover)
 			}
 			button.Children(func() {
 				icon(c, "document_text", muted, 16)

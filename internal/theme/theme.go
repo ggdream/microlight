@@ -1,19 +1,23 @@
 package theme
 
-import "github.com/egoist/mygo/ui"
+import (
+	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/material3"
+)
 
 var (
-	Canvas     = ui.Hex("#FCFDFA")
-	Side       = ui.Hex("#F1F4EF")
+	Canvas     = material3.Monochrome.Surface
+	Side       = material3.Monochrome.SurfaceContainer
 	White      = ui.Hex("#FFFFFF")
-	Border     = ui.Hex("#DFE6DF")
-	Ink        = ui.Hex("#212C27")
-	Muted      = ui.Hex("#5E6C63")
-	Accent     = ui.Hex("#16654F")
+	Border     = material3.DividerColor()
+	Ink        = material3.Monochrome.OnSurface
+	Muted      = material3.Monochrome.OnSurfaceVariant
+	Accent     = material3.Monochrome.Primary
 	CaretColor = ui.Hex("#3e3e3e")
-	Tint       = ui.Hex("#E3F0E8")
-	Hover      = ui.Hex("#E7ECE6")
-	ErrorFG    = ui.Hex("#9E3F44")
+	Tint       = material3.Monochrome.PrimaryContainer
+	Selected   = material3.Monochrome.SecondaryContainer
+	Hover      = material3.Monochrome.OnSurface.Alpha(.04)
+	ErrorFG    = material3.Monochrome.Error
 )
 
 func TextInput(c *ui.Context, value *string) ui.Element {
@@ -21,14 +25,16 @@ func TextInput(c *ui.Context, value *string) ui.Element {
 }
 
 // InputFrame keeps the horizontal inset clear even when the editor scrolls.
-func InputFrame(input ui.Element, inset, radius float32, border ui.Color) ui.Element {
-	// MyGo clips editor ink at the border, so reserve the inset there and draw the visible outline separately.
-	return input.BorderWidth(1, inset+1).BorderColor(ui.Color{}).Radius(radius).
-		Draw(func(p *ui.Painter, box ui.Rect) { p.Stroke(box, border, radius, 1) })
+func InputFrame(input ui.Element, inset, radius float32, _ ui.Color) ui.Element {
+	return material3.InputFrame(input, inset, max(material3.ShapeSmall, radius))
 }
 
 func PointerButton(c *ui.Context, disabled bool) ui.Element {
-	button := ui.ButtonBase(c).Disabled(disabled)
+	// Low-level targets often live inside a row that already paints its state
+	// layer, or contain a square icon face. The owning component draws one
+	// feedback surface; adding a second automatic layer here darkens it twice.
+	button := ui.ButtonBase(c).Disabled(disabled).BorderWidth(0).Radius(material3.ShapeSmall).
+		Background(ui.Transparent).TextColor(Ink).NoShadow().FocusRingColor(Accent)
 	if !disabled {
 		button.Cursor(ui.CursorPointer)
 	}
@@ -36,10 +42,5 @@ func PointerButton(c *ui.Context, disabled bool) ui.Element {
 }
 
 func Switch(c *ui.Context, on *bool, label string, change func()) {
-	switchTheme := *c.Theme()
-	switchTheme.Accent = Accent
-	switchTheme.InactiveAccent = Accent
-	ui.Themed(c, &switchTheme).Background(ui.Transparent).Shrink(0).Children(func() {
-		ui.Switch(c.Key("control"), on).Label(label).OnChange(change)
-	})
+	material3.Switch(c.Key("control"), on, label).OnChange(change)
 }

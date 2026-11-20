@@ -30,7 +30,9 @@ func TestInputFrameClipsLongValuesInsideBothInsets(t *testing.T) {
 				t.Helper()
 				img := tester.Image()
 				contentPainted := false
-				for y := 13; y < 42; y++ {
+				// Inspect the text band, away from the editor's rounded outline.
+				// The outline is intentional; text in the side inset is not.
+				for y := 19; y < 36; y++ {
 					for x := 13; x < 127; x++ {
 						if img.RGBAAt(x, y).R > 160 {
 							continue

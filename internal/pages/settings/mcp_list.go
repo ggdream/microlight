@@ -11,10 +11,11 @@ import (
 	asseticon "github.com/ggdream/microlight/internal/icon"
 	"github.com/ggdream/microlight/internal/mcptools"
 	"github.com/ggdream/microlight/internal/theme"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 func (form *MCPForm) serverList(c *ui.Context, icons asseticon.Set, servers []mcptools.Server, save func([]mcptools.Server) error, navigate func(func())) {
-	ui.Column(c).FillWidth().Background(theme.White).Radius(13).Border(1, theme.Border).
+	material3.CardStyle(ui.Column(c).FillWidth(), material3.ElevatedCard).
 		Padding(settingsLayout(c).Density(12, 8)).Gap(settingGap(c, 8)).Children(func() {
 		ui.Row(c.Key("header")).FillWidth().AlignItems(ui.Center).Gap(settingGap(c, 10)).PaddingX(settingX(c, 4)).Children(func() {
 			ui.Text(c, locales.McpServers()).Grow(1).MinWidth(0).FontSize(viewport.Font(c, 15)).FontWeight(660)
@@ -61,6 +62,10 @@ func (form *MCPForm) serverList(c *ui.Context, icons asseticon.Set, servers []mc
 }
 
 func mcpServerRow(c *ui.Context, icons asseticon.Set, server mcptools.Server, selected bool, edit, remove func()) {
+	theme.MenuSurface(c).Children(func() { mcpServerContent(c, icons, server, selected, edit, remove) })
+}
+
+func mcpServerContent(c *ui.Context, icons asseticon.Set, server mcptools.Server, selected bool, edit, remove func()) {
 	layout := settingsLayout(c)
 	transport := server.Kind()
 	target, detail, glyph := server.URL, server.URL, "globe"
@@ -81,11 +86,11 @@ func mcpServerRow(c *ui.Context, icons asseticon.Set, server mcptools.Server, se
 			Grow(1).MinWidth(0).Padding(settingY(c, 5), settingX(c, 7)).Gap(settingsLayout(c).Density(10, 6)).AlignItems(ui.Center).
 			Radius(7).FocusRingColor(theme.Accent)
 		if button.Hovered() && !selected {
-			button.Background(theme.Side)
+			button.Background(theme.Hover)
 		}
 		button.Children(func() {
-			ui.Box(c).Size(31, 31).Shrink(0).Center().Background(theme.White).
-				Border(1, theme.Border).Radius(8).Children(func() {
+			material3.CardStyle(ui.Box(c).Size(31, 31).Shrink(0).Center(), material3.ElevatedCard).
+				Radius(material3.ShapeSmall).Children(func() {
 				ui.Icon(c, icons.SVG(glyph)).Size(16, 16).TextColor(theme.Accent)
 			})
 			ui.Column(c).Grow(1).MinWidth(0).Clip().Gap(settingGap(c, 2)).Children(func() {
@@ -98,7 +103,7 @@ func mcpServerRow(c *ui.Context, icons asseticon.Set, server mcptools.Server, se
 					align = ui.Start
 				}
 				metadata(c).AlignItems(align).FillWidth().MinWidth(0).Gap(settingGap(c, layout.Density(6, 3))).Children(func() {
-					ui.Box(c).MaxWidthPercent(100).Shrink(0).Padding(settingY(c, 2), settingX(c, 6)).Radius(999).Background(chipBackground).Children(func() {
+					ui.Box(c).MaxWidthPercent(100).Shrink(0).Padding(settingY(c, 2), settingX(c, 6)).Radius(6).Background(chipBackground).Children(func() {
 						ui.Text(c, transport.Label()).SingleLine().FontSize(viewport.Font(c, 10)).FontWeight(600).TextColor(theme.Accent)
 					})
 					ui.Text(c, detail).Grow(1).MinWidth(0).MaxWidthPercent(100).SingleLine().Ellipsis("…").
@@ -124,7 +129,7 @@ func mcpServerRow(c *ui.Context, icons asseticon.Set, server mcptools.Server, se
 				if menu.Item(locales.RemoveMCPServer()).Icon(icons.Menu("delete")).Danger().Chosen() {
 					remove()
 				}
-			}, ui.PopoverMenuButtonOptions{At: ui.AnchorBottomEnd, Self: ui.AnchorTopEnd})
+			}, theme.MenuButtonStyle(ui.PopoverMenuButtonOptions{At: ui.AnchorBottomEnd, Self: ui.AnchorTopEnd}))
 		})
 	})
 }

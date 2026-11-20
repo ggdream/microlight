@@ -12,6 +12,7 @@ import (
 	search "github.com/ggdream/microlight/pkg/websearch"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 type WebSearchForm struct {
@@ -47,7 +48,7 @@ func (form *WebSearchForm) View(c *ui.Context, icons asseticon.Set, saved localt
 	}
 	ui.Column(c).FillWidth().Gap(settingGap(c, 12)).Children(func() {
 		ui.Text(c, locales.BuiltInTools()).FontSize(viewport.Font(c, 18)).FontWeight(660)
-		ui.Column(c).FillWidth().Background(theme.White).Radius(13).Border(1, theme.Border).
+		material3.CardStyle(ui.Column(c).FillWidth(), material3.ElevatedCard).
 			Padding(settingY(c, 15), settingX(c, 16)).Gap(settingGap(c, 11)).Children(func() {
 			ui.Row(c).AlignItems(ui.Center).Gap(settingsLayout(c).Density(12, 8)).Children(func() {
 				ui.Column(c).Grow(1).MinWidth(0).Gap(settingGap(c, 4)).Children(func() {

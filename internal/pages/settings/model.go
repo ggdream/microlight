@@ -8,6 +8,7 @@ import (
 	"github.com/ggdream/microlight/internal/theme"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 type ModelFields struct {
@@ -53,7 +54,7 @@ func ModelPanel(c *ui.Context, form ModelFields) {
 				title = locales.ConfigureProvider()
 			}
 			ui.Row(details).FillWidth().Wrap().AlignItems(ui.Center).Gap(settingGap(c, 10)).Children(func() {
-				ui.Text(details, title).FontSize(viewport.Font(c, 29)).FontWeight(680)
+				material3.Text(details, title, material3.HeadlineMedium)
 				if name := form.SelectedProvider; name != "" {
 					ui.Box(details.Key("provider-name")).MaxWidth(240).MinWidth(0).
 						Padding(4, 11).Radius(12).Background(theme.Tint).Tooltip(name).Children(func() {
@@ -106,16 +107,9 @@ func ModelPanel(c *ui.Context, form ModelFields) {
 func ConnectionTest(c *ui.Context, state *ConnectionTestState, model string, run func()) {
 	running := state != nil && state.Running
 	ui.Row(c).AlignItems(ui.Center).Gap(settingGap(c, 10)).Children(func() {
-		button := theme.PointerButton(c, running || model == "").Label(locales.TestConnection()).Height(settingsLayout(c).Target(34)).Shrink(0).PaddingX(settingX(c, 12)).
-			Radius(7).Border(1, theme.Border).AlignItems(ui.Center)
-		if button.Hovered() && !running && model != "" {
-			button.Background(theme.Tint)
-		}
+		button := material3.Button(c, locales.TestConnection(), material3.FilledButton, running || model == "").Height(settingsLayout(c).Target(34)).PaddingX(settingX(c, 14))
 		button.Children(func() {
-			color := theme.Accent
-			if model == "" {
-				color = theme.Muted
-			}
+			color := material3.Foreground(material3.FilledButton, running || model == "")
 			ui.Text(c, locales.TestConnection()).FontSize(viewport.Font(c, 12)).FontWeight(620).TextColor(color)
 		}).OnClick(run)
 		if state != nil {

@@ -41,7 +41,7 @@ func (app *chatApp) showPreviewError(err error) {
 	if err != nil {
 		slog.Error("preview file", "error", err)
 		go func() {
-			_, _ = mygo.Dialog.Message(mygo.MessageOptions{Parent: app.win, Type: mygo.MessageWarning, Message: locales.OpenFileFailed()})
+			_, _ = app.showMessage(mygo.MessageOptions{Parent: app.win, Type: mygo.MessageWarning, Message: locales.OpenFileFailed()})
 		}()
 	}
 }

@@ -15,6 +15,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/pkg/elastic"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 type toolPreview struct {
@@ -132,8 +133,8 @@ func (app *chatApp) toolPreviewPane(c *ui.Context, width float32, workspace stri
 	panel := &app.toolPanel
 	round, active := panel.round, panel.active
 	tree := previewui.BuildTree(roundChangedFiles(round, workspace), workspace)
-	ui.Column(c).Width(width).Shrink(0).FillHeight().MinHeight(0).Clip().
-		Background(white).BorderWidth(0, 0, 0, 1).BorderColor(border).Children(func() {
+	material3.EdgeDivider(ui.Column(c).Width(width).Shrink(0).FillHeight().MinHeight(0).Clip().
+		Background(white), material3.LeftEdge).Children(func() {
 		app.toolPreviewTabs(c.Key("tabs"))
 		treeContent := func() {
 			selected := -1
@@ -164,8 +165,8 @@ func (app *chatApp) toolPreviewPane(c *ui.Context, width float32, workspace stri
 		case width >= 410 && tree.HasChanges():
 			ui.Row(c).FillWidth().Grow(1).MinHeight(0).Children(func() {
 				ui.Column(c).Grow(1).MinWidth(0).Clip().Children(previewContent)
-				ui.Box(c).Width(min(225, width*.42)).Shrink(0).FillHeight().
-					BorderWidth(0, 0, 0, 1).BorderColor(border).Children(treeContent)
+				material3.EdgeDivider(ui.Box(c).Width(min(225, width*.42)).Shrink(0).FillHeight(), material3.LeftEdge).
+					Children(treeContent)
 			})
 		default:
 			previewContent()
@@ -177,9 +178,9 @@ func (app *chatApp) toolPreviewTabs(c *ui.Context) {
 	panel := &app.toolPanel
 	layout := windowLayout(c)
 	pad := layout.Y(4)
-	ui.Row(c).FillWidth().Height(max(layout.Y(40), layout.Target(29)+2*pad+1)).Shrink(0).
+	material3.EdgeDivider(ui.Row(c).FillWidth().Height(max(layout.Y(40), layout.Target(29)+2*pad+1)).Shrink(0).
 		AlignItems(ui.Center).Gap(layout.X(4)).Padding(pad, layout.X(6)).
-		Background(side).BorderWidth(0, 0, 1, 0).BorderColor(border).Children(func() {
+		Background(side), material3.BottomEdge).Children(func() {
 		scroll, offset := elastic.Horizontal(c.Key("tab-strip"))
 		scroll.Grow(1).MinWidth(0).FillHeight().Children(func() {
 			offset.Apply(ui.Row(c)).Role(ui.RoleTabList).Gap(4).AlignItems(ui.Center).Children(func() {
@@ -239,7 +240,7 @@ func (app *chatApp) composerMenu(c *ui.Context, workspace string) {
 	items = append(items, theme.PopupItem{Label: locales.PlanMode(), Icon: icons.Menu("update_tasks")})
 	theme.PopupMenu(c, func(c *ui.Context) ui.Element {
 		add := pointerButton(c, false).Label(locales.AddAttachment()).Tooltip(locales.AddAttachment()).
-			Size(34, 34).Radius(17).AlignItems(ui.Center).Justify(ui.Center)
+			Size(34, 34).Radius(material3.ShapeSmall).AlignItems(ui.Center).Justify(ui.Center)
 		add.Children(func() { icon(c, "plus", ink, 18) })
 		if add.Hovered() {
 			add.Background(hover)

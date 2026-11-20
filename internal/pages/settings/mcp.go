@@ -14,6 +14,7 @@ import (
 	"github.com/ggdream/microlight/pkg/elastic"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 type MCPForm struct {
@@ -83,8 +84,8 @@ func (form *MCPForm) View(c *ui.Context, icons asseticon.Set, servers []mcptools
 				form.headersControl(c, icons)
 			}
 			ui.Row(c).FillWidth().Wrap().Gap(settingGap(c, 8)).Children(func() {
-				ActionButton(c.Key("submit"), icons, submit, glyph, false).OnClick(func() { form.submit(servers, save) })
-				ActionButton(c.Key("cancel"), icons, locales.Cancel(), "close", false).OnClick(form.reset)
+				ActionButton(c.Key("submit"), icons, submit, glyph, false, material3.FilledButton).OnClick(func() { form.submit(servers, save) })
+				ActionButton(c.Key("cancel"), icons, locales.Cancel(), "close", false, material3.TextButton).OnClick(form.reset)
 			})
 			if form.mcpError != "" {
 				ui.Text(c, form.mcpError).FontSize(viewport.Font(c, 12)).TextColor(theme.ErrorFG)
@@ -138,16 +139,16 @@ func settingsSelect[T comparable](c *ui.Context, icons asseticon.Set, label stri
 	ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(settingGap(c, 10)).Children(func() {
 		ui.Text(c, label).FontSize(viewport.Font(c, 12)).FontWeight(610)
 		dropdown := ui.SelectBase(c.Key("select"), selected)
-		dropdown.Trigger.Label(label).Value(optionLabel(*selected)).Width(layout.X(168)).MaxWidthPercent(100).Height(SelectHeight(c)).PaddingX(settingX(c, 10)).
-			AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(settingGap(c, 6)).Border(1, theme.Border).Radius(7).
-			Background(theme.Canvas).Cursor(ui.CursorPointer).FocusRingColor(theme.Accent).
+		material3.SelectFrame(dropdown.Trigger.Label(label).Value(optionLabel(*selected)).Width(layout.X(168)).MaxWidthPercent(100).Height(SelectHeight(c)).PaddingX(settingX(c, 10)).
+			AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(settingGap(c, 6))).Radius(material3.ShapeSmall).
+			Background(material3.Monochrome.SurfaceContainer).Cursor(ui.CursorPointer).FocusRingColor(theme.Accent).
 			Children(func() {
 				ui.Text(c, optionLabel(*selected)).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 13))
 				ui.Icon(c, icons.SVG("ios_chevron_right")).Size(14, 14).Shrink(0).Rotate(90).TextColor(theme.Muted)
 			}).OnChange(change)
 		dropdown.Popup(func(panel ui.Element) {
 			padding := settingY(c, 4)
-			panel.Padding(padding, settingX(c, 4)).Background(theme.White).Border(1, theme.Border).Radius(8)
+			material3.Menu(panel.Padding(padding, settingX(c, 4))).Radius(material3.ShapeMedium)
 			room := layout.FitHeight(480, 8)
 			anchor := dropdown.Trigger.LayoutBounds()
 			if anchor.H > 0 {
@@ -168,7 +169,7 @@ func settingsSelect[T comparable](c *ui.Context, icons asseticon.Set, label stri
 						item := dropdown.Item(option).Label(value).FillWidth().MinHeight(layout.Target(28)).AlignItems(ui.Center).
 							Padding(settingY(c, 6), settingX(c, 8)).Radius(5).Cursor(ui.CursorPointer)
 						if item.Highlighted() {
-							item.Background(theme.Tint)
+							item.Background(theme.Hover)
 						}
 						item.Children(func() {
 							ui.Text(c, value).MinWidth(0).FontSize(viewport.Font(c, 13))

@@ -11,6 +11,28 @@ import (
 	"github.com/ggdream/microlight/pkg/proxy"
 )
 
+func TestReleaseInstallerMatchesPublishedPlatformAssets(t *testing.T) {
+	for _, tc := range []struct{ target, extension string }{
+		{"darwin-amd64", "dmg"}, {"darwin-arm64", "dmg"},
+		{"windows-amd64", "exe"}, {"linux-amd64", "tar.gz"},
+	} {
+		want := releasePage + "/download/v1.2.3/microlight-v1.2.3-" + tc.target + "." + tc.extension
+		if got := releaseInstallerURL("v1.2.3", tc.target); got != want {
+			t.Errorf("%s: got %q, want %q", tc.target, got, want)
+		}
+	}
+	for _, target := range []string{"linux-arm64", "windows-arm64", "unknown"} {
+		if got := releaseInstallerURL("v1.2.3", target); got != "" {
+			t.Errorf("unsupported target %s offers a speculative URL: %s", target, got)
+		}
+	}
+	for _, version := range []string{"dev", "v1.2.3-dirty", "v1.2.3+dirty", "v1.2.3/extra"} {
+		if got := releaseInstallerURL(version, "darwin-arm64"); got != "" {
+			t.Errorf("invalid tag %q offers a download: %s", version, got)
+		}
+	}
+}
+
 func TestUpdateRequestsHonorCustomProxy(t *testing.T) {
 	for _, tc := range []struct {
 		name string

@@ -8,6 +8,7 @@ import (
 	"github.com/ggdream/microlight/pkg/viewport"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 func Proxy(c *ui.Context, icons asseticon.Set, config *proxy.Config, validationError string, onChange func(), openSystemSettings func(*ui.Context)) {
@@ -22,9 +23,9 @@ func Proxy(c *ui.Context, icons asseticon.Set, config *proxy.Config, validationE
 		ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(settingGap(c, 8)).Children(func() {
 			ui.Text(c, label).FontSize(viewport.Font(c, 12)).FontWeight(610)
 			selectMode := ui.SelectBase(c.Key("proxy-mode"), &selected)
-			selectMode.Trigger.Label(label).Value(labels[selected]).Width(settingsLayout(c).Density(180, 148)).MaxWidthPercent(100).Height(SelectHeight(c)).PaddingX(settingX(c, 10)).
-				AlignItems(ui.Center).Justify(ui.SpaceBetween).Border(1, theme.Border).Radius(7).
-				Background(theme.Canvas).Cursor(ui.CursorPointer).FocusRingColor(theme.Accent).Children(func() {
+			material3.SelectFrame(selectMode.Trigger.Label(label).Value(labels[selected]).Width(settingsLayout(c).Density(180, 148)).MaxWidthPercent(100).Height(SelectHeight(c)).PaddingX(settingX(c, 10)).
+				AlignItems(ui.Center).Justify(ui.SpaceBetween)).Radius(material3.ShapeSmall).
+				Background(material3.Monochrome.SurfaceContainer).Cursor(ui.CursorPointer).FocusRingColor(theme.Accent).Children(func() {
 				ui.Text(c, labels[selected]).FontSize(viewport.Font(c, 13)).TextColor(theme.Ink)
 				ui.Icon(c, icons.SVG("ios_chevron_right")).Size(14, 14).Rotate(90).TextColor(theme.Muted)
 			}).OnChange(func() {
@@ -32,11 +33,11 @@ func Proxy(c *ui.Context, icons asseticon.Set, config *proxy.Config, validationE
 				onChange()
 			})
 			selectMode.Popup(func(panel ui.Element) {
-				panel.Padding(settingY(c, 4), settingX(c, 4)).Gap(settingGap(c, 2)).Background(theme.White).Border(1, theme.Border).Radius(8)
+				material3.Menu(panel.Padding(settingY(c, 4), settingX(c, 4)).Gap(settingGap(c, 2))).Radius(material3.ShapeMedium)
 				for _, mode := range []proxy.Mode{proxy.System, proxy.Direct, proxy.Custom} {
 					item := selectMode.Item(mode).Label(labels[mode]).Padding(settingY(c, 6), settingX(c, 8)).Radius(5).Cursor(ui.CursorPointer)
 					if item.Highlighted() {
-						item.Background(theme.Tint)
+						item.Background(theme.Hover)
 					}
 					item.Children(func() { ui.Text(c, labels[mode]).FontSize(viewport.Font(c, 13)) })
 				}

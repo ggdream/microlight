@@ -4,9 +4,9 @@ import (
 	"runtime"
 
 	"github.com/egoist/mygo/ui"
-	"github.com/egoist/mygo/ui/markdown"
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/desktop"
+	"github.com/ggdream/microlight/pkg/material3"
 	"github.com/ggdream/microlight/pkg/viewport"
 )
 
@@ -21,12 +21,13 @@ const (
 
 func (app *chatApp) view(c *ui.Context) {
 	// Inherited typography also covers Markdown and standard MyGo widgets.
-	windowTheme := *c.Theme()
+	windowTheme := *material3.Monochrome.Theme()
+	windowTheme.Font = c.Theme().Font
 	windowTheme.Background = canvas
 	windowTheme.FontSize = viewport.Font(c, windowTheme.FontSize)
 	c.SetTheme(&windowTheme)
 	if app.md != nil {
-		app.md.Theme = markdown.DefaultTheme(&windowTheme)
+		app.md.Theme = material3.MarkdownTheme(&windowTheme)
 		if windowLayout(c).Compact() {
 			app.md.Theme.LineHeight = 1.4
 		}
@@ -37,7 +38,7 @@ func (app *chatApp) view(c *ui.Context) {
 	} else if desktop.Mobile {
 		shortcut = ""
 	}
-	if !app.shortcutRecording {
+	if !app.shortcutRecording && app.transferLoading == "" {
 		c.OnWindowShortcut(ui.Cmd, ui.KeyK, func() { app.selectChat("") })
 	}
 	selected := app.selected()
@@ -76,9 +77,9 @@ func (app *chatApp) view(c *ui.Context) {
 					ui.Box(c.Key("transcript-region")).Grow(1).MinHeight(0).Children(func() {
 						app.transcript(c, selected)
 						if layout.Compact() && len(selected.Turns) > 0 && !selected.list.AtEnd() {
-							button := pointerButton(c.Key("latest"), false).Label(locales.BackToLatest()).Absolute().Right(layout.X(16)).Bottom(layout.Y(12)).Size(46, 46).Center().Radius(14).Background(white).Border(1, border).Shadow(0, 3, 9, 0, ink.Alpha(.12))
+							button := material3.FloatingAction(pointerButton(c.Key("latest"), false).Label(locales.BackToLatest()).Absolute().Right(layout.X(16)).Bottom(layout.Y(12)).Size(46, 46).Center())
 							if button.Hovered() {
-								button.Background(tint)
+								button.Background(hover)
 							}
 							button.Children(func() { icon(c, "down", accent, 20) }).OnClick(selected.list.ScrollToEnd)
 						}
@@ -118,5 +119,7 @@ func (app *chatApp) view(c *ui.Context) {
 	app.regenerateDialog(c.Key("regenerate-dialog"), selected)
 	app.fullAccessDialog(c.Key("full-access-dialog"))
 	app.conversationActionDialog(c.Key("conversation-action"))
+	app.messageDialog(c.Key("message-dialog"))
+	app.settingsTransferFeedback(c.Key("transfer-feedback"))
 	app.persistDraft()
 }

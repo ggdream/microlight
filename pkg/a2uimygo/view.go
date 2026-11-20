@@ -13,6 +13,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/pkg/elastic"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 type Style struct {
@@ -117,7 +118,7 @@ func (r renderer) node(c *ui.Context, id, scope string, depth int) {
 		}
 		r.decorate(c, node, scope, row, "").Children(children)
 	case "Card":
-		r.decorate(c, node, scope, ui.Column(c).FillWidth().Padding(layout.Density(12, 8)).Radius(10).Background(r.Style.Surface).Border(1, r.Style.Border), "").Children(func() { r.node(c, prop("child"), scope, depth+1) })
+		r.decorate(c, node, scope, material3.CardStyle(ui.Column(c).FillWidth().Padding(layout.Density(12, 8)), material3.ElevatedCard), "").Children(func() { r.node(c, prop("child"), scope, depth+1) })
 	case "Image", "Video", "AudioPlayer":
 		r.media(c, node, scope)
 	case "Icon":
@@ -140,11 +141,10 @@ func (r renderer) node(c *ui.Context, id, scope string, depth int) {
 			r.decorate(c, node, scope, scroll.FillWidth().MaxHeight(280), "").Children(func() { offset.Apply(ui.Column(c)).FillWidth().AlignItems(align).Gap(8).Children(children) })
 		}
 	case "Divider":
-		line := ui.Box(c).Background(r.Style.Border)
-		if prop("axis") == "vertical" {
-			line.Width(1).Height(r.Style.ControlHeight)
-		} else {
-			line.FillWidth().Height(1)
+		vertical := prop("axis") == "vertical"
+		line := material3.Divider(c, material3.DividerOptions{Vertical: vertical, Space: 1, Color: r.Style.Border})
+		if vertical {
+			line.Height(r.Style.ControlHeight)
 		}
 		r.decorate(c, node, scope, line, "")
 	case "TextField":
@@ -208,6 +208,18 @@ func (r renderer) write(node a2ui.Component, scope string, value any) {
 }
 
 func (r renderer) textField(c *ui.Context, node a2ui.Component, scope string) {
+	label := r.surface.String(node.Props["label"], scope)
+	if label == "" {
+		r.textFieldInput(c, node, scope)
+		return
+	}
+	ui.Column(c).FillWidth().MinWidth(0).Gap(viewport.Available(c).Y(4)).Children(func() {
+		material3.Text(c, label, material3.LabelLarge).TextColor(r.Style.Text).AccessHidden(true).IgnoreInput(true)
+		r.textFieldInput(c, node, scope)
+	})
+}
+
+func (r renderer) textFieldInput(c *ui.Context, node a2ui.Component, scope string) {
 	layout := viewport.Available(c)
 	controlHeight := layout.Target(r.Style.ControlHeight)
 	value := a2ui.Text(r.property(node, scope, "value"))
@@ -260,29 +272,28 @@ func (r renderer) button(c *ui.Context, node a2ui.Component, scope string, depth
 		disabled = err != nil || !r.CanActivate(event)
 	}
 	layout := viewport.Available(c)
-	button := ui.ButtonBase(c).Label(label).MinHeight(layout.Target(r.Style.ControlHeight)).MaxWidthPercent(100).
-		Padding(layout.Y(4), layout.X(10)).Shrink(0).Radius(7).AlignItems(ui.Center).Justify(ui.Center).
-		Disabled(disabled).Cursor(ui.CursorPointer)
+	variant := material3.ElevatedButton
+	switch r.surface.String(node.Props["variant"], scope) {
+	case "primary":
+		variant = material3.FilledButton
+	case "borderless":
+		variant = material3.TextButton
+	}
+	button := material3.Button(c, label, variant, disabled).MinHeight(layout.Target(r.Style.ControlHeight)).MaxWidthPercent(100).
+		Padding(layout.Y(4), layout.X(14))
 	action, pending := r.actionRPC(button)
 	if pending {
 		button.Disabled(true)
-	}
-	switch r.surface.String(node.Props["variant"], scope) {
-	case "primary":
-		button.Background(r.Style.Tint)
-	case "borderless":
-	default:
-		button.Border(1, r.Style.Border)
+		material3.ButtonStyle(button, variant, true)
 	}
 	r.decorate(c, node, scope, button, label)
-	if button.Hovered() && !disabled {
-		button.Background(r.Style.Tint)
-	}
 	button.Children(func() {
 		if label != "" {
-			ui.Text(c, label).MinWidth(0).FontSize(layout.Text(12)).FontWeight(620).TextColor(r.Style.Accent)
+			ui.Text(c, label).MinWidth(0).FontSize(layout.Text(12)).FontWeight(620).TextColor(material3.Foreground(variant, disabled || pending))
 		} else {
-			r.node(c, child, scope, depth+1)
+			childRenderer := r
+			childRenderer.Style.Text = material3.Foreground(variant, disabled || pending)
+			childRenderer.node(c, child, scope, depth+1)
 		}
 	}).OnClick(func() {
 		if action == nil || !r.dispatchRemoteAction(c, node, scope, action) {
@@ -370,8 +381,7 @@ func (r renderer) choicePicker(c *ui.Context, node a2ui.Component, scope string)
 				r.write(node, scope, values)
 			}
 			if r.surface.String(node.Props["displayStyle"], scope) == "chips" {
-				chip := ui.ButtonBase(c.Key(choice.Value)).Label(label).AccessSelected(checked).
-					Disabled(disabled).Radius(12).Padding(4, 8).Border(1, r.Style.Border)
+				chip := material3.Button(c.Key(choice.Value), label, material3.TonalButton, disabled).AccessSelected(checked).Radius(material3.ShapeSmall).Padding(4, 10)
 				if checked {
 					chip.Background(r.Style.Tint)
 				}

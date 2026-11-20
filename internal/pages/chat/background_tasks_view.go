@@ -10,6 +10,7 @@ import (
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/background"
 	"github.com/ggdream/microlight/pkg/elastic"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 func (app *chatApp) backgroundTaskIndicator(c *ui.Context) {
@@ -22,7 +23,7 @@ func (app *chatApp) backgroundTaskIndicator(c *ui.Context) {
 	button := pointerButton(c.Key("indicator"), false).Label(label).Tooltip(label).
 		Height(layout.Target(30)).Shrink(0).PaddingX(layout.X(8)).AlignItems(ui.Center).Gap(layout.X(6)).Radius(8).Expanded(app.backgroundOpen)
 	if button.Hovered() || app.backgroundOpen {
-		button.Background(tint)
+		button.Background(hover)
 	}
 	button.Children(func() {
 		icon(c, "window_console", accent, 16)
@@ -33,9 +34,9 @@ func (app *chatApp) backgroundTaskIndicator(c *ui.Context) {
 	})
 
 	ui.PopoverBase(c.Key("running-tasks"), button, &app.backgroundOpen, func(panel ui.Element) {
-		panel.AttachTo(button, ui.AnchorBottomEnd, ui.AnchorTopEnd).AttachEdgeMargin(8).
+		material3.Menu(panel.AttachTo(button, ui.AnchorBottomEnd, ui.AnchorTopEnd).AttachEdgeMargin(8).
 			Width(windowLayout(c).FitWidth(340, 10)).MaxHeight(popoverHeight(c, button, 316)).
-			Padding(windowLayout(c).Density(12, 8)).Gap(8).Background(white).Border(1, border).Radius(10).Children(func() {
+			Padding(windowLayout(c).Density(12, 8)).Gap(8)).Radius(material3.ShapeMedium).Children(func() {
 			ui.Text(c, label).FontSize(viewport.Font(c, 13)).FontWeight(640)
 			if app.backgroundError != "" {
 				ui.Text(c, app.backgroundError).FontSize(viewport.Font(c, 12)).TextColor(errorFG)

@@ -10,6 +10,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/linkpreview"
+	"github.com/ggdream/microlight/pkg/material3"
 	"github.com/ggdream/microlight/pkg/proxy"
 )
 
@@ -86,10 +87,10 @@ func (app *chatApp) linkPreview(c *ui.Context, root ui.Element) {
 	ui.Overlay(c, func() {
 		anchor := ui.Box(c.Key("web-preview-anchor")).Absolute().Left(p.x).Top(p.y).
 			Size(1, 1).IgnoreInput(true)
-		panel := ui.Column(c.Key("web-preview-card")).Width(windowLayout(c).FitWidth(350, 10)).
+		panel := material3.Elevate(material3.CardStyle(ui.Column(c.Key("web-preview-card")).Width(windowLayout(c).FitWidth(350, 10)).
 			AttachTo(anchor, ui.AnchorTopLeft, ui.AnchorBottomLeft).AttachEdgeMargin(10).
-			Margin(0, 0, 6, 0).Background(white).Radius(12).Border(1, border).
-			Shadow(0, 6, 20, 0, ui.RGBA(0, 0, 0, .14))
+			Margin(0, 0, 6, 0), material3.ElevatedCard), 2)
+
 		switch {
 		case panel.OverlayShortcut(0, ui.KeyEscape) || panel.PressedOutside():
 			p.dismiss(panel)
@@ -109,7 +110,7 @@ func (app *chatApp) linkPreview(c *ui.Context, root ui.Element) {
 		metadata := p.metadata(app.appContext(), c.Services(), previewRequest{target.String(), app.settings.Proxy})
 		panel.Children(func() {
 			p.cardHeader(c, target, panel)
-			ui.Box(c).FillWidth().Height(1).Background(border)
+			material3.Divider(c, material3.DividerOptions{Space: 1})
 			ui.Column(c).FillWidth().Padding(windowLayout(c).Density(13, 8), windowLayout(c).Density(15, 10)).Gap(5).Children(func() {
 				if metadata.Title != "" {
 					ui.Text(c, metadata.Title).FontSize(viewport.Font(c, 14)).FontWeight(640).TextColor(ink).MaxLines(2)

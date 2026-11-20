@@ -12,6 +12,7 @@ import (
 	"github.com/ggdream/microlight/internal/pages/settings"
 	"github.com/ggdream/microlight/internal/storage"
 	"github.com/ggdream/microlight/internal/theme"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 const desktopConfigKey = "desktop_preferences"
@@ -161,11 +162,11 @@ func (app *chatApp) desktopSettings(c *ui.Context) {
 		mode := clampNotificationMode(preferences.Notification)
 		layout := windowLayout(c)
 		dropdown := ui.SelectBase(c.Key("mode"), &mode)
-		trigger := dropdown.Trigger.Label(locales.DesktopNotifications()).Value(options[mode]).FillWidth().
+		trigger := material3.SelectFrame(dropdown.Trigger.Label(locales.DesktopNotifications()).Value(options[mode]).FillWidth().
 			Height(settings.SelectHeight(c)).PaddingX(layout.X(10)).AlignItems(ui.Center).Justify(ui.SpaceBetween).
-			Gap(layout.X(8)).Border(1, border).Radius(7).Background(canvas).Cursor(ui.CursorPointer).FocusRingColor(accent)
+			Gap(layout.X(8))).Radius(material3.ShapeSmall).Background(material3.Monochrome.SurfaceContainer).Cursor(ui.CursorPointer).FocusRingColor(accent)
 		if trigger.Hovered() {
-			trigger.Background(side)
+			trigger.Background(hover)
 		}
 		trigger.Children(func() {
 			ui.Text(c, options[mode]).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 12)).TextColor(ink)
@@ -178,12 +179,12 @@ func (app *chatApp) desktopSettings(c *ui.Context) {
 			app.saveNotificationSettings(preferences)
 		})
 		dropdown.Popup(func(panel ui.Element) {
-			panel.Padding(layout.Y(4), layout.X(4)).Gap(layout.Y(2)).Background(white).Border(1, border).Radius(8)
+			material3.Menu(panel.Padding(layout.Y(4), layout.X(4)).Gap(layout.Y(2))).Radius(material3.ShapeMedium)
 			for index, label := range options {
 				item := dropdown.Item(index).Label(label).Padding(layout.Y(6), layout.X(8)).Radius(5).
 					AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(layout.X(8)).Cursor(ui.CursorPointer)
 				if item.Highlighted() {
-					item.Background(tint)
+					item.Background(hover)
 				}
 				item.Children(func() {
 					ui.Text(c, label).FontSize(viewport.Font(c, 12)).TextColor(ink)

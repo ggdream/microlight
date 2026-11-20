@@ -8,6 +8,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/pkg/elastic"
+	"github.com/ggdream/microlight/pkg/material3"
 	"github.com/ggdream/microlight/pkg/viewport"
 )
 
@@ -96,8 +97,8 @@ func Page(c *ui.Context, icons asseticon.Set, selected Tab, back func(), selectT
 		return
 	}
 	ui.Row(c).Fill().Children(func() {
-		ui.Column(c).Width(settingsSidebarWidth).FillHeight().Shrink(0).Background(theme.Side).
-			BorderWidth(0, 1, 0, 0).BorderColor(theme.Border).Padding(settingY(c, 15), settingX(c, 12)).Gap(settingGap(c, 6)).Children(func() {
+		material3.EdgeDivider(ui.Column(c).Width(settingsSidebarWidth).FillHeight().Shrink(0).Background(theme.Side).
+			Padding(settingY(c, 15), settingX(c, 12)).Gap(settingGap(c, 6)), material3.RightEdge).Children(func() {
 			sidebarButton(c.Key("back"), icons, locales.BackToChat(), "back", false).OnClick(back)
 			scroll, offset := elastic.Scroll(c.Key("settings-sections"))
 			scroll.FillWidth().Grow(1).MinHeight(0).Children(func() {
@@ -115,11 +116,11 @@ func Page(c *ui.Context, icons asseticon.Set, selected Tab, back func(), selectT
 }
 
 func sidebarButton(c *ui.Context, icons asseticon.Set, label, glyph string, selected bool) ui.Element {
-	button := theme.PointerButton(c, false).Label(label).FillWidth().Height(settingsLayout(c).Target(36)).Radius(7).
+	button := theme.PointerButton(c, false).Label(label).FillWidth().Height(settingsLayout(c).Target(36)).Radius(material3.ShapeSmall).
 		AlignItems(ui.Center).Justify(ui.Start).PaddingX(settingX(c, settingsNavInset)).Gap(settingGap(c, 9))
 	color := theme.Muted
 	if selected {
-		button.Background(theme.Tint)
+		button.Background(theme.Selected)
 		color = theme.Accent
 	} else if button.Hovered() {
 		button.Background(theme.Hover)

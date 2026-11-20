@@ -12,6 +12,7 @@ import (
 	"github.com/ggdream/microlight/assets/locales"
 	timeline "github.com/ggdream/microlight/internal/activity"
 	"github.com/ggdream/microlight/pkg/elastic"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 func shellCard(c *ui.Context, activity timeline.Entry) {
@@ -85,8 +86,8 @@ func toolDetailText(c *ui.Context, label, text string) {
 
 func toolDetailsCard(c *ui.Context, title, copyText string, content, footer func()) {
 	layout := windowLayout(c)
-	card := ui.Column(c).FillWidth().Gap(layout.Y(6)).Padding(layout.Y(8), layout.X(11), layout.Y(7)).Radius(10).Border(1, border).
-		Background(ui.Hex("#F0F2F1")).Clip()
+	card := material3.CardStyle(ui.Column(c).FillWidth().Gap(layout.Y(6)).Padding(layout.Y(8), layout.X(11), layout.Y(7)), material3.ElevatedCard).
+		Background(material3.Monochrome.SurfaceContainer).Clip()
 	copied := ui.Local(card, "copied-until", func() time.Time { return time.Time{} })
 	card.Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(layout.X(6)).Children(func() {

@@ -11,14 +11,15 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/pkg/elastic"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 func (app *chatApp) composer(c *ui.Context, selected *conversation) {
 	layout := app.composerLayout(c)
 	gap := layout.Density(7, 3)
-	controlSize := composerControlHeight(layout, 34)
+	controlSize := composerControlHeight(layout, 32)
 	short := layout.Height > 0 && layout.Height < 420
-	verticalInset := layout.Y(layout.Density(11, 14))
+	verticalInset := layout.Y(layout.Density(17, 16))
 	horizontalInset := layout.X(layout.Density(12, 7))
 	bottomInset := layout.Y(layout.Density(18, 6))
 	if layout.Compact() && selected != nil && !app.desktop.HideStatistics && selected.metrics().Requests > 0 {
@@ -66,8 +67,8 @@ func (app *chatApp) composer(c *ui.Context, selected *conversation) {
 			actionButton(c, sendLabel, sendIcon, !canSend).Size(controlSize, controlSize).OnClick(func() { app.send(app.draft.Markdown(), false) })
 		}
 		app.messageQueue(c.Key("message-queue"), selected)
-		ui.Column(c).FillWidth().MaxWidth(conversationWidth).Background(white).
-			Border(1, border).Radius(17).Shadow(0, 4, 14, 0, ui.RGBA(29, 49, 38, .06)).
+		material3.Elevate(material3.CardStyle(ui.Column(c).FillWidth().MaxWidth(conversationWidth), material3.ElevatedCard).
+			Radius(material3.ShapeMedium), 2).
 			Padding(verticalInset, horizontalInset, layout.Y(layout.Density(9, 8))).Gap(layout.Y(layout.Density(5, 6))).Children(func() {
 			if app.edit != nil && app.edit.inComposer {
 				ui.Row(c).FillWidth().AlignItems(ui.Center).Children(func() {

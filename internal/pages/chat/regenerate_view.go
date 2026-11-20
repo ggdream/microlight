@@ -8,6 +8,7 @@ import (
 	"github.com/ggdream/microlight/assets/locales"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 func canRegenerateReply(chat *conversation, index int) bool {
@@ -83,9 +84,9 @@ func regenerateConfirmation(c *ui.Context, hasLaterMessages bool) (open, confirm
 		confirmKey := backdrop.OverlayShortcut(0, ui.KeyEnter)
 		var cancelClick, confirmClick bool
 		backdrop.Children(func() {
-			panel := ui.Column(c).Role(ui.RoleAlertDialog).Label(title).Description(body).
-				Width(300).MaxWidthPercent(90).MaxHeight(dialogMaxHeight(c)).Padding(windowLayout(c).Density(20, 14)).Gap(windowLayout(c).Density(12, 8)).Radius(10).Background(white).
-				Shadow(0, 10, 30, 0, ui.RGBA(0, 0, 0, .3))
+			panel := material3.Elevate(ui.Column(c).Role(ui.RoleAlertDialog).Label(title).Description(body).
+				Width(300).MaxWidthPercent(90).MaxHeight(dialogMaxHeight(c)).Padding(windowLayout(c).Density(20, 14)).Gap(windowLayout(c).Density(12, 8)).Radius(10).Background(white), 3)
+
 			mobileDialog(c, backdrop, panel)
 			panel.Children(func() {
 				dialogBody(c, func() {
@@ -93,19 +94,15 @@ func regenerateConfirmation(c *ui.Context, hasLaterMessages bool) (open, confirm
 					ui.Text(c, body).FontSize(viewport.Font(c, 13)).TextColor(muted)
 				})
 				dialogActions(c).Children(func() {
-					cancel := pointerButton(c, false).Label(locales.Cancel()).Height(34).PaddingX(13).
-						AlignItems(ui.Center).Radius(7).Background(side).Border(1, border)
+					cancel := material3.ButtonStyle(pointerButton(c, false).Label(locales.Cancel()).Height(34).PaddingX(13).
+						AlignItems(ui.Center), material3.TextButton, false)
 					if cancel.Hovered() {
 						cancel.Background(hover)
 					}
 					cancel.Children(func() {
 						ui.Text(c, locales.Cancel()).FontSize(viewport.Font(c, 13)).TextColor(ink)
 					})
-					confirm := pointerButton(c, false).Label(locales.ConfirmRetry()).AutoFocus().Height(34).PaddingX(13).
-						AlignItems(ui.Center).Radius(7).Background(accent)
-					if confirm.Hovered() {
-						confirm.Background(ui.Hex("#125943"))
-					}
+					confirm := material3.Button(c, locales.ConfirmRetry(), material3.FilledButton, false).AutoFocus().Height(34).PaddingX(13)
 					confirm.Children(func() {
 						ui.Text(c, locales.ConfirmRetry()).FontSize(viewport.Font(c, 13)).FontWeight(620).TextColor(white)
 					})

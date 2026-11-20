@@ -36,13 +36,50 @@ func TestCompactFormKeepsLongOptionInsideCard(t *testing.T) {
 		})
 	}, 320, 300)
 	for _, name := range []string{label, "Answer"} {
-		rect, ok := window.Find(name)
+		control, ok := window.Access(name)
+		rect := control.Bounds
 		if !ok || rect.H < 44 || rect.X < 8 || rect.X+rect.W > 312 {
 			t.Fatalf("form control %q escapes the card or lacks a touch target: %+v", name, rect)
 		}
 	}
 	if err := window.Click(label); err != nil || !activated {
 		t.Fatalf("the long option could not be selected: %v", err)
+	}
+}
+
+func TestCompactModalKeepsItsWidthAndCanClose(t *testing.T) {
+	const source = `{"version":"1.0","createSurface":{"surfaceId":"example","components":[
+		{"id":"root","component":"Modal","trigger":"open","content":"body"},
+		{"id":"open","component":"Button","child":"label","variant":"primary","action":{"event":{"name":"open"}}},
+		{"id":"label","component":"Text","text":"Details"},
+		{"id":"body","component":"Text","text":"Dialog content"}
+	]}}`
+	message, err := a2ui.Decode([]byte(source))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var processor a2ui.Processor
+	if err := processor.Apply(message); err != nil {
+		t.Fatal(err)
+	}
+	window := ui.NewTester(func(c *ui.Context) {
+		a2uimygo.View(c, processor.Surface("example"), a2uimygo.Options{})
+	}, 390, 760)
+	if err := window.Click("Details"); err != nil {
+		t.Fatal(err)
+	}
+	dialog, ok := window.AccessByRole(ui.RoleDialog, "Details")
+	if !ok || dialog.Bounds.W > 390*.8+1 || dialog.Bounds.X < 30 {
+		t.Fatalf("phone dialog exceeded its responsive width: %+v", dialog.Bounds)
+	}
+	if !window.HasText("Dialog content") {
+		t.Fatal("modal content missing")
+	}
+	if err := window.Click("Close"); err != nil {
+		t.Fatal(err)
+	}
+	if window.HasText("Dialog content") {
+		t.Fatal("modal did not close")
 	}
 }
 

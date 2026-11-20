@@ -15,11 +15,11 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
-	"github.com/egoist/mygo/plugins/updater"
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/buildinfo"
 	"github.com/ggdream/microlight/internal/pages/settings"
+	"github.com/ggdream/microlight/pkg/material3"
 	"github.com/ggdream/microlight/pkg/proxy"
 )
 
@@ -35,9 +35,9 @@ type updateCheck struct {
 func (app *chatApp) versionSettings(c *ui.Context) {
 	check := app.updateCheck
 	version := buildinfo.Version()
-	row := settings.AboutRow(c, ui.Column(c)).AlignItems(ui.Stretch).PaddingY(5)
+	row := settings.AboutRow(c, ui.Column(c)).AlignItems(ui.Stretch).Justify(ui.Center).PaddingY(5)
 	row.Children(func() {
-		ui.Row(c).Wrap().AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(12).Children(func() {
+		ui.Row(c).FillWidth().Wrap().AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(12).Children(func() {
 			ui.Text(c, locales.AppVersion()).FontSize(viewport.Font(c, 15)).FontWeight(660)
 			ui.Row(c).AlignItems(ui.Center).Gap(12).Shrink(0).Children(func() {
 				ui.Text(c, version).FontSize(viewport.Font(c, 13)).TextColor(muted).Selectable()
@@ -45,17 +45,13 @@ func (app *chatApp) versionSettings(c *ui.Context) {
 					return
 				}
 				label := locales.CheckForUpdates()
-				color := accent
 				if check.checking {
 					label = locales.CheckingForUpdates()
-					color = muted
 				}
-				button := pointerButton(c.Key("check"), check.checking).Label(label).
-					Height(33).PaddingX(6).Radius(6).AlignItems(ui.Center).Gap(5).
-					FocusRingColor(accent)
-				if !check.checking && button.Hovered() {
-					button.Background(tint)
-				}
+				layout := windowLayout(c)
+				color := material3.Foreground(material3.FilledButton, check.checking)
+				button := material3.Button(c.Key("check"), label, material3.FilledButton, check.checking).
+					Height(layout.Target(32)).PaddingX(layout.X(12)).Gap(layout.X(6))
 				button.Children(func() {
 					icon(c, "retry", color, 14)
 					ui.Text(c, label).FontSize(viewport.Font(c, 13)).TextColor(color)
@@ -70,16 +66,6 @@ func (app *chatApp) checkForUpdates() {
 		return
 	}
 	proxyConfig := app.settings.Proxy
-	if mygo.Updater.Enabled() {
-		source, err := newReleaseSource(proxyConfig)
-		if err != nil {
-			go app.showUpdateResult("", err)
-			return
-		}
-		mygo.Updater.SetSource(source)
-		updater.CheckForUpdates()
-		return
-	}
 	app.updateCheck = updateCheck{checking: true}
 	go func() {
 		ctx, cancel := context.WithTimeout(app.appContext(), 12*time.Second)
@@ -108,10 +94,43 @@ func (app *chatApp) showUpdateResult(version string, checkErr error) {
 	} else {
 		options.Message = locales.AppUpToDate()
 	}
-	result, err := mygo.Dialog.Message(options)
-	if err == nil && len(options.Buttons) == 2 && result.Button == 1 {
-		_ = mygo.Shell.OpenExternal(releasePage + "/tag/" + version)
+	downloadURL := releaseInstallerURL(version, runtime.GOOS+"-"+runtime.GOARCH)
+	if len(options.Buttons) == 2 && downloadURL != "" {
+		options.Buttons = append(options.Buttons, locales.DownloadInstaller())
 	}
+	result, err := app.showMessage(options)
+	if err == nil && len(options.Buttons) >= 2 {
+		switch result.Button {
+		case 1:
+			_ = mygo.Shell.OpenExternal(releasePage + "/tag/" + version)
+		case 2:
+			if downloadURL != "" {
+				_ = mygo.Shell.OpenExternal(downloadURL)
+			}
+		}
+	}
+}
+
+// Match the public installer names produced by package-release.sh. Unsupported
+// targets still offer the release page instead of a speculative download URL.
+func releaseInstallerURL(version, target string) string {
+	parts := releaseParts(version)
+	if parts == nil || version != fmt.Sprintf("v%d.%d.%d", parts[0], parts[1], parts[2]) {
+		return ""
+	}
+	var extension string
+	switch target {
+	case "darwin-amd64", "darwin-arm64":
+		extension = "dmg"
+	case "windows-amd64":
+		extension = "exe"
+	case "linux-amd64":
+		extension = "tar.gz"
+	}
+	if extension == "" {
+		return ""
+	}
+	return releasePage + "/download/" + version + "/microlight-" + version + "-" + target + "." + extension
 }
 
 type releaseSource struct {

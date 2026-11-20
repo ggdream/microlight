@@ -7,6 +7,7 @@ import (
 	"github.com/ggdream/microlight/pkg/viewport"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 type LanguagePreference string
@@ -23,28 +24,28 @@ func Language(c *ui.Context, icons asseticon.Set, current LanguagePreference, ch
 	}
 	title := locales.InterfaceLanguage()
 	layout := settingsLayout(c)
-	ui.Row(c.Key("interface-language")).FillWidth().AlignItems(ui.Center).Gap(layout.Density(12, 8)).
-		Background(theme.White).Radius(13).Border(1, theme.Border).Padding(layout.Y(layout.Density(12, 5)), layout.X(layout.Density(16, 11))).Children(func() {
+	material3.CardStyle(ui.Row(c.Key("interface-language")).FillWidth().AlignItems(ui.Center).Gap(layout.Density(12, 8)),
+		material3.ElevatedCard).Padding(layout.Y(layout.Density(12, 5)), layout.X(layout.Density(16, 11))).Children(func() {
 		ui.Text(c, title).Grow(1).MinWidth(0).FontSize(viewport.Font(c, 15)).FontWeight(660)
 		selected := current
 		dropdown := ui.SelectBase(c.Key("language-select"), &selected)
-		trigger := dropdown.Trigger.Label(title).Value(labels[selected]).Width(layout.Density(148, 120)).MaxWidthPercent(50).Height(SelectHeight(c)).Shrink(0).PaddingX(settingX(c, 10)).
-			AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(settingGap(c, 8)).Border(1, theme.Border).Radius(7).
-			Background(theme.Canvas).Cursor(ui.CursorPointer).FocusRingColor(theme.Accent)
+		trigger := material3.SelectFrame(dropdown.Trigger.Label(title).Value(labels[selected]).Width(layout.Density(148, 120)).MaxWidthPercent(50).Height(SelectHeight(c)).Shrink(0).PaddingX(settingX(c, 10)).
+			AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(settingGap(c, 8))).Radius(material3.ShapeSmall).
+			Background(material3.Monochrome.SurfaceContainer).Cursor(ui.CursorPointer).FocusRingColor(theme.Accent)
 		if trigger.Hovered() {
-			trigger.Background(theme.Side)
+			trigger.Background(theme.Hover)
 		}
 		trigger.Children(func() {
 			ui.Text(c, labels[selected]).FontSize(viewport.Font(c, 12)).TextColor(theme.Ink)
 			ui.Icon(c, icons.SVG("ios_chevron_right")).Size(14, 14).Shrink(0).Rotate(90).TextColor(theme.Muted)
 		}).OnChange(func() { choose(selected) })
 		dropdown.Popup(func(panel ui.Element) {
-			panel.Padding(settingY(c, 4), settingX(c, 4)).Gap(settingGap(c, 2)).Background(theme.White).Border(1, theme.Border).Radius(8)
+			material3.Menu(panel.Padding(settingY(c, 4), settingX(c, 4)).Gap(settingGap(c, 2))).Radius(material3.ShapeMedium)
 			for _, option := range []LanguagePreference{SystemLanguage, Chinese, English} {
 				item := dropdown.Item(option).Label(labels[option]).Padding(settingY(c, 6), settingX(c, 8)).Radius(5).
 					AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(settingGap(c, 8)).Cursor(ui.CursorPointer)
 				if item.Highlighted() {
-					item.Background(theme.Tint)
+					item.Background(theme.Hover)
 				}
 				item.Children(func() {
 					ui.Text(c, labels[option]).FontSize(viewport.Font(c, 12)).TextColor(theme.Ink)

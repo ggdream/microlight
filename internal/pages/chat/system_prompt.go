@@ -54,7 +54,7 @@ func (app *chatApp) systemPromptSettings(c *ui.Context) {
 		ui.Text(c, locales.SystemPromptDescription()).FontSize(viewport.Font(c, 13)).TextColor(theme.Muted)
 		theme.InputFrame(ui.TextAreaBase(c.Key("content"), &value), 12, 7, theme.Border).
 			Label(label).Placeholder(locales.SystemPromptPlaceholder()).FillWidth().Height(layout.Y(108)).PaddingY(layout.Y(10)).
-			Background(theme.Canvas).FontSize(viewport.Font(c, 13)).CaretColor(theme.CaretColor).
+			FontSize(viewport.Font(c, 13)).CaretColor(theme.CaretColor).
 			OnChange(func() { app.saveSystemPrompt(value) })
 	})
 }

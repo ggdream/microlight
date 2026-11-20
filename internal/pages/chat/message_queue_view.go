@@ -10,6 +10,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/pkg/elastic"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 func (app *chatApp) busySendSettings(c *ui.Context) {
@@ -19,31 +20,31 @@ func (app *chatApp) busySendSettings(c *ui.Context) {
 		busySendQueue: locales.QueueMessage(),
 		busySendSteer: locales.DirectSteer(),
 	}
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(layout.Density(12, 8)).
-		Background(white).Radius(13).Border(1, border).Padding(layout.Y(layout.Density(12, 5)), layout.X(layout.Density(16, 11))).Children(func() {
+	material3.CardStyle(ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(layout.Density(12, 8)),
+		material3.ElevatedCard).Padding(layout.Y(layout.Density(12, 5)), layout.X(layout.Density(16, 11))).Children(func() {
 		ui.Text(c, title).Grow(1).MinWidth(0).FontSize(viewport.Font(c, 15)).FontWeight(660)
 		selected := app.busySend
 		if selected != busySendSteer {
 			selected = busySendQueue
 		}
 		dropdown := ui.SelectBase(c.Key("busy-send-select"), &selected)
-		trigger := dropdown.Trigger.Label(title).Value(labels[selected]).Width(layout.Density(148, 120)).MaxWidthPercent(50).Height(settings.SelectHeight(c)).Shrink(0).
-			PaddingX(10).AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(8).
-			Border(1, border).Radius(7).Background(canvas).Cursor(ui.CursorPointer).FocusRingColor(accent)
+		trigger := material3.SelectFrame(dropdown.Trigger.Label(title).Value(labels[selected]).Width(layout.Density(148, 120)).MaxWidthPercent(50).Height(settings.SelectHeight(c)).Shrink(0).
+			PaddingX(10).AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(8)).
+			Radius(material3.ShapeSmall).Background(material3.Monochrome.SurfaceContainer).Cursor(ui.CursorPointer).FocusRingColor(accent)
 		if trigger.Hovered() {
-			trigger.Background(side)
+			trigger.Background(hover)
 		}
 		trigger.Children(func() {
 			ui.Text(c, labels[selected]).FontSize(viewport.Font(c, 12)).TextColor(ink)
 			ui.Icon(c, icons.SVG("ios_chevron_right")).Size(14, 14).Shrink(0).Rotate(90).TextColor(muted)
 		}).OnChange(func() { app.chooseBusySendMode(selected) })
 		dropdown.Popup(func(panel ui.Element) {
-			panel.Padding(4).Gap(2).Background(white).Border(1, border).Radius(8)
+			material3.Menu(panel.Padding(4).Gap(2)).Radius(material3.ShapeMedium)
 			for _, option := range []busySendMode{busySendQueue, busySendSteer} {
 				item := dropdown.Item(option).Label(labels[option]).Padding(6, 8).Radius(5).
 					AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(8).Cursor(ui.CursorPointer)
 				if item.Highlighted() {
-					item.Background(tint)
+					item.Background(hover)
 				}
 				item.Children(func() {
 					ui.Text(c, labels[option]).FontSize(viewport.Font(c, 12)).TextColor(ink)
@@ -60,8 +61,8 @@ func (app *chatApp) messageQueue(c *ui.Context, chat *conversation) {
 	if chat == nil || len(chat.queue) == 0 {
 		return
 	}
-	ui.Column(c).FillWidth().MaxWidth(conversationWidth).Gap(2).Padding(4, 8).
-		Background(white).Radius(13).Border(1, border).Children(func() {
+	material3.CardStyle(ui.Column(c).FillWidth().MaxWidth(conversationWidth).Gap(2).Padding(4, 8),
+		material3.ElevatedCard).Children(func() {
 		scroll, offset := elastic.Scroll(c)
 		scroll.FillWidth().MaxHeight(min(168, windowLayout(c).Height*.23)).Children(func() {
 			offset.Apply(ui.Column(c)).FillWidth().Children(func() {
@@ -83,7 +84,7 @@ func (app *chatApp) messageQueue(c *ui.Context, chat *conversation) {
 			if disabled {
 				color = muted
 			} else if button.Hovered() {
-				button.Background(tint)
+				button.Background(hover)
 			}
 			button.Children(func() {
 				icon(c, "queue_continue", color, 15)
@@ -94,6 +95,10 @@ func (app *chatApp) messageQueue(c *ui.Context, chat *conversation) {
 }
 
 func (app *chatApp) queueMessageRow(c *ui.Context, chat *conversation, entry queuedMessage) {
+	theme.MenuSurface(c).Children(func() { app.queueMessageContent(c, chat, entry) })
+}
+
+func (app *chatApp) queueMessageContent(c *ui.Context, chat *conversation, entry queuedMessage) {
 	label := strings.Join(strings.Fields(entry.Text), " ")
 	if label == "" {
 		var names []string
@@ -112,7 +117,7 @@ func (app *chatApp) queueMessageRow(c *ui.Context, chat *conversation, entry que
 				Tooltip(steerLabel).Shrink(0).Gap(4).Padding(3, 5).Radius(6).AlignItems(ui.Center)
 			color := muted
 			if steer.Hovered() {
-				steer.Background(tint)
+				steer.Background(hover)
 				color = accent
 			}
 			steer.Children(func() {
@@ -129,7 +134,7 @@ func (app *chatApp) queueMessageRow(c *ui.Context, chat *conversation, entry que
 				button := pointerButton(c, false).Label(label).Tooltip(label).Size(windowLayout(c).Target(25), windowLayout(c).Target(25)).
 					Radius(6).AlignItems(ui.Center).Justify(ui.Center)
 				if button.Hovered() {
-					button.Background(side)
+					button.Background(hover)
 				}
 				button.Children(func() { icon(c, "more_horizontal", muted, 15) })
 				button.PopoverMenuButton(func(menu *ui.Menu) {
@@ -137,7 +142,7 @@ func (app *chatApp) queueMessageRow(c *ui.Context, chat *conversation, entry que
 						app.queueEdit = &queuedMessageEdit{id: entry.ID}
 						app.queueEdit.input.SetText(entry.Text)
 					}
-				}, ui.PopoverMenuButtonOptions{At: ui.AnchorTopEnd, Self: ui.AnchorBottomEnd})
+				}, theme.MenuButtonStyle(ui.PopoverMenuButtonOptions{At: ui.AnchorTopEnd, Self: ui.AnchorBottomEnd}))
 			})
 		})
 	})
@@ -146,8 +151,8 @@ func (app *chatApp) queueMessageRow(c *ui.Context, chat *conversation, entry que
 func (app *chatApp) queueMessageEditor(c *ui.Context, chat *conversation, entry queuedMessage, edit *queuedMessageEdit) {
 	ui.Column(c).FillWidth().Gap(4).Padding(4, 6).Children(func() {
 		var editor ui.Element
-		ui.Column(c.Key("editor")).FillWidth().Padding(4).ClipX().
-			Background(canvas).Border(1, border).Radius(6).Children(func() {
+		material3.CardStyle(ui.Column(c.Key("editor")).FillWidth().Padding(4).ClipX(),
+			material3.ElevatedCard).Radius(material3.ShapeLarge).Children(func() {
 			editor = edit.input.View(c.Key("text"), locales.EditMessageBody(), "", 52, app.md).AutoFocus()
 		})
 		if editor.Shortcut(0, ui.KeyEscape) {

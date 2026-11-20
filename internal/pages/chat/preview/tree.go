@@ -129,7 +129,7 @@ func folderRow(c *ui.Context, icons asseticon.Set, name, path string, inset floa
 	open := ui.Local(folder, "open", func() bool { return expanded })
 	folder.Expanded(*open)
 	if folder.Hovered() {
-		folder.Background(theme.Side)
+		folder.Background(theme.Hover)
 	}
 	folder.Children(func() {
 		arrow := ui.Icon(c, icons.SVG("ios_chevron_right")).Size(12, 12).Shrink(0).TextColor(theme.Muted)
@@ -150,7 +150,7 @@ func fileRow(c *ui.Context, icons asseticon.Set, name string, change Change, ins
 	if selected {
 		file.Background(theme.Tint)
 	} else if file.Hovered() {
-		file.Background(theme.Side)
+		file.Background(theme.Hover)
 	}
 	file.Children(func() {
 		ui.Icon(c, icons.SVG(change.Icon)).Size(15, 15).Shrink(0).TextColor(theme.Muted)
@@ -172,7 +172,7 @@ func fileRow(c *ui.Context, icons asseticon.Set, name string, change Change, ins
 
 func DiffCounts(c *ui.Context, diff *diff.Lines) {
 	ui.Row(c).Gap(5).Shrink(0).Children(func() {
-		ui.Text(c, "+"+strconv.Itoa(diff.Added)).NoWrap().FontFeatures("tnum").TextColor(theme.Accent)
+		ui.Text(c, "+"+strconv.Itoa(diff.Added)).NoWrap().FontFeatures("tnum").TextColor(ui.Hex("#256B35"))
 		ui.Text(c, "-"+strconv.Itoa(diff.Removed)).NoWrap().FontFeatures("tnum").TextColor(theme.ErrorFG)
 	})
 }

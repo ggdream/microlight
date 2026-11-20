@@ -9,6 +9,7 @@ import (
 	"github.com/ggdream/microlight/internal/pages/settings"
 	"github.com/ggdream/microlight/internal/theme"
 	"github.com/ggdream/microlight/pkg/elastic"
+	"github.com/ggdream/microlight/pkg/material3"
 	"github.com/ggdream/microlight/pkg/viewport"
 )
 
@@ -251,7 +252,7 @@ func statisticTrigger(c *ui.Context, card statisticCard, showSummary bool) ui.El
 	active := trigger.Hovered() || trigger.FocusVisible() || trigger.Pressed()
 	if active {
 		if showSummary || !touchControls(c) {
-			trigger.Background(side)
+			trigger.Background(hover)
 		}
 		color = ink
 	}
@@ -259,7 +260,7 @@ func statisticTrigger(c *ui.Context, card statisticCard, showSummary bool) ui.El
 		if !showSummary && touchControls(c) {
 			face := ui.Box(c).Size(messageTouchWidth(c), messageTouchWidth(c)).Radius(messageControlRadius).Center()
 			if active {
-				face.Background(side)
+				face.Background(hover)
 			}
 			face.Children(func() { icon(c, card.glyph, color, iconSize) })
 		} else {
@@ -278,9 +279,9 @@ func statisticDetail(c *ui.Context, panel, anchor ui.Element, card statisticCard
 	if touchControls(c) {
 		panel.MaxHeight(height)
 	}
-	panel.AttachTo(anchor, ui.AnchorTopStart, ui.AnchorBottomStart).Margin(0, 0, 6).
-		AttachEdgeMargin(12).Width(layout.FitWidth(288, 12)).Padding(padding).Gap(layout.Y(9)).
-		Background(white).Border(1, border).Radius(12).Shadow(0, 5, 18, 0, ui.RGBA(20, 34, 28, .14)).
+	material3.Elevate(material3.Menu(panel.AttachTo(anchor, ui.AnchorTopStart, ui.AnchorBottomStart).Margin(0, 0, 6).
+		AttachEdgeMargin(12).Width(layout.FitWidth(288, 12)).Padding(padding).Gap(layout.Y(9)),
+	).Radius(material3.ShapeMedium), 2).
 		Label(card.title)
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(7).Children(func() {
 		icon(c, card.glyph, muted, 14)
@@ -289,7 +290,7 @@ func statisticDetail(c *ui.Context, panel, anchor ui.Element, card statisticCard
 			ui.Text(c, card.total).FontSize(viewport.Font(c, 12)).FontWeight(630)
 		}
 	})
-	ui.Box(c).FillWidth().Height(1).Background(border)
+	material3.Divider(c, material3.DividerOptions{Space: 1})
 	details := func() {
 		for _, line := range card.lines {
 			ui.Row(c.Key(line.label)).FillWidth().AlignItems(ui.Start).Gap(12).Children(func() {

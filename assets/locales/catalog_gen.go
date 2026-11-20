@@ -1464,24 +1464,54 @@ func (msgs Messages) SettingsTransfer() string {
 	return Catalog.Format(msgs.locale, "settingsTransfer", nil)
 }
 
-// SettingsTransferHint says "Move your settings to another installation. Exported JSON includes unencrypted credentials. Keep the file private."
+// SettingsTransferHint says "Move your settings to another installation. Exported .settings files include unencrypted credentials. Keep the file p…"
 // in the language the app shows.
 func SettingsTransferHint() string { return In(i18n.Locale()).SettingsTransferHint() }
 
-// SettingsTransferHint says "Move your settings to another installation. Exported JSON includes unencrypted credentials. Keep the file private."
+// SettingsTransferHint says "Move your settings to another installation. Exported .settings files include unencrypted credentials. Keep the file p…"
 // in the language of msgs.
 func (msgs Messages) SettingsTransferHint() string {
 	return Catalog.Format(msgs.locale, "settingsTransferHint", nil)
 }
 
-// SettingsFileFilter says "Microlight settings"
+// SettingsFileFilter says "Microlight configuration (*.settings)"
 // in the language the app shows.
 func SettingsFileFilter() string { return In(i18n.Locale()).SettingsFileFilter() }
 
-// SettingsFileFilter says "Microlight settings"
+// SettingsFileFilter says "Microlight configuration (*.settings)"
 // in the language of msgs.
 func (msgs Messages) SettingsFileFilter() string {
 	return Catalog.Format(msgs.locale, "settingsFileFilter", nil)
+}
+
+// AllFiles says "All files"
+// in the language the app shows.
+func AllFiles() string { return In(i18n.Locale()).AllFiles() }
+
+// AllFiles says "All files"
+// in the language of msgs.
+func (msgs Messages) AllFiles() string {
+	return Catalog.Format(msgs.locale, "allFiles", nil)
+}
+
+// ImportingSettings says "Importing settings…"
+// in the language the app shows.
+func ImportingSettings() string { return In(i18n.Locale()).ImportingSettings() }
+
+// ImportingSettings says "Importing settings…"
+// in the language of msgs.
+func (msgs Messages) ImportingSettings() string {
+	return Catalog.Format(msgs.locale, "importingSettings", nil)
+}
+
+// ExportingSettings says "Exporting settings…"
+// in the language the app shows.
+func ExportingSettings() string { return In(i18n.Locale()).ExportingSettings() }
+
+// ExportingSettings says "Exporting settings…"
+// in the language of msgs.
+func (msgs Messages) ExportingSettings() string {
+	return Catalog.Format(msgs.locale, "exportingSettings", nil)
 }
 
 // ImportSettings says "Import Settings"
@@ -4264,14 +4294,24 @@ func (msgs Messages) CheckingForUpdates() string {
 	return Catalog.Format(msgs.locale, "checkingForUpdates", nil)
 }
 
-// ViewRelease says "View release and downloads"
+// ViewRelease says "View release notes"
 // in the language the app shows.
 func ViewRelease() string { return In(i18n.Locale()).ViewRelease() }
 
-// ViewRelease says "View release and downloads"
+// ViewRelease says "View release notes"
 // in the language of msgs.
 func (msgs Messages) ViewRelease() string {
 	return Catalog.Format(msgs.locale, "viewRelease", nil)
+}
+
+// DownloadInstaller says "Download installer"
+// in the language the app shows.
+func DownloadInstaller() string { return In(i18n.Locale()).DownloadInstaller() }
+
+// DownloadInstaller says "Download installer"
+// in the language of msgs.
+func (msgs Messages) DownloadInstaller() string {
+	return Catalog.Format(msgs.locale, "downloadInstaller", nil)
 }
 
 // UpdateCheckFailed says "Could not check for updates. Try again later."

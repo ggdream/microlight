@@ -25,6 +25,7 @@ import (
 	_ "github.com/egoist/mygo/audio/vorbis"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/video"
+	"github.com/ggdream/microlight/pkg/material3"
 	_ "golang.org/x/image/webp"
 )
 
@@ -89,7 +90,7 @@ func (r renderer) media(c *ui.Context, node a2ui.Component, scope string) {
 			if label == "" {
 				label = "Load media"
 			}
-			ui.ButtonBase(c.Key("load")).Label(label).Padding(4, 8).Border(1, r.Style.Border).Radius(6).
+			material3.ButtonStyle(ui.ButtonBase(c.Key("load")).Label(label).Padding(4, 8), material3.ElevatedButton, false).Radius(material3.ShapeSmall).
 				Disabled(r.Media.Client == nil).Cursor(ui.CursorPointer).Tooltip(source).
 				Children(func() { ui.Text(c, label) }).OnClick(func() { *loaded = true })
 			return
@@ -150,8 +151,8 @@ func (r renderer) playButton(c *ui.Context, playing bool, play, pause func()) {
 	if playing {
 		label, action = "Pause", pause
 	}
-	ui.ButtonBase(c.Key("playback")).Label(label).Padding(4, 8).Disabled(r.Disabled).
-		Border(1, r.Style.Border).Radius(6).Children(func() { ui.Text(c, label) }).OnClick(action)
+	material3.ButtonStyle(ui.ButtonBase(c.Key("playback")).Label(label).Padding(4, 8).Disabled(r.Disabled), material3.ElevatedButton, false).
+		Radius(material3.ShapeSmall).Children(func() { ui.Text(c, label) }).OnClick(action)
 }
 
 type mediaFrame struct {

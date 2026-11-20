@@ -16,6 +16,7 @@ import (
 	"github.com/ggdream/microlight/internal/pages/chat/preview"
 	"github.com/ggdream/microlight/internal/theme"
 	"github.com/ggdream/microlight/pkg/diff"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 func (entry *turn) conflictPaths() []string {
@@ -68,44 +69,44 @@ func (app *chatApp) replyDeliverables(c *ui.Context, entry *turn, workspace stri
 	if len(files) == 0 && len(images) == 0 {
 		return
 	}
-	card := ui.Column(c.Key("deliverables")).FillWidth().Margin(6, 0, 0).Radius(11).
-		Background(white).Border(1, border)
+	card := material3.CardStyle(ui.Column(c.Key("deliverables")).FillWidth().Margin(6, 0, 0),
+		material3.ElevatedCard)
 	expanded := ui.Local(card, "expanded", func() bool { return false })
 	card.Children(func() {
 		app.deliverablesHeader(c.Key("summary"), entry, changes)
-		ui.Column(c.Key("items")).FillWidth().Padding(3, 5, 5).
-			BorderWidth(1, 0, 0, 0).BorderColor(border).Children(func() {
-			const initial = 3
-			visible := len(files)
-			if !*expanded {
-				visible = min(initial, visible)
-			}
-			for _, file := range files[:visible] {
-				app.fileDeliverableRow(c.Key(file.Path), entry, file, workspace)
-			}
-			if remaining := len(files) - initial; remaining > 0 {
-				label := locales.ArtifactShowMore(remaining)
-				if *expanded {
-					label = locales.ArtifactShowLess()
+		material3.EdgeDivider(ui.Column(c.Key("items")).FillWidth().Padding(3, 5, 5), material3.TopEdge).
+			Children(func() {
+				const initial = 3
+				visible := len(files)
+				if !*expanded {
+					visible = min(initial, visible)
 				}
-				toggle := pointerButton(c.Key("expand"), false).Label(label).Expanded(*expanded).
-					AlignSelf(ui.Start).AlignItems(ui.Center).Padding(6, 8).Gap(5).Radius(6)
-				if toggle.Hovered() {
-					toggle.Background(side)
+				for _, file := range files[:visible] {
+					app.fileDeliverableRow(c.Key(file.Path), entry, file, workspace)
 				}
-				toggle.Children(func() {
-					ui.Text(c, label).FontSize(viewport.Font(c, 13)).FontWeight(610)
-					angle := float32(90)
+				if remaining := len(files) - initial; remaining > 0 {
+					label := locales.ArtifactShowMore(remaining)
 					if *expanded {
-						angle = -90
+						label = locales.ArtifactShowLess()
 					}
-					ui.Icon(c, icons.SVG("ios_chevron_right")).Size(14, 14).Rotate(angle).TextColor(muted)
-				}).OnClick(func() { *expanded = !*expanded })
-			}
-			for _, image := range images {
-				app.imageDeliverableRow(c.Key(image.source), image)
-			}
-		})
+					toggle := pointerButton(c.Key("expand"), false).Label(label).Expanded(*expanded).
+						AlignSelf(ui.Start).AlignItems(ui.Center).Padding(6, 8).Gap(5).Radius(6)
+					if toggle.Hovered() {
+						toggle.Background(hover)
+					}
+					toggle.Children(func() {
+						ui.Text(c, label).FontSize(viewport.Font(c, 13)).FontWeight(610)
+						angle := float32(90)
+						if *expanded {
+							angle = -90
+						}
+						ui.Icon(c, icons.SVG("ios_chevron_right")).Size(14, 14).Rotate(angle).TextColor(muted)
+					}).OnClick(func() { *expanded = !*expanded })
+				}
+				for _, image := range images {
+					app.imageDeliverableRow(c.Key(image.source), image)
+				}
+			})
 	})
 }
 
@@ -136,11 +137,11 @@ func (app *chatApp) deliverablesHeader(c *ui.Context, entry *turn, changes []pre
 		})
 		if len(changes) != 0 {
 			label := locales.ArtifactViewChanges()
-			button := pointerButton(c.Key("review"), false).Label(label).Shrink(0).
-				MinHeight(layout.Target(30)).Padding(layout.Y(6), layout.X(9)).AlignItems(ui.Center).
-				Radius(8).Border(1, border)
+			button := material3.ButtonStyle(pointerButton(c.Key("review"), false).Label(label).Shrink(0).
+				MinHeight(layout.Target(30)).Padding(layout.Y(6), layout.X(9)).AlignItems(ui.Center),
+				material3.ElevatedButton, false)
 			if button.Hovered() {
-				button.Background(side)
+				button.Background(hover)
 			}
 			button.Children(func() { ui.Text(c, label).FontSize(viewport.Font(c, 13)).FontWeight(610) }).
 				OnClick(func() { app.openRoundChanges(entry) })
@@ -169,7 +170,7 @@ func (app *chatApp) fileDeliverableRow(c *ui.Context, entry *turn, file preview.
 	button := pointerButton(c, false).Label(label).Tooltip(path).FillWidth().MinHeight(layout.Target(34)).
 		Padding(layout.Y(5), layout.X(8)).Radius(6).Gap(layout.X(8)).AlignItems(ui.Center)
 	if button.Hovered() {
-		button.Background(side)
+		button.Background(hover)
 	}
 	button.Children(func() {
 		ui.Row(c).Grow(1).MinWidth(0).AlignItems(ui.Center).Clip().Children(func() {

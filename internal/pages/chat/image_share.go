@@ -46,7 +46,7 @@ func (app *chatApp) shareImage(name string, data []byte) {
 		}
 		if err != nil {
 			slog.Error("share chat image", "error", err)
-			_, _ = mygo.Dialog.Message(mygo.MessageOptions{
+			_, _ = app.showMessage(mygo.MessageOptions{
 				Parent: app.win, Type: mygo.MessageError, Message: locales.ShareImageFailed(),
 			})
 		}

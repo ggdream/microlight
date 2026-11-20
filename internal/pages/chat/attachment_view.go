@@ -11,6 +11,7 @@ import (
 	"github.com/ggdream/microlight/internal/theme"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 func (app *chatApp) attachmentTile(c *ui.Context, attachment *attachment.File, size float32, remove func()) {
@@ -35,8 +36,8 @@ func (app *chatApp) attachmentCard(c *ui.Context, attachment *attachment.File, s
 		}
 		button.Absolute().Top(0).Right(0).Size(hit, hit)
 		button.Children(func() {
-			face := ui.Box(c).Absolute().Top(3).Right(3).Size(20, 20).Radius(10).
-				Background(ui.RGBA(20, 25, 23, .8)).Border(1, ui.RGBA(255, 255, 255, .65)).Center()
+			face := material3.Elevate(ui.Box(c).Absolute().Top(3).Right(3).Size(20, 20).Radius(10).
+				Background(ink.Alpha(.85)).Center(), 1)
 			if button.Hovered() || button.Pressed() {
 				face.Background(ink)
 			}
@@ -63,7 +64,7 @@ func (app *chatApp) attachmentPreviewTile(c *ui.Context, attachment *attachment.
 		preview()
 	}
 	if !isImage {
-		tile.Background(white).Border(1, border)
+		material3.Elevate(tile.Background(white), 1).BorderWidth(0)
 	}
 	fit := ui.Contain
 	if remove != nil {
@@ -92,11 +93,11 @@ func (app *chatApp) attachmentPreviewTile(c *ui.Context, attachment *attachment.
 					icon(c, "document_text", color, size*.49)
 				})
 			})
-			ui.Row(c).FillWidth().Height(18).Shrink(0).PaddingX(5).AlignItems(ui.Center).
-				BorderWidth(1, 0, 0, 0).BorderColor(border).Children(func() {
-				ui.Text(c, attachment.Name).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").Clip().
-					FontSize(9).TextColor(ink)
-			})
+			material3.EdgeDivider(ui.Row(c).FillWidth().Height(18).Shrink(0).PaddingX(5).AlignItems(ui.Center), material3.TopEdge).
+				Children(func() {
+					ui.Text(c, attachment.Name).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").Clip().
+						FontSize(9).TextColor(ink)
+				})
 		}
 	})
 	items := []theme.PopupItem{{Label: desktop.PreviewLabel(), Icon: icons.Menu("open"), OnSelect: preview}}

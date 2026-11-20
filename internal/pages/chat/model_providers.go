@@ -15,6 +15,43 @@ import (
 
 const providersConfigKey = "model_providers"
 
+func providerIDs(providers []modelProvider) []string {
+	ids := make([]string, len(providers))
+	for i, p := range providers {
+		ids[i] = p.ID
+	}
+	return ids
+}
+
+// Keep unlisted/new providers in their existing relative order, and ignore IDs
+// removed while a settings order was being edited.
+func orderedProviders(providers []modelProvider, order []string) []modelProvider {
+	result := slices.Clone(providers)
+	rank := func(id string) int {
+		if index := slices.Index(order, id); index >= 0 {
+			return index
+		}
+		return len(order)
+	}
+	slices.SortStableFunc(result, func(a, b modelProvider) int { return rank(a.ID) - rank(b.ID) })
+	return result
+}
+
+func (app *chatApp) moveProviderChip(source, target string) {
+	if source == "" || target == "" || source == target {
+		return
+	}
+	order := providerIDs(orderedProviders(app.providers.Providers, app.form.providerOrder))
+	from, to := slices.Index(order, source), slices.Index(order, target)
+	if from < 0 || to < 0 {
+		return
+	}
+	order = slices.Delete(order, from, from+1)
+	order = slices.Insert(order, to, source)
+	app.form.providerOrder = order
+	app.form.settingsStatus = settingsStatus{}
+}
+
 type modelChoice struct {
 	ProviderID string `json:"provider_id,omitempty"`
 	Model      string `json:"model,omitempty"`

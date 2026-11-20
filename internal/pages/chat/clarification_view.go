@@ -7,6 +7,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/pkg/elastic"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 func (app *chatApp) clarificationCards(c *ui.Context, chat *conversation, reply *turn) {
@@ -14,8 +15,8 @@ func (app *chatApp) clarificationCards(c *ui.Context, chat *conversation, reply 
 		if question.Answer != "" {
 			continue
 		}
-		ui.Column(c.Key(index)).FillWidth().Padding(windowLayout(c).Density(12, 8)).Gap(8).
-			Background(white).Border(1, border).Radius(10).Children(func() {
+		material3.CardStyle(ui.Column(c.Key(index)).FillWidth().Padding(windowLayout(c).Density(12, 8)).Gap(8),
+			material3.ElevatedCard).Radius(material3.ShapeLarge).Children(func() {
 			waiting := reply.State == "waiting" && index == len(reply.Clarifications)-1
 			if waiting && question.Approval == nil {
 				app.clarificationForm(c, chat, reply, question)
@@ -44,26 +45,15 @@ func (app *chatApp) approvalControls(c *ui.Context, chat *conversation, reply *t
 	disabled := chat.isRunning()
 	ui.Row(c).FillWidth().Wrap().Justify(ui.End).AlignItems(ui.Center).Gap(layout.X(layout.Density(8, 5))).Children(func() {
 		rejectLabel := locales.RejectOperation()
-		reject := pointerButton(c, disabled).Label(rejectLabel).MinHeight(layout.Target(replyControlHeight)).
-			MaxWidthPercent(100).PaddingX(layout.X(layout.Density(12, 8))).Radius(replyControlRadius).AlignItems(ui.Center)
-		if reject.Hovered() && !disabled {
-			reject.Background(side)
-		}
+		reject := material3.Button(c, rejectLabel, material3.TextButton, disabled).Height(layout.Target(replyControlHeight)).MaxWidthPercent(100).PaddingX(layout.X(layout.Density(12, 8)))
 		reject.Children(func() {
 			ui.Text(c, rejectLabel).FontSize(viewport.Font(c, 12)).TextColor(muted)
 		}).OnClick(func() { app.answerClarification(chat, reply, localtools.Deny) })
 
 		allowLabel := locales.ApproveOnce()
-		allow := pointerButton(c, disabled).Label(allowLabel).MinHeight(layout.Target(replyControlHeight)).
-			MaxWidthPercent(100).PaddingX(layout.X(layout.Density(12, 8))).Radius(replyControlRadius).AlignItems(ui.Center)
-		background, foreground := tint, accent
-		if disabled {
-			background, foreground = side, muted
-		} else if allow.Hovered() {
-			background, foreground = accent, white
-		}
-		allow.Background(background).Children(func() {
-			ui.Text(c, allowLabel).FontSize(viewport.Font(c, 12)).FontWeight(620).TextColor(foreground)
+		allow := material3.Button(c, allowLabel, material3.FilledButton, disabled).Height(layout.Target(replyControlHeight)).MaxWidthPercent(100).PaddingX(layout.X(layout.Density(12, 8)))
+		allow.Children(func() {
+			ui.Text(c, allowLabel).FontSize(viewport.Font(c, 12)).FontWeight(620).TextColor(material3.Foreground(material3.FilledButton, disabled))
 		}).OnClick(func() { app.answerClarification(chat, reply, localtools.AllowOnce) })
 
 		stopButton(c).OnClick(func() { app.stopReply(chat, reply) })
@@ -103,11 +93,7 @@ func (q clarification) displayAnswer() string {
 }
 
 func clarificationButton(c *ui.Context, label string, disabled bool, action func()) {
-	button := pointerButton(c, disabled).Label(label).Padding(6, 9).Radius(6).
-		Border(1, border).Background(side)
-	if button.Hovered() {
-		button.Background(tint)
-	}
+	button := material3.Button(c, label, material3.ElevatedButton, disabled).Height(windowLayout(c).Target(32)).PaddingX(12)
 	button.Children(func() {
 		ui.Text(c, label).FontSize(viewport.Font(c, 12)).TextColor(accent)
 	}).OnClick(action)

@@ -130,6 +130,7 @@ type settingsForm struct {
 	proxyError        string
 	modelForm
 	providerDrafts      map[string]modelForm
+	providerOrder       []string
 	providerToDelete    string
 	providerDeleteError string
 	settingsStatus
@@ -336,6 +337,9 @@ func (app *chatApp) deferSettingsLeave(next func()) bool {
 
 func (app *chatApp) hasModelChanges() bool {
 	form := &app.form
+	if !slices.Equal(providerIDs(orderedProviders(app.providers.Providers, form.providerOrder)), providerIDs(app.providers.Providers)) {
+		return true
+	}
 	if form.modelForm.differsFrom(app.providerForm(form.providerID)) {
 		return true
 	}
@@ -357,6 +361,7 @@ func (app *chatApp) discardSettingsChanges() {
 		}
 		app.form.modelForm = app.providerForm(id)
 		clear(app.form.providerDrafts)
+		app.form.providerOrder = nil
 		app.form.settingsStatus = settingsStatus{}
 	case settings.Tools:
 		app.extensionsForm.mcp = settings.MCPForm{}
@@ -434,11 +439,13 @@ func (app *chatApp) saveSettings() {
 	} else if catalog.Selected.ProviderID == p.ID && !slices.Contains(p.Models, catalog.Selected.Model) {
 		catalog.Selected.Model = ""
 	}
+	catalog.Providers = orderedProviders(catalog.Providers, form.providerOrder)
 	if err := app.saveProviderCatalog(catalog); err != nil {
 		form.settingsStatus = settingsStatus{message: err.Error(), failed: true}
 		return
 	}
 	delete(form.providerDrafts, form.providerID)
+	form.providerOrder = nil
 	form.modelForm = app.providerForm(p.ID)
 	form.settingsStatus = settingsStatus{message: locales.SettingsSaved()}
 }

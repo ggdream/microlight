@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"github.com/ggdream/microlight/pkg/material3"
 	"github.com/ggdream/microlight/pkg/viewport"
 	"path/filepath"
 	"slices"
@@ -86,8 +87,8 @@ func replyProgress(c *ui.Context, entry *turn, hasReasoning, open bool) {
 
 	header := ui.Row(c).FillWidth().AlignItems(ui.Center)
 	if entry.State == "done" && hasReasoning {
-		header.Padding(0, 0, 5, 0).Margin(0, 0, 5, 0).
-			BorderWidth(0, 0, 1, 0).BorderColor(border)
+		material3.EdgeDivider(header.Padding(0, 0, 5, 0).Margin(0, 0, 5, 0), material3.BottomEdge)
+
 	}
 	header.Children(func() {
 		switch {
@@ -100,7 +101,7 @@ func replyProgress(c *ui.Context, entry *turn, hasReasoning, open bool) {
 				Expanded(open).Justify(ui.Start).AlignItems(ui.Center).Gap(5).
 				Padding(3, 5, 3, 0).Radius(5)
 			if button.Hovered() {
-				button.Background(side)
+				button.Background(hover)
 			}
 			button.Children(func() {
 				ui.Text(c, label).FontSize(windowLayout(c).Text(windowLayout(c).Density(12, 14))).TextColor(muted)
@@ -143,7 +144,7 @@ func (app *chatApp) replyBody(c *ui.Context, chat *conversation, entry *turn, in
 }
 
 func (app *chatApp) replyText(c *ui.Context, text string, streaming bool) {
-	style := markdown.DefaultTheme(c.Theme())
+	style := material3.MarkdownTheme(c.Theme())
 	if windowLayout(c).Compact() {
 		style.LineHeight = 1.4
 	}

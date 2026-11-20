@@ -11,6 +11,7 @@ import (
 	"github.com/ggdream/microlight/internal/theme"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 type mcpHeaderPreset uint8
@@ -98,7 +99,7 @@ func (form *MCPForm) headersControl(c *ui.Context, icons asseticon.Set) {
 					Tooltip(locales.RemoveMcpHeader()).Size(settingsLayout(c).Target(35), settingsLayout(c).Target(35)).Margin(settingY(c, 21), 0, 0).Shrink(0).Radius(7).
 					AlignItems(ui.Center).Justify(ui.Center)
 				if button.Hovered() {
-					button.Background(theme.Side)
+					button.Background(theme.Hover)
 				}
 				button.Children(func() { ui.Icon(c, icons.SVG("close")).Size(14, 14).Shrink(0).TextColor(theme.Muted) }).OnClick(func() {
 					form.headers = slices.Delete(form.headers, i, i+1)
@@ -120,18 +121,18 @@ func mcpHeaderPresetControl(c *ui.Context, icons asseticon.Set, header *mcpHeade
 	group.Children(func() {
 		ui.Text(c, label).FontSize(viewport.Font(c, 12)).FontWeight(610)
 		dropdown := ui.SelectBase(c.Key("select"), &header.preset)
-		dropdown.Trigger.Label(label).Value(header.preset.label()).FillWidth().Height(SelectHeight(c)).PaddingX(settingX(c, 10)).
-			AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(settingGap(c, 6)).Border(1, theme.Border).Radius(7).
-			Background(theme.Canvas).Cursor(ui.CursorPointer).FocusRingColor(theme.Accent).Children(func() {
+		material3.SelectFrame(dropdown.Trigger.Label(label).Value(header.preset.label()).FillWidth().Height(SelectHeight(c)).PaddingX(settingX(c, 10)).
+			AlignItems(ui.Center).Justify(ui.SpaceBetween).Gap(settingGap(c, 6))).Radius(material3.ShapeSmall).
+			Background(material3.Monochrome.SurfaceContainer).Cursor(ui.CursorPointer).FocusRingColor(theme.Accent).Children(func() {
 			ui.Text(c, header.preset.label()).FontSize(viewport.Font(c, 13))
 			ui.Icon(c, icons.SVG("ios_chevron_right")).Size(14, 14).Shrink(0).Rotate(90).TextColor(theme.Muted)
 		})
 		dropdown.Popup(func(panel ui.Element) {
-			panel.Padding(settingY(c, 4), settingX(c, 4)).Gap(settingGap(c, 2)).Background(theme.White).Border(1, theme.Border).Radius(8)
+			material3.Menu(panel.Padding(settingY(c, 4), settingX(c, 4)).Gap(settingGap(c, 2))).Radius(material3.ShapeMedium)
 			for _, preset := range []mcpHeaderPreset{mcpHeaderBearer, mcpHeaderAPIKey, mcpHeaderCustom} {
 				item := dropdown.Item(preset).Label(preset.label()).Padding(settingY(c, 6), settingX(c, 8)).Radius(5).Cursor(ui.CursorPointer)
 				if item.Highlighted() {
-					item.Background(theme.Tint)
+					item.Background(theme.Hover)
 				}
 				item.Children(func() {
 					ui.Text(c, preset.label()).FontSize(viewport.Font(c, 13))

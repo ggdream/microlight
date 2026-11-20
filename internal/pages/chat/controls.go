@@ -2,16 +2,14 @@ package chat
 
 import (
 	"github.com/ggdream/microlight/assets/locales"
+	"github.com/ggdream/microlight/pkg/material3"
 	"github.com/ggdream/microlight/pkg/viewport"
 
 	"github.com/egoist/mygo/ui"
 )
 
 func quietButton(c *ui.Context, label, glyph string) ui.Element {
-	button := pointerButton(c, false).Label(label).Gap(5).AlignItems(ui.Center).Padding(4, 7).Radius(6)
-	if button.Hovered() {
-		button.Background(side)
-	}
+	button := material3.Button(c, label, material3.TextButton, false).Height(windowLayout(c).Target(28)).Gap(5).PaddingX(9)
 	return button.Children(func() {
 		icon(c, glyph, muted, 13)
 		ui.Text(c, label).FontSize(viewport.Font(c, 11)).TextColor(muted)
@@ -19,13 +17,8 @@ func quietButton(c *ui.Context, label, glyph string) ui.Element {
 }
 
 func actionButton(c *ui.Context, label, glyph string, disabled bool) ui.Element {
-	bg, fg := accent, white
-	if disabled {
-		bg, fg = side, muted
-	}
-	return pointerButton(c, disabled).Label(label).Tooltip(label).Width(34).Height(34).Radius(17).
-		Background(bg).AlignItems(ui.Center).Justify(ui.Center).
-		Children(func() { icon(c, glyph, fg, 18) })
+	return material3.Button(c, label, material3.FilledButton, disabled).Tooltip(label).Size(34, 34).PaddingX(0).
+		Children(func() { icon(c, glyph, material3.Foreground(material3.FilledButton, disabled), 18) })
 }
 
 func stopButton(c *ui.Context) ui.Element {
@@ -33,9 +26,9 @@ func stopButton(c *ui.Context) ui.Element {
 	size := windowLayout(c).Target(replyControlHeight)
 	button := pointerButton(c, false).Label(label).Tooltip(label).Size(size, size).Shrink(0).
 		Radius(replyControlRadius).AlignItems(ui.Center).Justify(ui.Center)
-	background := ui.Hex("#FCEDEE")
+	background := material3.Monochrome.ErrorContainer
 	if button.Hovered() {
-		background = ui.Hex("#F8DBDE")
+		background = background.Mix(errorFG, .08)
 	}
 	return button.Background(background).Children(func() {
 		icon(c, "stop", errorFG, 16)

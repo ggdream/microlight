@@ -9,6 +9,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/markdown"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 func (app *chatApp) userMessage(c *ui.Context, chat *conversation, index int, entry *turn) {
@@ -31,7 +32,7 @@ func (app *chatApp) userMessage(c *ui.Context, chat *conversation, index int, en
 		}
 		if entry.Content != "" {
 			markdown.View(c.Key("message-body"), entry.Content, app.md).
-				Padding(windowLayout(c).Density(10, 7), windowLayout(c).Density(14, 10)).Radius(15).Background(tint)
+				Padding(windowLayout(c).Density(10, 7), windowLayout(c).Density(14, 10)).Radius(material3.ShapeMedium).Background(ui.Hex("#E8F3FE"))
 		}
 		opacity := float32(0)
 		if showActions {
@@ -80,8 +81,8 @@ func messageTimestamp(c *ui.Context, timestamp time.Time) {
 
 func (app *chatApp) messageEditor(c *ui.Context, chat *conversation, index int, edit *messageEdit) {
 	layout := windowLayout(c)
-	ui.Column(c).Width(510).MaxWidthPercent(100).Gap(layout.Y(8)).Padding(layout.Y(10), layout.X(10)).Radius(12).
-		Border(1, border).Background(white).Children(func() {
+	material3.CardStyle(ui.Column(c).Width(510).MaxWidthPercent(100).Gap(layout.Y(8)).Padding(layout.Y(10), layout.X(10)), material3.ElevatedCard).
+		Background(white).Children(func() {
 		editor := edit.input.View(c.Key(edit), locales.EditMessageBody(), "", layout.Y(104), app.md).
 			Padding(layout.Y(5), layout.X(5)).AutoFocus()
 		if editor.Shortcut(0, ui.KeyEscape) {
@@ -125,7 +126,7 @@ func messageIcon(c *ui.Context, label, glyph string, disabled bool, action func(
 		}
 		face := ui.Box(c).Size(size, size).Radius(messageControlRadius).Center()
 		if button.Hovered() || button.Pressed() {
-			face.Background(side)
+			face.Background(hover)
 		}
 		face.Children(func() { icon(c, glyph, muted, 14) })
 	}).OnClick(action)

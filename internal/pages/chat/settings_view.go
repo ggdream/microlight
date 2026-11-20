@@ -10,6 +10,7 @@ import (
 	"github.com/ggdream/microlight/internal/theme"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 func (app *chatApp) settingsPage(c *ui.Context) {
@@ -18,7 +19,7 @@ func (app *chatApp) settingsPage(c *ui.Context) {
 			app.closeSettings()
 		}
 	}
-	if windowLayout(c).Compact() {
+	if windowLayout(c).Compact() && app.transferLoading == "" {
 		// Android's system Back is delivered as Escape by MyGo. Open menus
 		// and dialogs take it first; the settings page then returns to chat.
 		c.OnWindowShortcut(0, ui.KeyEscape, back)
@@ -65,9 +66,9 @@ func (app *chatApp) settingsLeaveDialog(c *ui.Context) {
 		insetDialog(c, backdrop)
 		cancel, discard := backdrop.OverlayShortcut(0, ui.KeyEscape), false
 		backdrop.Children(func() {
-			panel := ui.Column(c).Role(ui.RoleAlertDialog).Label(title).Description(body).
-				Width(340).MaxWidthPercent(90).MaxHeight(dialogMaxHeight(c)).Padding(windowLayout(c).Density(20, 14)).Gap(windowLayout(c).Density(12, 8)).Radius(10).Background(white).
-				Shadow(0, 10, 30, 0, ui.RGBA(0, 0, 0, .3))
+			panel := material3.Elevate(ui.Column(c).Role(ui.RoleAlertDialog).Label(title).Description(body).
+				Width(340).MaxWidthPercent(90).MaxHeight(dialogMaxHeight(c)).Padding(windowLayout(c).Density(20, 14)).Gap(windowLayout(c).Density(12, 8)).Radius(10).Background(white), 3)
+
 			mobileDialog(c, backdrop, panel)
 			panel.Children(func() {
 				dialogBody(c, func() {
@@ -76,8 +77,8 @@ func (app *chatApp) settingsLeaveDialog(c *ui.Context) {
 				})
 				dialogActions(c).Children(func() {
 					stayLabel := locales.ContinueEditing()
-					stay := pointerButton(c.Key("stay"), false).Label(stayLabel).AutoFocus().
-						Height(34).PaddingX(13).AlignItems(ui.Center).Radius(7).Background(side).Border(1, border)
+					stay := material3.ButtonStyle(pointerButton(c.Key("stay"), false).Label(stayLabel).AutoFocus().
+						Height(34).PaddingX(13).AlignItems(ui.Center), material3.TextButton, false)
 					if stay.Hovered() {
 						stay.Background(hover)
 					}
@@ -85,7 +86,7 @@ func (app *chatApp) settingsLeaveDialog(c *ui.Context) {
 					cancel = cancel || stay.Clicked()
 					leaveLabel := locales.DiscardSettingsAndLeave()
 					leave := pointerButton(c.Key("leave"), false).Label(leaveLabel).
-						Height(34).PaddingX(13).AlignItems(ui.Center).Radius(7).Background(errorFG)
+						Height(34).PaddingX(13).AlignItems(ui.Center).Radius(material3.ShapeSmall).Background(errorFG)
 					if leave.Hovered() {
 						leave.Background(errorFG.Alpha(.88))
 					}

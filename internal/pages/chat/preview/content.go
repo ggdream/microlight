@@ -12,16 +12,17 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/pkg/elastic"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 func Content(c *ui.Context, state *ui.ListState, activity timeline.Entry, name string, fallback *string) {
 	ui.Column(c).FillWidth().Grow(1).MinHeight(0).Children(func() {
 		if activity.Diff != nil {
-			ui.Row(c).FillWidth().Shrink(0).Padding(7, 10).Gap(7).AlignItems(ui.Center).
-				BorderWidth(0, 0, 1, 0).BorderColor(theme.Border).Children(func() {
-				ui.Text(c, name).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 12))
-				DiffCounts(c.Key("counts"), activity.Diff)
-			})
+			material3.EdgeDivider(ui.Row(c).FillWidth().Shrink(0).Padding(7, 10).Gap(7).AlignItems(ui.Center), material3.BottomEdge).
+				Children(func() {
+					ui.Text(c, name).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, 12))
+					DiffCounts(c.Key("counts"), activity.Diff)
+				})
 		}
 		if diff := activity.Diff; diff != nil && len(diff.Rows) > 0 && diff.Added+diff.Removed > 0 {
 			showFileDiff(c.Key("diff"), state, diff)
@@ -56,7 +57,7 @@ func showFileDiff(c *ui.Context, state *ui.ListState, diff *diff.Lines) {
 		background, color := theme.White, theme.Muted
 		switch line.Kind {
 		case "+":
-			background, color = theme.Tint, theme.Accent
+			background, color = ui.Hex("#E8F2E9"), ui.Hex("#256B35")
 		case "-":
 			background, color = ui.Hex("#FCEDEE"), theme.ErrorFG
 		}

@@ -32,6 +32,10 @@ type settingsFile struct {
 }
 
 func (app *chatApp) exportSettings() ([]byte, error) {
+	return json.MarshalIndent(app.settingsExportFile(), "", "  ")
+}
+
+func (app *chatApp) settingsExportFile() settingsFile {
 	catalog := app.providers
 	catalog.Providers = slices.Clone(catalog.Providers)
 	for i := range catalog.Providers {
@@ -42,12 +46,12 @@ func (app *chatApp) exportSettings() ([]byte, error) {
 		provider.BrowserUse, provider.BrowserMode = false, ""
 		provider.AccessMode, provider.Workspace = "", ""
 	}
-	return json.MarshalIndent(settingsFile{
+	return settingsFile{
 		Version: settingsFileVersion, Models: &catalog, Proxy: app.settings.Proxy,
 		MCPServers: app.settings.MCPServers, Language: app.language, BusySend: app.busySend,
 		WebSearch: app.settings.WebSearch, OCR: app.settings.OCR, BrowserUse: app.settings.BrowserUse, BrowserMode: app.settings.BrowserMode.Effective(),
 		SystemPrompt: app.systemPrompt, Desktop: app.desktop,
-	}, "", "  ")
+	}
 }
 
 func readSettingsFile(reader io.Reader) (settingsFile, modelSettings, error) {

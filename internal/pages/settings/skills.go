@@ -10,6 +10,7 @@ import (
 	"github.com/ggdream/microlight/internal/theme"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 func SkillList(c *ui.Context, icons asseticon.Set, catalog *skills.Catalog, roots []string, query, expanded *string, refresh func()) {
@@ -18,7 +19,7 @@ func SkillList(c *ui.Context, icons asseticon.Set, catalog *skills.Catalog, root
 		ui.Row(c).FillWidth().Gap(settingGap(c, 10)).AlignItems(ui.Center).Children(func() {
 			label := locales.SearchSkills()
 			TextField(c.Key("skill-search"), label, label, query).
-				Grow(1).MinWidth(0).Background(theme.White).ReturnKey(ui.ReturnSearch)
+				Grow(1).MinWidth(0).ReturnKey(ui.ReturnSearch)
 			ActionButton(c.Key("rescan"), icons, locales.RefreshSkills(), "retry", loading).OnClick(refresh)
 		})
 		if loading {
@@ -39,10 +40,10 @@ func SkillList(c *ui.Context, icons asseticon.Set, catalog *skills.Catalog, root
 			}
 			ui.Text(c, label).FontSize(viewport.Font(c, 13)).TextColor(theme.Muted)
 		} else {
-			ui.Column(c.Key("skill-list")).FillWidth().Background(theme.White).Radius(11).Border(1, theme.Border).Clip().Children(func() {
+			material3.CardStyle(ui.Column(c.Key("skill-list")).FillWidth(), material3.ElevatedCard).Clip().Children(func() {
 				for i, entry := range matches {
 					if i != 0 {
-						ui.Box(c).FillWidth().Height(1).Background(theme.Border)
+						material3.Divider(c, material3.DividerOptions{Space: 1})
 					}
 					ui.Column(c.Key(entry.Name)).FillWidth().Children(func() {
 						SkillRow(c, icons, entry, expanded)
@@ -82,7 +83,7 @@ func SkillRow(c *ui.Context, icons asseticon.Set, entry skills.Entry, selected *
 	button := theme.PointerButton(c.Key("details"), false).Label(entry.Name).Expanded(expanded).FillWidth().MinHeight(settingsLayout(c).Target(56)).
 		PaddingX(13).Gap(settingGap(c, 11)).Justify(ui.Start).AlignItems(ui.Center)
 	if expanded || button.Hovered() {
-		button.Background(theme.Side)
+		button.Background(theme.Hover)
 	}
 	button.Children(func() {
 		ui.Box(c).Size(30, 30).Radius(7).Shrink(0).Background(theme.Tint).AlignItems(ui.Center).Justify(ui.Center).

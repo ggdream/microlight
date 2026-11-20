@@ -97,7 +97,8 @@ type chatApp struct {
 	settingsTab            settings.Tab
 	extensionsForm         extensionsForm
 	transferBusy           bool
-	transferStatus         settingsStatus
+	transferLoading        string
+	transferToast          *ui.Toast
 	language               settings.LanguagePreference
 	busySend               busySendMode
 	systemPrompt           string
@@ -113,6 +114,7 @@ type chatApp struct {
 	focusComposer          bool
 	previewDirectory       string
 	updateCheck            updateCheck
+	messageDialogs         []*messageDialog
 	sidebarWidth           float32
 	compactHistory         bool
 	mobileWorkspace        string

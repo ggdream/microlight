@@ -8,11 +8,11 @@ import (
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/desktop"
 	"github.com/ggdream/microlight/internal/localtools"
-	"github.com/ggdream/microlight/internal/theme"
 	"github.com/ggdream/microlight/pkg/elastic"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 type fullAccessRequest struct {
@@ -89,8 +89,7 @@ func (app *chatApp) fullAccessDialog(c *ui.Context) {
 	open := true
 	ui.DialogBase(c, &open, func(backdrop, panel ui.Element) {
 		insetDialog(c, backdrop).Background(ui.RGBA(0, 0, 0, .38))
-		panel.Label(title).Width(384).MaxWidthPercent(90).MaxHeight(dialogMaxHeight(c)).Padding(windowLayout(c).Density(20, 14)).Gap(windowLayout(c).Density(12, 8)).
-			Background(white).Border(1, border).Radius(13).Shadow(0, 10, 30, 0, ui.RGBA(0, 0, 0, .22))
+		material3.Elevate(material3.Menu(panel.Label(title).Width(384).MaxWidthPercent(90).MaxHeight(dialogMaxHeight(c)).Padding(windowLayout(c).Density(20, 14)).Gap(windowLayout(c).Density(12, 8))).Radius(material3.ShapeMedium), 3)
 		mobileDialog(c, backdrop, panel)
 		dialogBody(c, func() {
 			ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
@@ -98,30 +97,21 @@ func (app *chatApp) fullAccessDialog(c *ui.Context) {
 				ui.Text(c, title).FontSize(viewport.Font(c, 16)).FontWeight(680).TextColor(ink)
 			})
 			ui.Text(c, locales.FullAccessBody()).FontSize(viewport.Font(c, 13)).TextColor(muted)
-			ui.Themed(c, theme.PopupTheme(c)).Background(ui.Transparent).Children(func() {
-				ui.Checkbox(c, &request.acknowledged, locales.FullAccessAcknowledgement()).
-					FillWidth().FontSize(viewport.Font(c, 13)).Cursor(ui.CursorPointer).FocusRingColor(accent)
-			})
+			ui.Checkbox(c, &request.acknowledged, locales.FullAccessAcknowledgement()).
+				FillWidth().FontSize(viewport.Font(c, 13)).Cursor(ui.CursorPointer).FocusRingColor(accent)
 		})
 		disabled := !request.acknowledged
 		dialogActions(c).Children(func() {
-			cancel := pointerButton(c, false).Label(locales.Cancel()).AutoFocus().Height(34).PaddingX(13).
-				AlignItems(ui.Center).Radius(7).Background(side).Border(1, border)
+			cancel := material3.ButtonStyle(pointerButton(c, false).Label(locales.Cancel()).AutoFocus().Height(34).PaddingX(13).
+				AlignItems(ui.Center), material3.TextButton, false)
 			if cancel.Hovered() {
 				cancel.Background(hover)
 			}
 			cancel.Children(func() {
 				ui.Text(c, locales.Cancel()).FontSize(viewport.Font(c, 13)).TextColor(ink)
 			}).OnClick(func() { app.fullAccess = nil })
-			bg, fg := errorFG, white
-			if disabled {
-				bg, fg = side, muted
-			}
-			button := pointerButton(c, disabled).Label(label).Height(34).PaddingX(13).
-				AlignItems(ui.Center).Justify(ui.Center).Radius(7).Background(bg)
-			if button.Hovered() && !disabled {
-				button.Background(ui.Hex("#833339"))
-			}
+			fg := material3.Foreground(material3.FilledButton, disabled)
+			button := material3.Button(c, label, material3.FilledButton, disabled).Height(34).PaddingX(13)
 			button.Children(func() {
 				ui.Text(c, label).FontSize(viewport.Font(c, 13)).FontWeight(620).TextColor(fg)
 			}).OnClick(func() {
@@ -166,7 +156,7 @@ func (app *chatApp) accessControl(c *ui.Context, chat *conversation) {
 		trigger := pointerButton(c.Key("access-sheet-trigger"), false).Label(title).Value(selected.Label()).Size(36, 36).Center().Radius(7)
 		open := ui.Local(trigger, "open", func() bool { return false })
 		if trigger.Hovered() {
-			trigger.Background(side)
+			trigger.Background(hover)
 		}
 		trigger.Children(func() { accessModeIcon(c, selected) }).OnClick(func() { *open = true })
 		if *open {
@@ -183,7 +173,7 @@ func (app *chatApp) accessControl(c *ui.Context, chat *conversation) {
 						} {
 							button := pointerButton(c.Key(string(choice.mode)), false).Label(choice.mode.Label()).FillWidth().MinHeight(layout.Target(62)).Padding(8).Gap(12).AlignItems(ui.Center).Radius(8)
 							if button.Hovered() {
-								button.Background(side)
+								button.Background(hover)
 							}
 							button.Children(func() {
 								accessModeIcon(c, choice.mode)
@@ -214,7 +204,7 @@ func (app *chatApp) accessControl(c *ui.Context, chat *conversation) {
 		trigger.MinWidth(34).Justify(ui.Center)
 	}
 	if trigger.Hovered() {
-		trigger.Background(side)
+		trigger.Background(hover)
 	}
 	trigger.Children(func() {
 		accessModeIcon(c, selected)
@@ -224,7 +214,7 @@ func (app *chatApp) accessControl(c *ui.Context, chat *conversation) {
 		}
 	}).OnChange(func() { app.chooseAccess(chat, selected) })
 	dropdown.Popup(func(panel ui.Element) {
-		panel.Width(windowLayout(c).FitWidth(356, 12)).Padding(5).Gap(2).Background(white).Border(1, border).Radius(10)
+		material3.Menu(panel.Width(windowLayout(c).FitWidth(356, 12)).Padding(5).Gap(2)).Radius(material3.ShapeMedium)
 		for _, choice := range []struct {
 			mode localtools.Mode
 			hint string
@@ -275,7 +265,7 @@ func (app *chatApp) workspaceControl(c *ui.Context, chat *conversation) {
 		button.MinWidth(34).Justify(ui.Center)
 	}
 	if button.Hovered() {
-		button.Background(side)
+		button.Background(hover)
 	}
 	button.Children(func() {
 		icon(c, "folder", muted, 15)

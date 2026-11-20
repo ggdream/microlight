@@ -9,6 +9,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/ggdream/microlight/pkg/elastic"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 func (app *chatApp) sidebarDivider(c *ui.Context, limit float32) float32 {
@@ -101,10 +102,10 @@ func (app *chatApp) sidebar(c *ui.Context, selected *conversation, shortcut stri
 					app.sidebarToggle(c, false)
 				}
 			})
-			button := pointerButton(c, false).Label(locales.NewChat()).AlignSelf(ui.Stretch).Height(windowLayout(c).Target(38)).PaddingX(10).
-				Margin(0, sidebarInset, 0, 0).Radius(8).Background(white).Border(1, border).AlignItems(ui.Center).Gap(7)
+			button := material3.ButtonStyle(pointerButton(c, false).Label(locales.NewChat()).AlignSelf(ui.Stretch).Height(windowLayout(c).Target(38)).PaddingX(10).
+				Margin(0, sidebarInset, 0, 0), material3.ElevatedButton, false).AlignItems(ui.Center).Gap(7)
 			if button.Hovered() {
-				button.Background(tint)
+				button.Background(hover)
 			}
 			button.Children(func() {
 				icon(c, "plus", accent, 15)
@@ -136,11 +137,11 @@ func (app *chatApp) sidebar(c *ui.Context, selected *conversation, shortcut stri
 					})
 				})
 			})
-			ui.Row(c).AlignSelf(ui.Stretch).Margin(0, sidebarInset, 0, 0).Padding(layout.Density(8, layout.Y(8)), 0, 0).Gap(8).AlignItems(ui.Center).
-				BorderWidth(1, 0, 0, 0).BorderColor(border).Children(func() {
-				app.sidebarSettingsButton(c)
-				ui.Text(c, locales.HistoryLocal()).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, layout.Density(11, 12))).TextColor(muted)
-			})
+			material3.EdgeDivider(ui.Row(c).AlignSelf(ui.Stretch).Margin(0, sidebarInset, 0, 0).Padding(layout.Density(8, layout.Y(8)), 0, 0).Gap(8).AlignItems(ui.Center), material3.TopEdge).
+				Children(func() {
+					app.sidebarSettingsButton(c)
+					ui.Text(c, locales.HistoryLocal()).Grow(1).MinWidth(0).SingleLine().Ellipsis("…").FontSize(viewport.Font(c, layout.Density(11, 12))).TextColor(muted)
+				})
 		})
 	})
 }

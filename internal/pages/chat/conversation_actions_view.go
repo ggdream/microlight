@@ -8,8 +8,10 @@ import (
 
 	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/pages/settings"
+	"github.com/ggdream/microlight/internal/theme"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/ggdream/microlight/pkg/material3"
 )
 
 type conversationAction struct {
@@ -21,6 +23,10 @@ type conversationAction struct {
 }
 
 func (app *chatApp) sidebarChat(c *ui.Context, chat *conversation, selected bool) {
+	theme.MenuSurface(c).Children(func() { app.sidebarChatRow(c, chat, selected) })
+}
+
+func (app *chatApp) sidebarChatRow(c *ui.Context, chat *conversation, selected bool) {
 	menu := func(m *ui.Menu) { app.conversationMenu(m, chat) }
 	layout := windowLayout(c)
 	height := layout.Target(34)
@@ -31,7 +37,7 @@ func (app *chatApp) sidebarChat(c *ui.Context, chat *conversation, selected bool
 	hovered := row.Hovered()
 	color := muted
 	if selected {
-		row.Background(tint)
+		row.Background(theme.Selected)
 		color = accent
 	} else if hovered || chat.menuOpen {
 		row.Background(hover)
@@ -66,13 +72,13 @@ func (app *chatApp) sidebarChat(c *ui.Context, chat *conversation, selected bool
 				more.Background(white)
 			}
 			more.Children(func() { icon(c, "more_horizontal", color, 16) })
-			more.PopoverMenuButton(menu, ui.PopoverMenuButtonOptions{
+			more.PopoverMenuButton(menu, theme.MenuButtonStyle(ui.PopoverMenuButtonOptions{
 				At: ui.AnchorBottomEnd, Self: ui.AnchorTopEnd, Open: &chat.menuOpen,
-			})
+			}))
 		} else {
 			ui.Box(c.Key("menu-slot")).Size(size, size).Shrink(0)
 		}
-	}).PopoverMenu(menu)
+	}).PopoverMenu(menu, theme.ContextMenuStyle())
 }
 
 func sidebarTitle(c *ui.Context, title string, color ui.Color, hovered bool) ui.Element {
@@ -172,8 +178,8 @@ func (app *chatApp) conversationActionDialog(c *ui.Context) {
 		insetDialog(c, backdrop)
 		cancel, submit := backdrop.OverlayShortcut(0, ui.KeyEscape), false
 		backdrop.Children(func() {
-			panel := ui.Column(c).Role(role).Label(title).Width(340).MaxWidthPercent(90).MaxHeight(dialogMaxHeight(c)).Padding(windowLayout(c).Density(20, 14)).
-				Gap(windowLayout(c).Density(12, 8)).Radius(10).Background(white).Shadow(0, 10, 30, 0, ui.RGBA(0, 0, 0, .3))
+			panel := material3.Elevate(ui.Column(c).Role(role).Label(title).Width(340).MaxWidthPercent(90).MaxHeight(dialogMaxHeight(c)).Padding(windowLayout(c).Density(20, 14)).
+				Gap(windowLayout(c).Density(12, 8)).Radius(10).Background(white), 3)
 			mobileDialog(c, backdrop, panel)
 			panel.Children(func() {
 				dialogBody(c, func() {
@@ -190,8 +196,8 @@ func (app *chatApp) conversationActionDialog(c *ui.Context) {
 					}
 				})
 				dialogActions(c).Children(func() {
-					back := pointerButton(c.Key("cancel"), false).Label(locales.Cancel()).Height(34).PaddingX(13).
-						AlignItems(ui.Center).Radius(7).Background(side).Border(1, border)
+					back := material3.ButtonStyle(pointerButton(c.Key("cancel"), false).Label(locales.Cancel()).Height(34).PaddingX(13).
+						AlignItems(ui.Center), material3.TextButton, false)
 					if action.deleting {
 						back.AutoFocus()
 					}
@@ -201,7 +207,7 @@ func (app *chatApp) conversationActionDialog(c *ui.Context) {
 					back.Children(func() { ui.Text(c, locales.Cancel()).FontSize(viewport.Font(c, 13)) })
 					cancel = back.Clicked() || cancel
 					save := pointerButton(c.Key("confirm"), !action.deleting && strings.TrimSpace(action.title) == "").
-						Label(confirm).Height(34).PaddingX(13).AlignItems(ui.Center).Radius(7).Background(confirmColor)
+						Label(confirm).Height(34).PaddingX(13).AlignItems(ui.Center).Radius(material3.ShapeSmall).Background(confirmColor)
 					if save.Hovered() {
 						save.Background(confirmColor.Alpha(.88))
 					}

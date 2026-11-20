@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ggdream/microlight/pkg/a2ui"
+	"github.com/ggdream/microlight/pkg/material3"
 
 	"github.com/egoist/mygo/ui"
 )
@@ -204,11 +205,11 @@ func (r renderer) dateTime(c *ui.Context, node a2ui.Component, scope string) {
 		changed := false
 		ui.Row(c).Wrap().Gap(6).Children(func() {
 			if useDate {
-				date := r.decorate(c, node, scope, ui.DateInput(c.Key("date"), &value).Label(label).Disabled(disabled), label)
+				date := r.decorate(c, node, scope, material3.SelectFrame(ui.DateInput(c.Key("date"), &value).Label(label).Disabled(disabled)), label)
 				changed = date.Changed()
 			}
 			if useTime {
-				tm := r.decorate(c, node, scope, ui.TimeInput(c.Key("time"), &value).Label(label).Disabled(disabled), label)
+				tm := r.decorate(c, node, scope, material3.SelectFrame(ui.TimeInput(c.Key("time"), &value).Label(label).Disabled(disabled)), label)
 				changed = tm.Changed() || changed
 			}
 		})
@@ -270,7 +271,17 @@ func (r renderer) modal(c *ui.Context, node a2ui.Component, scope string, depth 
 		}
 	}
 	disabled := r.Disabled || (hasTrigger && !r.surface.IsValid(triggerNode, scope))
-	button := r.decorate(c, node, scope, ui.ButtonBase(c.Key("trigger")).Label(label).Disabled(disabled), label)
+	variant := material3.ElevatedButton
+	if hasTrigger {
+		switch r.surface.String(triggerNode.Props["variant"], scope) {
+		case "primary":
+			variant = material3.FilledButton
+		case "borderless":
+			variant = material3.TextButton
+		}
+	}
+	button := r.decorate(c, node, scope, material3.Button(c.Key("trigger"), label, variant, disabled).
+		MinHeight(viewport.Available(c).Target(r.Style.ControlHeight)).MaxWidthPercent(100), label)
 	open := ui.Local(button, "open", func() bool { return false })
 	// The modal trigger can itself be a Button. Render its child inside
 	// the modal opener so there is only one native click target.
@@ -280,9 +291,11 @@ func (r renderer) modal(c *ui.Context, node a2ui.Component, scope string, depth 
 	}
 	button.Children(func() {
 		if hasTrigger && triggerNode.Type == "Button" && label != "Open" {
-			ui.Text(c, label)
+			ui.Text(c, label).TextColor(material3.Foreground(variant, disabled))
 		} else {
-			r.node(c, triggerChild, scope, depth+1)
+			childRenderer := r
+			childRenderer.Style.Text = material3.Foreground(variant, disabled)
+			childRenderer.node(c, triggerChild, scope, depth+1)
 		}
 	}).OnClick(func() {
 		*open = true
@@ -294,17 +307,20 @@ func (r renderer) modal(c *ui.Context, node a2ui.Component, scope string, depth 
 		top, right, bottom, left := c.SafeArea()
 		backdrop.Padding(top, right, bottom, left).Background(ui.RGBA(0, 0, 0, .35))
 		layout := viewport.Available(c)
-		panel.Background(r.Style.Surface).Padding(layout.Density(16, 10)).Radius(10).Gap(8).
-			MinWidth(layout.FitWidth(220, 12)).MaxWidth(layout.FitWidth(560, 12)).MaxHeight(layout.FitHeight(620, 10)).
-			Children(func() {
-				scroll, offset := elastic.Scroll(c.Key("content"))
-				scroll.FillWidth().MinHeight(0).Shrink(1).Children(func() {
-					offset.Apply(ui.Column(c)).FillWidth().Children(func() {
-						r.node(c, content, scope, depth+1)
-					})
+		material3.Dialog(panel).Label(label).Padding(layout.Y(layout.Density(20, 14)), layout.X(layout.Density(20, 14))).Gap(layout.Y(12)).
+			MinWidth(layout.FitWidth(220, 12)).MaxWidth(layout.FitWidth(560, 12)).MaxHeight(layout.FitHeight(620, 10))
+		if layout.Compact() {
+			panel.MinWidth(0).Width(layout.DialogWidth()).MaxWidthPercent(100)
+		}
+		panel.Children(func() {
+			scroll, offset := elastic.Scroll(c.Key("content"))
+			scroll.FillWidth().MinHeight(0).Shrink(1).Children(func() {
+				offset.Apply(ui.Column(c)).FillWidth().Children(func() {
+					r.node(c, content, scope, depth+1)
 				})
-				ui.ButtonBase(c.Key("dismiss")).Shrink(0).Label("Close").Children(func() { ui.Text(c, "Close") }).OnClick(func() { *open = false })
 			})
+			material3.Button(c.Key("dismiss"), "Close", material3.TextButton, false).AlignSelf(ui.End).Children(func() { ui.Text(c, "Close") }).OnClick(func() { *open = false })
+		})
 	})
 }
 
