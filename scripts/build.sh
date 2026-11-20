@@ -75,21 +75,7 @@ else
         ;;
       *) if [[ -n "$config_backup" ]]; then cp "$config_backup" mygo.json; fi ;;
     esac
-    if [[ "$target" == web || "$target" == js/wasm ]]; then
-      (
-        touch_dir=$(mktemp -d)
-        trap 'rm -rf "$touch_dir"' EXIT
-        go mod download github.com/egoist/mygo
-        module_dir=$(go list -mod=readonly -m -f '{{.Dir}}' github.com/egoist/mygo)
-        mkdir -p "$touch_dir/bin"
-        GOBIN="$touch_dir/bin" go install "github.com/egoist/mygo/cmd/mygo@$cli_version"
-        modfile=$(go run ./scripts/webtouch -module "$module_dir" -out "$touch_dir")
-        export GOFLAGS="${GOFLAGS:+$GOFLAGS }-modfile=$modfile"
-        "$touch_dir/bin/mygo" build ${build_args[@]+"${build_args[@]}"} -platform "$target"
-      )
-    else
-      go run "github.com/egoist/mygo/cmd/mygo@$cli_version" build ${build_args[@]+"${build_args[@]}"} -platform "$target"
-    fi
+    go run "github.com/egoist/mygo/cmd/mygo@$cli_version" build ${build_args[@]+"${build_args[@]}"} -platform "$target"
   done
   if [[ -n "$config_backup" ]]; then cp "$config_backup" mygo.json; fi
 fi
