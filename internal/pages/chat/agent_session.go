@@ -89,6 +89,7 @@ func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID s
 			},
 		},
 	})
+	request, _ := ctx.Value(interfaceContextKey{}).(*interfaceRequest)
 	var iter *adk.AsyncIterator[*adk.TypedAgentEvent[*schema.AgenticMessage]]
 	if resume != nil {
 		var err error
@@ -103,11 +104,20 @@ func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID s
 		if err != nil {
 			return nil, err
 		}
+		if request != nil {
+			pending, err := request.feedback.modelInputs()
+			if err != nil {
+				return nil, err
+			}
+			msgs = append(pending, msgs...)
+		}
 		iter = runner.Run(ctx, msgs, adk.WithCheckPointID(newID()))
 	}
-	request, _ := ctx.Value(interfaceContextKey{}).(*interfaceRequest)
 	for pass := 0; ; pass++ {
 		question, followups, next, err := readAgentReply(ctx, iter, &toolResults, skills, request, emit)
+		if err == nil && question == nil && pass < 2 && next != nil {
+			followups = append(followups, next.feedback.take()...)
+		}
 		if err != nil || question != nil || len(followups) == 0 {
 			return question, err
 		}
@@ -115,8 +125,8 @@ func (chat *Chat) runSession(ctx context.Context, store *localStore, sessionID s
 			return nil, emit(replyDelta{interfaceUpdates: []interfaceUpdate{{Invalid: true}}})
 		}
 		msgs := make([]*schema.AgenticMessage, 0, len(followups))
-		for _, event := range followups {
-			msg, err := interfaceEventInput(event)
+		for _, feedback := range followups {
+			msg, err := feedback.modelInput()
 			if err != nil {
 				return nil, err
 			}
@@ -182,10 +192,10 @@ func sessionInput(turns []*turn) ([]*schema.AgenticMessage, error) {
 	return messages, nil
 }
 
-func readAgentReply(ctx context.Context, iter *adk.AsyncIterator[*adk.TypedAgentEvent[*schema.AgenticMessage]], toolResults *sync.Map, skills *skillset.Catalog, request *interfaceRequest, emit func(replyDelta) error) (*clarification, []a2ui.RendererMessage, *interfaceRequest, error) {
+func readAgentReply(ctx context.Context, iter *adk.AsyncIterator[*adk.TypedAgentEvent[*schema.AgenticMessage]], toolResults *sync.Map, skills *skillset.Catalog, request *interfaceRequest, emit func(replyDelta) error) (*clarification, []interfaceFeedback, *interfaceRequest, error) {
 	var question *clarification
 	var failure error
-	var followups []a2ui.RendererMessage
+	var followups []interfaceFeedback
 	seenCalls := make(map[string]bool)
 	hasText := false
 	flushToolResults := func() {
@@ -233,11 +243,12 @@ func readAgentReply(ctx context.Context, iter *adk.AsyncIterator[*adk.TypedAgent
 			var err error
 			surfaceStream, err = request.stream()
 			if err != nil && failure == nil {
+				request.feedback.push(interfaceFeedback{err: err})
 				failure = err
 			}
 		}
 		var updates []interfaceUpdate
-		var outbound []a2ui.RendererMessage
+		var outbound []interfaceFeedback
 		absorb := func(parts []a2uiagent.Part, err error) {
 			var preview strings.Builder
 			start := len(updates)
@@ -246,20 +257,18 @@ func readAgentReply(ctx context.Context, iter *adk.AsyncIterator[*adk.TypedAgent
 				preview.WriteString(part.Text)
 				if part.Err != nil {
 					updates = append(updates, interfaceUpdate{Offset: content.Len(), Invalid: true})
-					var integrity *a2ui.IntegrityError
-					if errors.As(part.Err, &integrity) {
-						outbound = append(outbound, integrity.RendererMessage())
-					}
+					outbound = append(outbound, interfaceFeedback{err: part.Err})
 				}
 				var state []a2ui.AgentMessage
 				for _, msg := range part.Messages {
 					if msg.CallRenderer != nil {
 						rpc := a2ui.RPC{Processor: surfaceStream.State, Send: func(response a2ui.RendererMessage) error {
-							outbound = append(outbound, response)
+							outbound = append(outbound, interfaceFeedback{event: response})
 							return nil
 						}}
 						if err := rpc.Handle(ctx, msg); err != nil {
 							updates = append(updates, interfaceUpdate{Offset: content.Len(), Invalid: true})
+							outbound = append(outbound, interfaceFeedback{err: err})
 						}
 					} else if msg.AgentResponse == nil {
 						state = append(state, msg)
@@ -271,6 +280,7 @@ func readAgentReply(ctx context.Context, iter *adk.AsyncIterator[*adk.TypedAgent
 			}
 			if err != nil {
 				updates = append(updates, interfaceUpdate{Offset: content.Len(), Invalid: true})
+				outbound = append(outbound, interfaceFeedback{err: err})
 			}
 			if output.IsStreaming && (preview.Len() > 0 || len(updates) > start) {
 				failure = emit(replyDelta{preview: preview.String(), interfacePreview: updates[start:]})
@@ -353,6 +363,11 @@ func readAgentReply(ctx context.Context, iter *adk.AsyncIterator[*adk.TypedAgent
 			}
 		}
 		delta := replyDelta{messageDone: true, reasoning: reasoning.String()}
+		for _, feedback := range outbound {
+			if feedback.err != nil {
+				request.feedback.push(feedback)
+			}
+		}
 		if len(callChunks) == 0 {
 			delta.text = content.String()
 			delta.interfaceUpdates = updates
@@ -360,17 +375,17 @@ func readAgentReply(ctx context.Context, iter *adk.AsyncIterator[*adk.TypedAgent
 			if surfaceStream != nil {
 				request = request.advance(surfaceStream.State, updates)
 			}
-			for _, event := range outbound {
-				if len(followups) >= 8 {
-					break
+			for _, feedback := range outbound {
+				if feedback.err != nil {
+					continue
 				}
-				if response := event.RendererResponse; response != nil {
+				if response := feedback.event.RendererResponse; response != nil {
 					if seenCalls[response.ID] {
 						continue
 					}
 					seenCalls[response.ID] = true
 				}
-				followups = append(followups, event)
+				followups = append(followups, feedback)
 			}
 		} else {
 			joined, err := schema.ConcatAgenticMessages(callChunks)

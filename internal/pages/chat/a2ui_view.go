@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"fmt"
 	"github.com/ggdream/microlight/pkg/viewport"
 	"net/http"
 	"strings"
@@ -50,6 +51,9 @@ func (app *chatApp) renderInterfaceAnswer(c *ui.Context, chat *conversation, ent
 		}
 		start = end
 		if row.id == "" {
+			if row.err != nil {
+				chat.interfaceFeedbackQueue().report(fmt.Sprintf("%p/%d", entry, row.key), interfaceFeedback{err: row.err})
+			}
 			interfaceFallback(c.Key(row), nil)
 			continue
 		}
@@ -73,6 +77,12 @@ func (app *chatApp) renderInterfaceAnswer(c *ui.Context, chat *conversation, ent
 				UnavailableLabel: locales.A2uiMediaUnavailable(),
 			},
 			OnAction: func(event a2ui.RendererMessage) { app.sendInterfaceAction(chat, event) },
+			OnError: func(err error) {
+				chat.interfaceFeedbackQueue().report(fmt.Sprintf("%p", surface), interfaceFeedback{err: err, surfaceID: row.id})
+			},
+			OnRendererError: func(event a2ui.RendererMessage) {
+				chat.interfaceFeedbackQueue().report(fmt.Sprintf("%p", surface), interfaceFeedback{event: event})
+			},
 			OnDataChange: func(path string, value any) {
 				if !enabled || len(chat.Turns) == 0 || chat.interfaceView().state.Surface(row.id) != surface {
 					return

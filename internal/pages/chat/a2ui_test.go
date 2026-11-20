@@ -39,7 +39,13 @@ func TestChatA2UIStreamActionAndRestore(t *testing.T) {
 			"submit = Button(child=label, action=Event(\"confirm\", {name: $/name}, userMessage=\"Confirm the selection\"))\n</a2ui>",
 			"\n\n<a2ui-json>broken</a2ui-json>\n\nAfter",
 		}
-		if calls.Add(1) > 1 {
+		call := calls.Add(1)
+		if call == 2 {
+			if !strings.Contains(last, "A2UI output error (JSON):") || !strings.Contains(last, "A2UI_OUTPUT_ERROR") {
+				t.Errorf("malformed block error was not returned to the model: %s", last)
+			}
+			chunks = []string{"\n\nCorrection acknowledged."}
+		} else if call > 2 {
 			if len(request.Messages) < 4 || !strings.Contains(last, `"name":"Ada"`) ||
 				!strings.Contains(last, `"sourceComponentId":"submit"`) || !strings.Contains(first, `"name":"Ada"`) {
 				t.Errorf("runner lost event, user data or history: %s", last)

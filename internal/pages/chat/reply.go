@@ -26,6 +26,7 @@ func (app *chatApp) generate(chat *conversation, index int) {
 		}
 		chat.sessionID = ""
 		chat.projectedInterface = nil
+		chat.interfaceFeedback = nil
 	}
 	chat.Turns = append(chat.Turns[:index], reply)
 	app.runReply(chat, reply, index, "", app.backend, app.currentModelChoice())

@@ -36,6 +36,7 @@ type interfaceAnchor struct {
 	offset int
 	id     string
 	key    int
+	err    error
 }
 
 type interfaceProjection struct {
@@ -61,15 +62,19 @@ func (view *interfaceProjection) apply(entry *turn, index int, update interfaceU
 	if len(update.Messages) == 0 && !update.Invalid {
 		return
 	}
-	if update.Invalid || view.state.ApplyBatch(update.Messages) != nil {
-		view.rows[entry] = append(view.rows[entry], interfaceAnchor{owner: entry, offset: update.Offset, key: index})
+	var applyErr error
+	if !update.Invalid {
+		applyErr = view.state.ApplyBatch(update.Messages)
+	}
+	if update.Invalid || applyErr != nil {
+		view.rows[entry] = append(view.rows[entry], interfaceAnchor{owner: entry, offset: update.Offset, key: index, err: applyErr})
 		return
 	}
 	for _, msg := range update.Messages {
 		switch {
 		case msg.Create != nil:
 			id := msg.Create.ID
-			anchor := interfaceAnchor{entry, update.Offset, id, index}
+			anchor := interfaceAnchor{owner: entry, offset: update.Offset, id: id, key: index}
 			view.anchors[id] = anchor
 			view.rows[entry] = append(view.rows[entry], anchor)
 		case msg.Delete != nil:
@@ -87,8 +92,9 @@ func (view *interfaceProjection) activeRows(entry *turn) []interfaceAnchor {
 type interfaceContextKey struct{}
 
 type interfaceRequest struct {
-	state *a2ui.Processor
-	ids   []string
+	state    *a2ui.Processor
+	ids      []string
+	feedback *interfaceFeedbackQueue
 }
 
 var interfaceCatalogs = sync.OnceValues(func() ([]*a2ui.Catalog, error) {
@@ -185,7 +191,7 @@ func (chat *conversation) interfaceView() *interfaceProjection {
 
 func (chat *conversation) interfaceRequest() *interfaceRequest {
 	view := chat.interfaceView()
-	return &interfaceRequest{view.state.Fork(), slices.Sorted(maps.Keys(view.anchors))}
+	return &interfaceRequest{state: view.state.Fork(), ids: slices.Sorted(maps.Keys(view.anchors)), feedback: chat.interfaceFeedbackQueue()}
 }
 
 func (chat *conversation) saveInterfaceData(entry *turn, id, path string, value any) {
@@ -240,7 +246,7 @@ func (request *interfaceRequest) advance(state *a2ui.Processor, updates []interf
 			}
 		}
 	}
-	return &interfaceRequest{state, slices.Sorted(maps.Keys(ids))}
+	return &interfaceRequest{state: state, ids: slices.Sorted(maps.Keys(ids)), feedback: request.feedback}
 }
 
 func (chat *conversation) commitInterface(entry *turn, offset int, updates []interfaceUpdate) {

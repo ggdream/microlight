@@ -165,6 +165,7 @@ func (app *chatApp) forkReply(chat *conversation, forkIndex int, prefix []*turn,
 	}
 	chat.branchID, chat.sessionID, chat.Turns = edited.branchID, edited.sessionID, edited.Turns
 	chat.projectedInterface = nil
+	chat.interfaceFeedback = nil
 	for _, tab := range slices.Clone(app.toolPanel.tabs) {
 		if !slices.Contains(chat.Turns, tab.entry) {
 			app.toolPanel.closeTab(tab)

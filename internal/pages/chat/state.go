@@ -66,6 +66,7 @@ type conversation struct {
 	archived           bool
 	menuOpen           bool
 	projectedInterface *interfaceProjection
+	interfaceFeedback  *interfaceFeedbackQueue
 	run                *replyRun
 	runError           string
 	fileVersions       *localtools.FileVersions
