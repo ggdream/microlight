@@ -16,9 +16,6 @@ import (
 func (app *chatApp) attachmentTile(c *ui.Context, attachment *attachment.File, size float32, remove func()) {
 	touch := touchControls(c)
 	width := size
-	if touch && remove != nil {
-		width += 44
-	}
 	ui.Themed(c, theme.PopupTheme(c)).Background(ui.Transparent).Size(width, size).Shrink(0).
 		Children(func() { app.attachmentCard(c.Key("file"), attachment, size, touch, remove) })
 }
@@ -32,20 +29,19 @@ func (app *chatApp) attachmentCard(c *ui.Context, attachment *attachment.File, s
 			return
 		}
 		button := pointerButton(c.Key("remove"), false).Label(locales.RemoveAttachment(attachment.Name)).Center().Shrink(0)
+		hit := float32(18)
 		if touch {
-			button.Size(44, 44).Radius(7)
-			button.Children(func() { icon(c, "close", muted, 16) })
-			if button.Hovered() {
-				button.Background(side)
-			}
-		} else {
-			button.Absolute().Top(3).Right(3).Size(18, 18).Radius(9).Background(ui.RGBA(20, 25, 23, .8)).
-				Border(1, ui.RGBA(255, 255, 255, .65))
-			button.Children(func() { icon(c, "close", white, 11) })
-			if button.Hovered() {
-				button.Background(ink)
-			}
+			hit = min(size, windowLayout(c).Target(44))
 		}
+		button.Absolute().Top(0).Right(0).Size(hit, hit)
+		button.Children(func() {
+			face := ui.Box(c).Absolute().Top(3).Right(3).Size(20, 20).Radius(10).
+				Background(ui.RGBA(20, 25, 23, .8)).Border(1, ui.RGBA(255, 255, 255, .65)).Center()
+			if button.Hovered() || button.Pressed() {
+				face.Background(ink)
+			}
+			face.Children(func() { icon(c, "close", white, 12) })
+		})
 		button.OnClick(remove)
 	})
 }

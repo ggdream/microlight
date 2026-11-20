@@ -44,6 +44,9 @@ func (app *chatApp) restoreDraft(id string) bool {
 }
 
 func (app *chatApp) persistDraft() bool {
+	if app.edit != nil && app.edit.inComposer {
+		return true
+	}
 	if app.store == nil {
 		return true
 	}

@@ -99,6 +99,47 @@ func (app *chatApp) chatModelSelect(c *ui.Context) {
 		}
 		*open = !*open
 	})
+	if layout.Compact() {
+		if *open {
+			selectionSheet(c.Key("model-sheet"), open, locales.ChooseChatModel(), .58, func() {
+				ui.Column(c).Fill().Padding(layout.Y(12), layout.X(16)).Gap(layout.Y(12)).Children(func() {
+					ui.Text(c, locales.ChooseChatModel()).FontSize(layout.Text(17)).FontWeight(620)
+					ui.Row(c).Grow(1).MinHeight(0).Gap(layout.X(12)).Children(func() {
+						scroll, offset := elastic.Scroll(c.Key("providers"))
+						scroll.WidthPercent(34).FillHeight().Children(func() {
+							offset.Apply(ui.Column(c)).FillWidth().Gap(4).Children(func() {
+								for _, p := range app.providers.Providers {
+									button := pointerButton(c.Key(p.ID), false).Label(p.Name).FillWidth().MinHeight(layout.Target(44)).Padding(8).Radius(8).FocusRingColor(accent)
+									if p.ID == *draftProvider {
+										button.Background(tint)
+									} else if button.Hovered() {
+										button.Background(side)
+									}
+									button.Children(func() { ui.Text(c, p.Name).FontSize(layout.Text(14)).TextColor(ink) }).OnClick(func() { *draftProvider = p.ID })
+								}
+							})
+						})
+						ui.Box(c).Width(1).FillHeight().Background(border)
+						ui.Column(c).Grow(1).FillHeight().MinHeight(0).MinWidth(0).Children(func() {
+							picked := app.providers.provider(*draftProvider)
+							if picked == nil {
+								picked = provider
+							}
+							chatModelRows(c.Key(picked.ID), picked, current, func(name string) {
+								choice := modelChoice{ProviderID: picked.ID}
+								if name != picked.Model {
+									choice.Model = name
+								}
+								app.selectProvider(choice)
+								*open = false
+							})
+						})
+					})
+				})
+			})
+		}
+		return
+	}
 	ui.PopoverBase(c.Key("picker"), trigger, open, func(panel ui.Element) {
 		panel.AttachTo(trigger, ui.AnchorTopEnd, ui.AnchorBottomEnd).Width(windowLayout(c).FitWidth(286, 8)).MaxHeight(popoverHeight(c, trigger, 268)).Margin(0, 0, 6).
 			Padding(6).Gap(5).Background(white).Border(1, border).Radius(11).
@@ -153,7 +194,7 @@ func chatModelRows(c *ui.Context, provider *modelProvider, active modelChoice, c
 		for _, name := range provider.Models {
 			selected := provider.ID == active.ProviderID && name == active.Model
 			item := pointerButton(c.Key(name), false).Label(name).Tooltip(name).AccessSelected(selected).
-				FillWidth().Height(34).PaddingX(9).Gap(8).AlignItems(ui.Center).Radius(6).FocusRingColor(accent)
+				FillWidth().Height(windowLayout(c).Density(34, windowLayout(c).Target(34))).PaddingX(9).Gap(8).AlignItems(ui.Center).Radius(6).FocusRingColor(accent)
 			if item.Hovered() {
 				item.Background(side)
 			}
@@ -166,7 +207,13 @@ func chatModelRows(c *ui.Context, provider *modelProvider, active modelChoice, c
 		}
 	}
 	scroll, offset := elastic.Scroll(c)
-	scroll.Label(locales.ModelID()).FillWidth().Shrink(1).MinHeight(0).MaxHeight(214).Children(func() {
+	scroll.Label(locales.ModelID()).FillWidth().Shrink(1).MinHeight(0)
+	if windowLayout(c).Compact() {
+		scroll.Grow(1)
+	} else {
+		scroll.MaxHeight(214)
+	}
+	scroll.Children(func() {
 		offset.Apply(ui.Column(c)).FillWidth().Gap(2).Children(rows)
 	})
 }

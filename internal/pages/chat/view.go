@@ -4,6 +4,8 @@ import (
 	"runtime"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/markdown"
+	"github.com/ggdream/microlight/assets/locales"
 	"github.com/ggdream/microlight/internal/desktop"
 	"github.com/ggdream/microlight/pkg/viewport"
 )
@@ -23,6 +25,12 @@ func (app *chatApp) view(c *ui.Context) {
 	windowTheme.Background = canvas
 	windowTheme.FontSize = viewport.Font(c, windowTheme.FontSize)
 	c.SetTheme(&windowTheme)
+	if app.md != nil {
+		app.md.Theme = markdown.DefaultTheme(&windowTheme)
+		if windowLayout(c).Compact() {
+			app.md.Theme.LineHeight = 1.4
+		}
+	}
 	shortcut := "Ctrl K"
 	if runtime.GOOS == "darwin" {
 		shortcut = "⌘ K"
@@ -65,7 +73,16 @@ func (app *chatApp) view(c *ui.Context) {
 				if selected == nil {
 					app.welcome(c)
 				} else {
-					app.transcript(c, selected)
+					ui.Box(c.Key("transcript-region")).Grow(1).MinHeight(0).Children(func() {
+						app.transcript(c, selected)
+						if layout.Compact() && len(selected.Turns) > 0 && !selected.list.AtEnd() {
+							button := pointerButton(c.Key("latest"), false).Label(locales.BackToLatest()).Absolute().Right(layout.X(16)).Bottom(layout.Y(12)).Size(46, 46).Center().Radius(14).Background(white).Border(1, border).Shadow(0, 3, 9, 0, ink.Alpha(.12))
+							if button.Hovered() {
+								button.Background(tint)
+							}
+							button.Children(func() { icon(c, "down", accent, 20) }).OnClick(selected.list.ScrollToEnd)
+						}
+					})
 				}
 				app.composer(c, selected)
 			})

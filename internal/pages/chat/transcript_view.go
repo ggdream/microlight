@@ -33,8 +33,16 @@ func (app *chatApp) transcript(c *ui.Context, chat *conversation) {
 				if layout.Compact() {
 					size = layout.X(24)
 				}
-				ui.Image(c, app.brandIcon).Size(size, size).Shrink(0).Fit(ui.Contain)
-				response := ui.Column(c.Key(entry)).Grow(1).MinWidth(0).Gap(5).Padding(3, 0, 0)
+				if layout.Compact() {
+					// Grow the artwork into its existing gutter without moving the response.
+					ui.Box(c.Key("avatar")).Size(size, size).Shrink(0).Children(func() {
+						extra := layout.X(8)
+						ui.Image(c, app.brandIcon).Absolute().Left(-extra/2).Top(-extra/2).Size(size+extra, size+extra).Fit(ui.Contain)
+					})
+				} else {
+					ui.Image(c, app.brandIcon).Size(size, size).Shrink(0).Fit(ui.Contain)
+				}
+				response := ui.Column(c.Key(entry)).Grow(1).MinWidth(0).Gap(layout.Density(5, 2)).Padding(3, 0, 0)
 				showActions := touchControls(c) || response.Hovered() || response.FocusWithin()
 				showStatistics := !app.desktop.HideStatistics && entry.State != "pending" && entry.State != "waiting" && entry.Metrics.Requests > 0
 				elapsed := replyElapsed(entry)
@@ -59,7 +67,7 @@ func (app *chatApp) transcript(c *ui.Context, chat *conversation) {
 					if entry.State == "pending" {
 						if status := replyRunningStatus(entry); status != "" {
 							label := ui.Text(c.Key("running-status"), status).AlignSelf(ui.Start).
-								FontSize(layout.Text(12)).FontWeight(500).TextColor(ink).Padding(3, 0)
+								FontSize(layout.Text(layout.Density(12, 14))).FontWeight(500).TextColor(ink).Padding(3, 0)
 							flowThinkingText(c, label)
 						}
 					} else if entry.State != "waiting" {

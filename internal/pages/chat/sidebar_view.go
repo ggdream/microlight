@@ -122,7 +122,7 @@ func (app *chatApp) sidebar(c *ui.Context, selected *conversation, shortcut stri
 			ui.Themed(c, &listTheme).Grow(1).MinHeight(0).Background(ui.Transparent).Children(func() {
 				scroll, offset := elastic.Scroll(c)
 				scroll.Fill().MinHeight(0).Children(func() {
-					offset.Apply(ui.Column(c)).FillWidth().Padding(0, sidebarInset, 0, 0).Gap(3).Children(func() {
+					offset.Apply(ui.Column(c)).FillWidth().Padding(0, sidebarInset, 0, 0).Gap(layout.Density(3, 2)).Children(func() {
 						chats := app.sidebarChats()
 						if len(chats) == 0 {
 							ui.Text(c, locales.NoChats()).FontSize(viewport.Font(c, 11)).FontWeight(400).Padding(7).TextColor(muted.Alpha(.8))

@@ -9,6 +9,7 @@ import (
 	"github.com/ggdream/microlight/internal/desktop"
 	"github.com/ggdream/microlight/internal/localtools"
 	"github.com/ggdream/microlight/internal/theme"
+	"github.com/ggdream/microlight/pkg/elastic"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -161,6 +162,51 @@ func (app *chatApp) accessControl(c *ui.Context, chat *conversation) {
 	}
 	title := locales.AgentPermissions()
 	layout := app.composerLayout(c)
+	if layout.Compact() {
+		trigger := pointerButton(c.Key("access-sheet-trigger"), false).Label(title).Value(selected.Label()).Size(36, 36).Center().Radius(7)
+		open := ui.Local(trigger, "open", func() bool { return false })
+		if trigger.Hovered() {
+			trigger.Background(side)
+		}
+		trigger.Children(func() { accessModeIcon(c, selected) }).OnClick(func() { *open = true })
+		if *open {
+			selectionSheet(c.Key("access-sheet"), open, title, .38, func() {
+				scroll, offset := elastic.Scroll(c.Key("access-options"))
+				scroll.Fill().Children(func() {
+					offset.Apply(ui.Column(c)).FillWidth().Padding(layout.Y(12), layout.X(18)).Gap(layout.Y(8)).Children(func() {
+						ui.Text(c, title).FontSize(layout.Text(17)).FontWeight(620)
+						for _, choice := range []struct {
+							mode localtools.Mode
+							hint string
+						}{
+							{localtools.Ask, locales.ModeAskHint()}, {localtools.Smart, locales.ModeSmartHint()}, {localtools.Full, locales.ModeFullHint()},
+						} {
+							button := pointerButton(c.Key(string(choice.mode)), false).Label(choice.mode.Label()).FillWidth().MinHeight(layout.Target(62)).Padding(8).Gap(12).AlignItems(ui.Center).Radius(8)
+							if button.Hovered() {
+								button.Background(side)
+							}
+							button.Children(func() {
+								accessModeIcon(c, choice.mode)
+								fg, hintFG := ink, muted
+								if choice.mode == localtools.Full {
+									fg = ui.Hex("#96380F")
+									hintFG = fg
+								}
+								ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
+									ui.Text(c, choice.mode.Label()).FontSize(layout.Text(14)).FontWeight(620).TextColor(fg)
+									ui.Text(c, choice.hint).FontSize(layout.Text(12)).TextColor(hintFG)
+								})
+								if choice.mode == selected {
+									icon(c, "check", muted, 15)
+								}
+							}).OnClick(func() { *open = false; app.chooseAccess(chat, choice.mode) })
+						}
+					})
+				})
+			})
+		}
+		return
+	}
 	dropdown := ui.SelectBase(c.Key("conversation-access"), &selected)
 	trigger := dropdown.Trigger.Label(title).Value(selected.Label()).Tooltip(locales.ModelDataHint()).
 		Height(composerControlHeight(layout, 30)).PaddingX(layout.Density(8, 4)).Shrink(0).AlignItems(ui.Center).Gap(5).Radius(6).Cursor(ui.CursorPointer)

@@ -37,7 +37,7 @@ func (app *chatApp) topbar(c *ui.Context, selected *conversation) {
 				icon(c, "shield_error", errorFG, 16)
 			})
 		}
-		if selected != nil && len(selected.Turns) > 0 && !selected.list.AtEnd() {
+		if !layout.Compact() && selected != nil && len(selected.Turns) > 0 && !selected.list.AtEnd() {
 			quietButton(c, locales.BackToLatest(), "down").OnClick(selected.list.ScrollToEnd)
 		}
 		if selected != nil && len(selected.Turns) > 0 {

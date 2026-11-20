@@ -38,3 +38,17 @@ func mobileDialog(c *ui.Context, backdrop, panel ui.Element) {
 	panel.Width(layout.DialogWidth()).MaxWidthPercent(100).
 		Padding(layout.Y(16), layout.X(16)).Radius(16)
 }
+
+// Selection sheets use the existing modal/focus machinery and remain Go UI.
+// Unlike ordinary confirmation dialogs, they align to the lower safe edge.
+func selectionSheet(c *ui.Context, open *bool, label string, fraction float32, content func()) {
+	ui.DialogBase(c, open, func(backdrop, panel ui.Element) {
+		layout := windowLayout(c)
+		top, right, bottom, left := c.SafeArea()
+		backdrop.Justify(ui.End).AlignItems(ui.Stretch).Padding(top, right, 0, left).Background(ink.Alpha(.28))
+		panel.Label(label).FillWidth().Height(min(layout.Height*fraction+bottom, layout.Height)).MaxHeightPercent(100).
+			Background(white).Radius(20, 20, 0, 0).Padding(0, 0, bottom, 0)
+		ui.Box(c).Width(34).Height(4).Radius(2).AlignSelf(ui.Center).Margin(9, 0, 3).Background(muted.Alpha(.3))
+		ui.Column(c).Grow(1).MinHeight(0).Children(content)
+	})
+}

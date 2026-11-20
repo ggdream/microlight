@@ -27,6 +27,23 @@ func (app *chatApp) send(text string, steer bool) bool {
 		return false
 	}
 	chat := app.selected()
+	if edit := app.edit; edit != nil && edit.inComposer {
+		if chat == nil {
+			return false
+		}
+		for index, entry := range chat.Turns {
+			if entry == edit.entry {
+				if !app.resendMessage(chat, index, edit, text) {
+					return false
+				}
+				app.clearDraft()
+				app.draft.SetText(edit.previousDraft)
+				app.draftAttachments = edit.previousAttachments
+				return true
+			}
+		}
+		return false
+	}
 	if steer && (!chat.isRunning() || !app.shouldQueue(chat)) {
 		return false
 	}

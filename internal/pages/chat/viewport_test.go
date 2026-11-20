@@ -43,7 +43,7 @@ func TestCompactAttachmentRemoveDoesNotOpenPreview(t *testing.T) {
 	}, 320, 200)
 	button, ok := window.Find(locales.RemoveAttachment(file.Name))
 	preview, visible := window.Find(locales.AttachmentLabel(file.Name))
-	if !ok || !visible || button.W < 44 || button.H < 44 || button.X < preview.X+preview.W {
+	if !ok || !visible || button.W < 44 || button.H < 44 || button.X+button.W != preview.X+preview.W || button.Y != preview.Y {
 		t.Fatalf("remove action is too small: %+v", button)
 	}
 	x, y := button.X+button.W/2, button.Y+button.H/2
@@ -227,16 +227,92 @@ func TestCompactComposerFitsSingleLineWithModelControls(t *testing.T) {
 	}
 	window := ui.NewTester(func(c *ui.Context) { app.composer(c, nil) }, 320, 540)
 	editor, ok := window.Find(locales.Message())
-	if !ok || editor.H > 30 {
+	if !ok || editor.H < 30 || editor.H > 42 {
 		t.Fatalf("the empty composer should reserve one line: %+v", editor)
 	}
 	var right float32
-	for _, label := range []string{locales.AddAttachment(), locales.AgentPermissions(), locales.ChooseChatModel(), locales.Send()} {
+	for _, label := range []string{locales.AddAttachment(), locales.AgentPermissions(), locales.ChooseChatModel()} {
 		control, ok := window.Find(label)
-		if !ok || control.X < right || control.X+control.W > 320 || control.H > 35 {
+		if !ok || control.X < right || control.X+control.W > 320 || control.H > 44 {
 			t.Fatalf("control %q should fit the compact toolbar: %+v", label, control)
 		}
 		right = control.X + control.W
+	}
+	send, ok := window.Find(locales.Send())
+	if !ok || send.Y >= editor.Y+editor.H || send.X < editor.X+editor.W {
+		t.Fatalf("single-line send must sit beside the editor: %+v", send)
+	}
+}
+
+func TestCompactSelectorsUseDismissibleSheets(t *testing.T) {
+	store, err := openLocalStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	app := &chatApp{
+		store:     store,
+		settings:  modelSettings{Protocol: openAIChat, BaseURL: defaultBaseURL, Model: "model", APIKey: "fixture"},
+		backend:   &Chat{},
+		providers: providerCatalog{Selected: modelChoice{ProviderID: "p"}, Providers: []modelProvider{{ID: "p", Name: "Provider", Protocol: openAIChat, BaseURL: defaultBaseURL, APIKey: "fixture", Model: "model", Models: []string{"model", "other-model"}}}},
+	}
+	window := ui.NewTester(func(c *ui.Context) { ui.Column(c).Fill().Justify(ui.End).Children(func() { app.composer(c, nil) }) }, 390, 760)
+	settle := func() {
+		for range 90 {
+			window.Advance(time.Second / 60)
+		}
+	}
+	if err := window.Click(locales.ChooseChatModel()); err != nil {
+		t.Fatal(err)
+	}
+	settle()
+	if _, ok := window.Find("other-model"); !ok {
+		t.Fatalf("model sheet is missing options: %v", window.Texts())
+	}
+	if err := window.Click("other-model"); err != nil {
+		t.Fatal(err)
+	}
+	if app.currentModelChoice().Model != "other-model" {
+		t.Fatalf("model selection was not applied: %v", app.providerError)
+	}
+	if err := window.Click(locales.ChooseChatModel()); err != nil {
+		t.Fatal(err)
+	}
+	settle()
+	window.FingerDown(5, 20)
+	window.FingerUp(5, 20)
+	settle()
+	if _, ok := window.Find("Provider"); ok {
+		t.Fatal("outside tap must close model sheet")
+	}
+	if err := window.Click(locales.AgentPermissions()); err != nil {
+		t.Fatal(err)
+	}
+	settle()
+	if err := window.Click(locales.ModeFull()); err != nil {
+		t.Fatal(err)
+	}
+	if app.fullAccess == nil || app.draftAccess == localtools.Full {
+		t.Fatal("sheet must retain full-access acknowledgement before enabling")
+	}
+}
+
+func TestCompactComposerDoesNotOscillateAtWrapBoundary(t *testing.T) {
+	for length := 16; length <= 27; length++ {
+		app := &chatApp{backend: &Chat{}}
+		app.draft.SetText(strings.Repeat("字", length))
+		window := ui.NewTester(func(c *ui.Context) { app.composer(c, nil) }, 390, 700)
+		for range 3 {
+			window.Frame()
+		}
+		before, _ := window.Find(locales.Send())
+		for range 10 {
+			window.Frame()
+			after, _ := window.Find(locales.Send())
+			if before != after {
+				t.Fatalf("send button oscillated near wrap boundary (%d chars): %v -> %v", length, before, after)
+			}
+		}
 	}
 }
 

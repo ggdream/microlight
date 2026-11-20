@@ -12,7 +12,7 @@ import (
 )
 
 func (app *chatApp) userMessage(c *ui.Context, chat *conversation, index int, entry *turn) {
-	bubble := ui.Column(c).MaxWidthPercent(91).AlignItems(ui.End).Gap(windowLayout(c).Density(4, 2))
+	bubble := ui.Column(c).MaxWidthPercent(91).AlignItems(ui.End).Gap(windowLayout(c).Density(4, 0))
 	if windowLayout(c).Compact() {
 		bubble.MaxWidthPercent(100)
 	}
@@ -25,7 +25,7 @@ func (app *chatApp) userMessage(c *ui.Context, chat *conversation, index int, en
 				}
 			})
 		}
-		if edit := app.edit; edit != nil && edit.entry == entry {
+		if edit := app.edit; edit != nil && edit.entry == entry && !edit.inComposer {
 			app.messageEditor(c, chat, index, edit)
 			return
 		}
@@ -37,17 +37,20 @@ func (app *chatApp) userMessage(c *ui.Context, chat *conversation, index int, en
 		if showActions {
 			opacity = 1
 		}
-		ui.Row(c).AlignItems(ui.Center).Gap(5).Opacity(opacity).Children(func() {
+		actions := ui.Row(c).AlignItems(ui.Center).Gap(windowLayout(c).Density(5, 3)).Opacity(opacity)
+		if windowLayout(c).Compact() {
+			actions.Margin(-windowLayout(c).Y(6), 0, 0)
+		}
+		actions.Children(func() {
 			if showActions {
 				messageTimestamp(c, entry.StartedAt)
 			}
-			ui.Row(c).Gap(1).Children(func() {
+			ui.Row(c).Gap(windowLayout(c).Density(1, 0)).Children(func() {
 				if entry.Content != "" {
 					copyMessageIcon(c, entry, locales.CopyMessage(), locales.MessageCopied())
 				}
 				messageIcon(c, locales.EditMessage(), "edit", !app.canEditMessage(chat, index), func() {
-					app.edit = &messageEdit{entry: entry}
-					app.edit.input.SetText(entry.Content)
+					app.beginMessageEdit(chat, entry, windowLayout(c).Compact())
 				})
 			})
 		})
@@ -105,16 +108,25 @@ func messageIconFrame(control ui.Element) ui.Element {
 }
 
 func messageTouchWidth(c *ui.Context) float32 {
-	return max(30, min(34, windowLayout(c).X(30)))
+	return max(26, min(28, windowLayout(c).X(26)))
 }
 
 func messageIcon(c *ui.Context, label, glyph string, disabled bool, action func()) {
-	button := messageIconFrame(pointerButton(c, disabled).Label(label).Tooltip(label))
+	button := pointerButton(c, disabled).Label(label).Tooltip(label).Center().Shrink(0)
 	if touchControls(c) {
-		button.MinWidth(messageTouchWidth(c)).MinHeight(44).Shrink(0)
+		button.Size(messageTouchWidth(c), 44)
+	} else {
+		button.Size(25, 25)
 	}
-	if button.Hovered() {
-		button.Background(side)
-	}
-	button.Children(func() { icon(c, glyph, muted, 14) }).OnClick(action)
+	button.Children(func() {
+		size := float32(25)
+		if touchControls(c) {
+			size = messageTouchWidth(c)
+		}
+		face := ui.Box(c).Size(size, size).Radius(messageControlRadius).Center()
+		if button.Hovered() || button.Pressed() {
+			face.Background(side)
+		}
+		face.Children(func() { icon(c, glyph, muted, 14) })
+	}).OnClick(action)
 }

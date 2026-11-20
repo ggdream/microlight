@@ -111,8 +111,11 @@ func replyElapsed(entry *turn) time.Duration {
 
 func (app *chatApp) replyFooter(c *ui.Context, chat *conversation, entry *turn, allowRetry, showActions, showStatistics bool, elapsed time.Duration) {
 	layout := windowLayout(c)
-	gap := layout.Density(4, layout.X(2))
+	gap := layout.Density(4, layout.X(1))
 	row := ui.Row(c).Gap(gap).AlignItems(ui.Center).Wrap()
+	if layout.Compact() {
+		row.Margin(-layout.Y(6), 0, 0)
+	}
 	preview := ui.Local(row, "preview", func() statisticPreview { return statisticPreview{} })
 	if !entry.FinishedAt.IsZero() {
 		row.MinHeight(25)
@@ -132,7 +135,7 @@ func (app *chatApp) replyFooter(c *ui.Context, chat *conversation, entry *turn, 
 		})
 		if showStatistics && showActions {
 			stats := c.Key("statistics")
-			ui.Row(stats).Gap(layout.Density(3, layout.X(2))).AlignItems(ui.Center).Children(func() {
+			ui.Row(stats).Gap(layout.Density(3, layout.X(1))).AlignItems(ui.Center).Children(func() {
 				preview.triggers(stats, [2]statisticCard{entry.Metrics.tokenCard(), entry.Metrics.timingCard(elapsed)}, false)
 			})
 		} else {
@@ -241,16 +244,27 @@ func statisticTrigger(c *ui.Context, card statisticCard, showSummary bool) ui.El
 	} else {
 		messageIconFrame(trigger)
 		if touchControls(c) {
-			trigger.MinHeight(44).MinWidth(messageTouchWidth(c)).Shrink(0).Justify(ui.Center)
+			trigger.Size(messageTouchWidth(c), 44).Shrink(0).Center()
 		}
 	}
 	color := muted
-	if trigger.Hovered() || trigger.FocusVisible() {
-		trigger.Background(side)
+	active := trigger.Hovered() || trigger.FocusVisible() || trigger.Pressed()
+	if active {
+		if showSummary || !touchControls(c) {
+			trigger.Background(side)
+		}
 		color = ink
 	}
 	return trigger.Children(func() {
-		icon(c, card.glyph, color, iconSize)
+		if !showSummary && touchControls(c) {
+			face := ui.Box(c).Size(messageTouchWidth(c), messageTouchWidth(c)).Radius(messageControlRadius).Center()
+			if active {
+				face.Background(side)
+			}
+			face.Children(func() { icon(c, card.glyph, color, iconSize) })
+		} else {
+			icon(c, card.glyph, color, iconSize)
+		}
 		if showSummary {
 			ui.Text(c, card.summary).MinWidth(0).FontSize(viewport.Font(c, 11)).TextColor(color).SingleLine().Ellipsis("…")
 		}

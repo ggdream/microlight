@@ -22,7 +22,12 @@ type conversationAction struct {
 
 func (app *chatApp) sidebarChat(c *ui.Context, chat *conversation, selected bool) {
 	menu := func(m *ui.Menu) { app.conversationMenu(m, chat) }
-	row := ui.Row(c).FillWidth().Height(windowLayout(c).Target(34)).PaddingX(4).AlignItems(ui.Center).Radius(7)
+	layout := windowLayout(c)
+	height := layout.Target(34)
+	if layout.Compact() {
+		height = max(36, layout.Y(32))
+	}
+	row := ui.Row(c).FillWidth().Height(height).PaddingX(4).AlignItems(ui.Center).Radius(7)
 	hovered := row.Hovered()
 	color := muted
 	if selected {

@@ -103,7 +103,7 @@ func replyProgress(c *ui.Context, entry *turn, hasReasoning, open bool) {
 				button.Background(side)
 			}
 			button.Children(func() {
-				ui.Text(c, label).FontSize(viewport.Font(c, 12)).TextColor(muted)
+				ui.Text(c, label).FontSize(windowLayout(c).Text(windowLayout(c).Density(12, 14))).TextColor(muted)
 				chevron := ui.Icon(c, icons.SVG("ios_chevron_right")).Size(16, 16).TextColor(muted)
 				if open {
 					chevron.Rotate(90)
@@ -113,7 +113,7 @@ func replyProgress(c *ui.Context, entry *turn, hasReasoning, open bool) {
 				entry.reasoningOpen = &show
 			})
 		case label != "":
-			ui.Text(c, label).FontSize(viewport.Font(c, 12)).TextColor(muted).Padding(3, 0)
+			ui.Text(c, label).FontSize(windowLayout(c).Text(windowLayout(c).Density(12, 14))).TextColor(muted).Padding(3, 0)
 		}
 	})
 }
@@ -143,6 +143,13 @@ func (app *chatApp) replyBody(c *ui.Context, chat *conversation, entry *turn, in
 }
 
 func (app *chatApp) replyText(c *ui.Context, text string, streaming bool) {
+	style := markdown.DefaultTheme(c.Theme())
+	if windowLayout(c).Compact() {
+		style.LineHeight = 1.4
+	}
+	if app.md != nil {
+		app.md.Theme = style
+	}
 	if streaming {
 		markdown.Stream(c, text, app.md)
 	} else {

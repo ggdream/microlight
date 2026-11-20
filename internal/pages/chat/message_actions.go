@@ -5,12 +5,46 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ggdream/microlight/internal/attachment"
 	"github.com/ggdream/microlight/internal/pages/chat/composer"
 )
 
 type messageEdit struct {
-	entry *turn
-	input composer.Input
+	entry               *turn
+	input               composer.Input
+	inComposer          bool
+	previousDraft       string
+	previousAttachments []*attachment.File
+}
+
+func (app *chatApp) beginMessageEdit(chat *conversation, entry *turn, compact bool) {
+	if app.edit != nil && app.edit.inComposer {
+		app.cancelComposerEdit()
+	}
+	if compact && !app.persistDraft() {
+		return
+	}
+	edit := &messageEdit{entry: entry, inComposer: compact}
+	edit.input.SetText(entry.Content)
+	if compact {
+		edit.previousDraft = app.draft.DraftMarkdown()
+		edit.previousAttachments = slices.Clone(app.draftAttachments)
+		app.draft.SetText(entry.Content)
+		app.draft.Document.SetSelection(app.draft.Document.Text().Len(), app.draft.Document.Text().Len())
+		app.draftAttachments = slices.Clone(entry.Attachments)
+		app.focusComposer = true
+	}
+	app.edit = edit
+}
+
+func (app *chatApp) cancelComposerEdit() {
+	if app.edit == nil || !app.edit.inComposer {
+		return
+	}
+	app.draft.SetText(app.edit.previousDraft)
+	app.draftAttachments = app.edit.previousAttachments
+	app.edit = nil
+	app.focusComposer = true
 }
 
 type messageBranch struct {
@@ -79,12 +113,16 @@ func (app *chatApp) resendMessage(chat *conversation, index int, edit *messageEd
 		return false
 	}
 	text = strings.TrimSpace(text)
-	if text == "" && len(edit.entry.Attachments) == 0 {
+	attachments := edit.entry.Attachments
+	if edit.inComposer {
+		attachments = slices.Clone(app.draftAttachments)
+	}
+	if text == "" && len(attachments) == 0 {
 		return false
 	}
 	now := time.Now()
 	entry := &turn{
-		message:   message{Role: "user", Content: text, Attachments: edit.entry.Attachments},
+		message:   message{Role: "user", Content: text, Attachments: attachments},
 		StartedAt: now,
 	}
 	prefix := append(slices.Clone(chat.Turns[:index]), entry)

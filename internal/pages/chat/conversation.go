@@ -80,6 +80,9 @@ func (app *chatApp) selectChat(id string) {
 	if app.deferSettingsLeave(func() { app.selectChat(id) }) {
 		return
 	}
+	if id != app.history.Selected {
+		app.cancelComposerEdit()
+	}
 	if id != app.history.Selected && (!app.persistDraft() || !app.restoreDraft(id)) {
 		return
 	}

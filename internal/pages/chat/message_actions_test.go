@@ -13,6 +13,24 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
+func TestCompactEditRestoresDraftOnCancel(t *testing.T) {
+	app := &chatApp{}
+	app.draft.SetText("Unsent draft")
+	oldFile := &attachment.File{Name: "draft.txt"}
+	app.draftAttachments = []*attachment.File{oldFile}
+	entry := userTurn("Original message")
+	entry.Attachments = []*attachment.File{{Name: "sent.txt"}}
+	app.beginMessageEdit(nil, entry, true)
+	if app.edit == nil || !app.edit.inComposer || app.draft.Markdown() != entry.Content || !app.focusComposer || app.draftAttachments[0] != entry.Attachments[0] {
+		t.Fatal("compact edit must populate and focus composer with original attachments")
+	}
+	app.draft.SetText("Revised message")
+	app.cancelComposerEdit()
+	if app.edit != nil || app.draft.Markdown() != "Unsent draft" || len(app.draftAttachments) != 1 || app.draftAttachments[0] != oldFile || entry.Content != "Original message" {
+		t.Fatal("cancel must restore unsent draft and preserve original message")
+	}
+}
+
 func TestEditedBranchSurvivesReopenUnderOriginalChat(t *testing.T) {
 	dir := t.TempDir()
 	store, err := openLocalStore(dir)

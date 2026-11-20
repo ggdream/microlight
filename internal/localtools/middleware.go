@@ -429,7 +429,7 @@ func (t Tool) Info(context.Context) (*schema.ToolInfo, error) {
 		desc = "Create or replace a local UTF-8 text file with the complete content, up to 16 KiB. Parent directory must exist."
 		params["content"] = &schema.ParameterInfo{Type: schema.String, Required: true, Desc: "Complete UTF-8 text to write."}
 	case Fetch:
-		desc = "Fetch the text of an HTTP(S) URL with GET. Redirects are not followed."
+		desc = "Fetch readable text from an HTTP(S) URL with GET. Follows up to 5 same-origin redirects. Cross-origin redirects require a new request to the returned URL. Large responses are truncated with an explicit notice."
 		params = map[string]*schema.ParameterInfo{"url": {Type: schema.String, Required: true, Desc: "The exact URL to fetch."}}
 	}
 	return &schema.ToolInfo{Name: string(t), Desc: desc, ParamsOneOf: schema.NewParamsOneOfByParams(params)}, nil
@@ -596,25 +596,6 @@ var localWebClient = &http.Client{
 	Transport:     &http.Transport{IdleConnTimeout: 30 * time.Second, MaxIdleConns: 4},
 	Timeout:       15 * time.Second,
 	CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-}
-
-func fetchLocalAgentURL(ctx context.Context, client *http.Client, target string) (string, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
-	if err != nil {
-		return "", err
-	}
-	if client == nil {
-		client = localWebClient
-	}
-	response, err := client.Do(request)
-	if err != nil {
-		return "", err
-	}
-	defer response.Body.Close()
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return "", fmt.Errorf("HTTP %d", response.StatusCode)
-	}
-	return readLocalAgentText(response.Body)
 }
 
 func readLocalAgentText(reader io.Reader) (string, error) {

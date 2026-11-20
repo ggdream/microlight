@@ -8,6 +8,38 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
+func TestRepeatedFlickContinuesDuringInertia(t *testing.T) {
+	var state ui.ScrollState
+	clicks := 0
+	window := ui.NewTester(func(c *ui.Context) {
+		scroll, offset := Scroll(c)
+		scroll.Fill().TrackScroll(&state).Children(func() {
+			content := offset.Apply(ui.Box(c)).Height(5000).Shrink(0)
+			if content.Clicked() {
+				clicks++
+			}
+		})
+	}, 200, 200)
+	window.FingerDown(100, 150)
+	window.Advance(16 * time.Millisecond)
+	window.FingerMove(100, 100)
+	window.Advance(16 * time.Millisecond)
+	window.FingerUp(100, 40)
+	window.Advance(3 * (time.Second / 60))
+	window.FingerDown(100, 150)
+	caught := state.Y
+	window.FingerMove(100, 140)
+	window.Advance(16 * time.Millisecond)
+	window.FingerMove(100, 100)
+	if state.Y <= caught {
+		t.Fatalf("second swipe was swallowed: before=%v after=%v", caught, state.Y)
+	}
+	window.FingerUp(100, 40)
+	if clicks != 0 {
+		t.Fatal("scrolling must not activate content")
+	}
+}
+
 func TestViewportEdgeAndRecovery(t *testing.T) {
 	for _, kind := range []string{"vertical", "horizontal", "list"} {
 		t.Run(kind, func(t *testing.T) {

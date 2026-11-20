@@ -18,7 +18,7 @@ func (app *chatApp) composer(c *ui.Context, selected *conversation) {
 	gap := layout.Density(7, 3)
 	controlSize := composerControlHeight(layout, 34)
 	short := layout.Height > 0 && layout.Height < 420
-	verticalInset := layout.Y(layout.Density(11, 12))
+	verticalInset := layout.Y(layout.Density(11, 14))
 	horizontalInset := layout.X(layout.Density(12, 7))
 	bottomInset := layout.Y(layout.Density(18, 6))
 	if layout.Compact() && selected != nil && !app.desktop.HideStatistics && selected.metrics().Requests > 0 {
@@ -49,10 +49,32 @@ func (app *chatApp) composer(c *ui.Context, selected *conversation) {
 		}
 		runningHere := run != nil
 		queueDraft := app.shouldQueue(selected)
+		sendControl := func() {
+			sendLabel, sendIcon := locales.Send(), "up"
+			if queueDraft {
+				sendLabel, sendIcon = locales.QueueMessage(), "queue_add"
+			} else if runningHere {
+				sendLabel, sendIcon = locales.Steer(), "queue_steer"
+			}
+			canSend := !app.loadingAttachments && app.backend.configErr == nil && (strings.TrimSpace(app.draft.Document.Text().String()) != "" || len(app.draftAttachments) != 0)
+			if runningHere {
+				stopButton(c).Size(controlSize, controlSize).OnClick(func() { app.stopReply(selected, run.reply) })
+				if !canSend {
+					return
+				}
+			}
+			actionButton(c, sendLabel, sendIcon, !canSend).Size(controlSize, controlSize).OnClick(func() { app.send(app.draft.Markdown(), false) })
+		}
 		app.messageQueue(c.Key("message-queue"), selected)
 		ui.Column(c).FillWidth().MaxWidth(conversationWidth).Background(white).
 			Border(1, border).Radius(17).Shadow(0, 4, 14, 0, ui.RGBA(29, 49, 38, .06)).
-			Padding(verticalInset, horizontalInset, layout.Y(layout.Density(9, 4))).Gap(layout.Y(layout.Density(5, 2))).Children(func() {
+			Padding(verticalInset, horizontalInset, layout.Y(layout.Density(9, 8))).Gap(layout.Y(layout.Density(5, 6))).Children(func() {
+			if app.edit != nil && app.edit.inComposer {
+				ui.Row(c).FillWidth().AlignItems(ui.Center).Children(func() {
+					ui.Box(c).Grow(1)
+					quietButton(c, locales.Cancel(), "close").OnClick(app.cancelComposerEdit)
+				})
+			}
 			if selected.waitingReply() != nil {
 				app.focusComposer = false
 				if app.skillPicker.open {
@@ -91,14 +113,28 @@ func (app *chatApp) composer(c *ui.Context, selected *conversation) {
 			}
 			app.draft.DiscardFilePasteText()
 			lines := max(1, app.draft.Document.Text().ParagraphCount())
-			baseHeight := layout.Text(layout.Density(39, 26))
+			baseHeight := layout.Text(layout.Density(39, 34))
 			maxDraftHeight := layout.Y(135)
 			if short {
 				maxDraftHeight = max(baseHeight, layout.Height*.28)
 			}
 			draftHeight := min(maxDraftHeight, baseHeight+layout.Text(19)*float32(lines-1))
-			editor := app.draft.View(c.Key("draft"), locales.Message(), placeholder, draftHeight, app.md).
-				Padding(layout.Y(layout.Density(3, 5)), layout.X(3), 0).Shrink(0).Clip().FocusRing(false)
+			multiline := lines > 1
+			if layout.Compact() {
+				available := layout.Width - layout.X(28) - 2*horizontalInset - layout.X(12) - controlSize - 2
+				if runningHere && strings.TrimSpace(app.draft.Document.Text().String()) != "" {
+					available -= controlSize + layout.X(6)
+				}
+				multiline = multiline || app.draft.SingleLineWidth(c) > available
+			}
+			var editor ui.Element
+			ui.Row(c.Key("draft-row")).FillWidth().AlignItems(ui.Center).Gap(layout.X(6)).Children(func() {
+				editor = app.draft.View(c.Key("draft"), locales.Message(), placeholder, draftHeight, app.md).
+					Padding(layout.Y(layout.Density(3, 5)), layout.X(3), 0).Grow(1).MinWidth(0).Shrink(0).Clip().FocusRing(false)
+				if layout.Compact() && !multiline {
+					sendControl()
+				}
+			})
 			// Wrapped lines do not increase ParagraphCount. Size from the editor's
 			// shaped content so its internal scroll cannot pull text into the inset.
 			if contentHeight, ok := app.draft.Document.ContentHeight(); ok {
@@ -137,24 +173,10 @@ func (app *chatApp) composer(c *ui.Context, selected *conversation) {
 				app.composerMenu(c.Key("composer-menu"), workspace)
 				app.workspaceControl(c, selected)
 				app.accessControl(c, selected)
-				sendLabel, sendIcon := locales.Send(), "up"
-				if queueDraft {
-					sendLabel, sendIcon = locales.QueueMessage(), "queue_add"
-				} else if runningHere {
-					sendLabel, sendIcon = locales.Steer(), "queue_steer"
-				}
 				ui.Box(c).Grow(1)
 				app.chatModelSelect(c.Key("model"))
-				canSend := !app.loadingAttachments && app.backend.configErr == nil &&
-					(strings.TrimSpace(app.draft.Document.Text().String()) != "" || len(app.draftAttachments) != 0)
-				if runningHere {
-					reply := run.reply
-					stopButton(c).Size(controlSize, controlSize).OnClick(func() { app.stopReply(selected, reply) })
-					if canSend {
-						actionButton(c, sendLabel, sendIcon, false).Size(controlSize, controlSize).OnClick(func() { app.send(app.draft.Markdown(), false) })
-					}
-				} else {
-					actionButton(c, sendLabel, sendIcon, !canSend).Size(controlSize, controlSize).OnClick(func() { app.send(app.draft.Markdown(), false) })
+				if !layout.Compact() || multiline {
+					sendControl()
 				}
 			})
 		})

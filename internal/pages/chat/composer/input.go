@@ -37,6 +37,36 @@ func (input *Input) SetText(source string) {
 	input.filePasteVersion = nil
 }
 
+// SingleLineWidth measures independently of the editor's current width. Using
+// its wrapped height to choose a layout would oscillate when moving the send
+// button frees just enough room to unwrap the text.
+func (input *Input) SingleLineWidth(c *ui.Context) float32 {
+	var spans []ui.Span
+	for _, paragraph := range input.Document.Text().Paragraphs() {
+		for _, run := range paragraph.Runs {
+			a := run.Attributes
+			span := ui.Span{Text: run.Text, Font: c.Theme().Font, Size: viewport.Font(c, composerFontSize), Weight: a.Weight, Italic: a.Italic}
+			if a.Font != "" {
+				span.Font = a.Font
+			}
+			if a.Code {
+				span.Font = "monospace"
+			}
+			if a.Size > 0 {
+				span.Size = a.Size
+			}
+			if a.Attachment != nil {
+				span.ObjectWidth = max(a.Attachment.Width, span.Size)
+				span.ObjectHeight = a.Attachment.Height
+			}
+			spans = append(spans, span)
+		}
+		break
+	}
+	width, _ := c.MeasureText(0, spans...)
+	return width
+}
+
 func (input *Input) DiscardFilePasteText() {
 	if input.filePasteVersion == nil {
 		return
